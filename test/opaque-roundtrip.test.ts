@@ -31,7 +31,7 @@ describe("opaque C2M <-> JSON round-trip (byte-for-byte)", () => {
   });
 
   it("fails if sha256 is wrong (tamper detection)", async () => {
-    const original = await readFile(path.join(FIXTURES_DIR, "001 - Island Beginning.c2m"));
+    const original = await readFile(path.join(FIXTURES_DIR, "001 - Island Beginnings.c2m"));
     const json = c2mBytesToOpaqueJsonV1(original);
 
     const tampered = { ...json, sha256: "0".repeat(64) as string };
