@@ -17,7 +17,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "CC-BY-4.0",
   "type": "module",
   "dependencies": {
     "buffer": "^6.0.3",
