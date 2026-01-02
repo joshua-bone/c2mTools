@@ -10,7 +10,7 @@ export function c2mBytesToOpaqueJsonV1(bytes: Uint8Array): C2mOpaqueJsonV1 {
     schema: "c2mTools.c2m.opaque.v1",
     encoding: "base64",
     sha256: sha256Hex(bytes),
-    dataBase64: Buffer.from(bytes).toString("base64")
+    dataBase64: Buffer.from(bytes).toString("base64"),
   };
 }
 
@@ -51,10 +51,10 @@ export function stringifyOpaqueJsonV1(doc: C2mOpaqueJsonV1): string {
         schema: doc.schema,
         encoding: doc.encoding,
         sha256: doc.sha256,
-        dataBase64: doc.dataBase64
+        dataBase64: doc.dataBase64,
       },
       null,
-      2
+      2,
     ) + "\n"
   );
 }

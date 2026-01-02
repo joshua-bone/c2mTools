@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
-import {
-  c2mBytesToOpaqueJsonV1,
-  opaqueJsonV1ToC2mBytes
-} from "../src/c2m/opaque/codec.js";
+import { c2mBytesToOpaqueJsonV1, opaqueJsonV1ToC2mBytes } from "../src/c2m/opaque/codec.js";
 
 const FIXTURES_DIR = path.resolve(process.cwd(), "fixtures", "c2m");
 
