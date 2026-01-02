@@ -9,10 +9,6 @@ body {
   color: #eaeaea;
 }
 
-a {
-  color: inherit;
-}
-
 .container {
   display: flex;
   flex-direction: column;
@@ -26,6 +22,7 @@ a {
   padding: 10px 12px;
   border-bottom: 1px solid #242424;
   background: #151516;
+  flex-wrap: wrap;
 }
 
 .header .spacer {
@@ -54,6 +51,13 @@ button:disabled {
   color: #cfcfcf;
 }
 
+.toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .dropzone {
   margin: 10px 12px;
   padding: 12px;
@@ -73,6 +77,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-height: 0;
 }
 
 textarea {
@@ -87,6 +92,21 @@ textarea {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 13px;
   line-height: 1.4;
+}
+
+.imagePane {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid #2f2f32;
+  border-radius: 10px;
+  background: #101012;
+  overflow: auto;
+  padding: 10px;
+}
+
+canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .messages {
@@ -113,4 +133,9 @@ textarea {
 .msg.warn {
   border-color: #665c2b;
   background: #191611;
+}
+
+.msg.info {
+  border-color: #2a4a6a;
+  background: #101822;
 }
