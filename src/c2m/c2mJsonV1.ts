@@ -2,6 +2,12 @@
 import { BinaryReader, BinaryWriter } from "./binary.js";
 import { decodeCp1252, encodeCp1252 } from "./cp1252.js";
 import { packC2mLiteralOnly, unpackC2mPacked } from "./pack.js";
+import {
+  decodeMapBytesToJson,
+  encodeMapJsonToBytes,
+  parseMapJson,
+  type MapJson,
+} from "./mapCodec.js";
 
 export type WarnFn = (msg: string) => void;
 
@@ -36,8 +42,8 @@ export type C2mJsonV1 = {
 
   readOnlyChunk?: boolean;
 
-  // Canonical form: unpacked bytes base64
-  map?: Base64Blob;
+  map?: MapJson;
+
   key?: Base64Blob;
   replay?: Base64Blob;
 
@@ -132,7 +138,8 @@ export function parseC2mJsonV1(input: unknown): C2mJsonV1 {
     out.readOnlyChunk = input.readOnlyChunk;
   }
 
-  if (input.map !== undefined) out.map = parseBase64Blob(input.map, "map");
+  if (input.map !== undefined) out.map = parseMapJson(input.map);
+
   if (input.key !== undefined) out.key = parseBase64Blob(input.key, "key");
   if (input.replay !== undefined) out.replay = parseBase64Blob(input.replay, "replay");
 
@@ -299,7 +306,8 @@ export function decodeC2mToJsonV1(bytes: Uint8Array, warn: WarnFn = () => {}): C
         if (sawMap) {
           extraChunks.push({ tag, data: toBase64(payload) });
         } else {
-          out.map = toBase64(unpackC2mPacked(payload));
+          const unpacked = unpackC2mPacked(payload);
+          out.map = decodeMapBytesToJson(unpacked);
           sawMap = true;
         }
         break;
@@ -309,7 +317,7 @@ export function decodeC2mToJsonV1(bytes: Uint8Array, warn: WarnFn = () => {}): C
         if (sawMap) {
           extraChunks.push({ tag, data: toBase64(payload) });
         } else {
-          out.map = toBase64(payload);
+          out.map = decodeMapBytesToJson(payload);
           sawMap = true;
         }
         break;
@@ -410,7 +418,7 @@ function buildOptnPayload(o: NonNullable<C2mJsonV1["options"]>): Uint8Array {
 function encodeFromSections(doc: C2mJsonV1): Uint8Array {
   const w = new BinaryWriter();
 
-  const mapUnpacked = doc.map ? fromBase64(doc.map) : undefined;
+  const mapUnpacked = doc.map ? encodeMapJsonToBytes(doc.map) : undefined;
   const replayUnpacked = doc.replay ? fromBase64(doc.replay) : undefined;
 
   let usedMap = false;
@@ -624,9 +632,8 @@ export function encodeC2mFromJsonV1(doc: C2mJsonV1): Uint8Array {
     w.writeBytes(payload);
   }
 
-  // Canonical: write PACK from unpacked map bytes
   if (doc.map) {
-    const unpacked = fromBase64(doc.map);
+    const unpacked = encodeMapJsonToBytes(doc.map);
     const packed = packC2mLiteralOnly(unpacked);
     writeRaw(TAG_PACKED_MAP, packed);
   }

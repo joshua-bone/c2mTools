@@ -15,7 +15,12 @@ function asErrorMessage(err: unknown): string {
 }
 
 function downloadBytes(filename: string, bytes: Uint8Array): void {
-  const blob = new Blob([bytes], { type: "application/octet-stream" });
+  const ab = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+  const blob = new Blob([ab], { type: "application/octet-stream" });
+
   const url = URL.createObjectURL(blob);
 
   const a = document.createElement("a");
