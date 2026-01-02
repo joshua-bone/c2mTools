@@ -44,7 +44,7 @@ function defaultOutputName(inputName: string | null): string {
   return `${inputName}.c2m`;
 }
 
-const TILESET_URL = "/cc2/spritesheet.png";
+const TILESET_URL = `${import.meta.env.BASE_URL}cc2/spritesheet.png`;
 
 const TRANSFORMS: Array<{ label: string; op: LevelTransformKind }> = [
   { label: "Rot 90", op: "ROTATE_90" },
@@ -301,9 +301,6 @@ export default function App() {
         onDragLeave={onDragLeave}
       >
         Drag & drop a .c2m file here, or click “Open C2M…”.
-        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.85 }}>
-          For image mode, place spritesheet at <code>web/public/cc2/spritesheet.png</code>.
-        </div>
       </div>
 
       <div className="editorWrap">
