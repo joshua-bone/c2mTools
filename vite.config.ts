@@ -1,3 +1,4 @@
+// vite.config.ts
 import fs from "node:fs";
 import path from "node:path";
 import react from "@vitejs/plugin-react";
@@ -16,8 +17,6 @@ function resolveJsToTsForLocalSources(): Plugin {
       const sourcePath = source.split("?", 1)[0] ?? source;
 
       const absJs = path.resolve(path.dirname(importerPath), sourcePath);
-      if (!absJs.endsWith(".js")) return null;
-
       const absTs = absJs.slice(0, -3) + ".ts";
       const absTsx = absJs.slice(0, -3) + ".tsx";
 
@@ -29,16 +28,16 @@ function resolveJsToTsForLocalSources(): Plugin {
   };
 }
 
-export default defineConfig({
-  root: "web",
-  plugins: [react(), resolveJsToTsForLocalSources()],
-  server: {
-    fs: {
-      allow: [".."], // allow importing ../src/* from web/*
-    },
-  },
-  build: {
-    outDir: "../dist-web",
-    emptyOutDir: true,
-  },
+export default defineConfig(({ command }) => {
+  // In GitHub Actions, GITHUB_REPOSITORY is "owner/repo".
+  const repo = process.env.GITHUB_REPOSITORY?.split("/")[1];
+  const base = command === "build" && repo ? `/${repo}/` : "/";
+
+  return {
+    root: "web",
+    base,
+    plugins: [react(), resolveJsToTsForLocalSources()],
+    server: { fs: { allow: [".."] } },
+    build: { outDir: "../dist-web", emptyOutDir: true },
+  };
 });

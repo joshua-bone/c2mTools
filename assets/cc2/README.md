@@ -5,6 +5,7 @@ assets/cc2/spritesheet.png
 
 This image was downloaded from
 https://steamcommunity.com/sharedfiles/filedetails/?id=448351893
+and is not intended for redistribution.
 
 Renderer behavior:
 
