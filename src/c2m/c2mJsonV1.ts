@@ -1,3 +1,4 @@
+// src/c2m/c2mJsonV1.ts
 import { BinaryReader, BinaryWriter } from "./binary.js";
 import { decodeCp1252, encodeCp1252 } from "./cp1252.js";
 import { packC2mLiteralOnly, unpackC2mPacked } from "./pack.js";
@@ -39,6 +40,9 @@ export type C2mJsonV1 = {
   map?: Base64Blob;
   key?: Base64Blob;
   replay?: Base64Blob;
+
+  // Raw in-order sections (authoritative for byte-identical re-emit)
+  sections?: Array<{ tag: string; data: Base64Blob }>;
 
   // Unknown / future-proof chunks: raw payload base64
   extraChunks?: Array<{ tag: string; data: Base64Blob }>;
@@ -153,6 +157,10 @@ export function parseC2mJsonV1(input: unknown): C2mJsonV1 {
     const readOnlyOption = parseOptionalIntField(o, "readOnlyOption", 0, 0xff);
     if (readOnlyOption !== undefined) opt.readOnlyOption = readOnlyOption;
 
+    if (o.replayHash !== undefined) {
+      opt.replayHash = parseBase64Blob(o.replayHash, "options.replayHash");
+    }
+
     const hideLogic = parseOptionalIntField(o, "hideLogic", 0, 0xff);
     if (hideLogic !== undefined) opt.hideLogic = hideLogic;
 
@@ -165,6 +173,26 @@ export function parseC2mJsonV1(input: unknown): C2mJsonV1 {
     if (o.extra !== undefined) opt.extra = parseBase64Blob(o.extra, "options.extra");
 
     out.options = opt;
+  }
+
+  if (input.sections !== undefined) {
+    if (!Array.isArray(input.sections)) throw new Error("Invalid sections: expected array");
+    const sections: Array<{ tag: string; data: Base64Blob }> = [];
+
+    for (let i = 0; i < input.sections.length; i++) {
+      const item = input.sections[i];
+      if (!isRecord(item)) throw new Error(`Invalid sections[${i}]: expected object`);
+
+      const tag = item.tag;
+      if (typeof tag !== "string" || tag.length !== 4) {
+        throw new Error(`Invalid sections[${i}].tag: expected 4-char string`);
+      }
+
+      const data = parseBase64Blob(item.data, `sections[${i}].data`);
+      sections.push({ tag, data });
+    }
+
+    out.sections = sections;
   }
 
   if (input.extraChunks !== undefined) {
@@ -197,6 +225,7 @@ export function stringifyC2mJsonV1(doc: C2mJsonV1): string {
 export function decodeC2mToJsonV1(bytes: Uint8Array, warn: WarnFn = () => {}): C2mJsonV1 {
   const r = new BinaryReader(Buffer.from(bytes));
   const out: C2mJsonV1 = { schema: "c2mTools.c2m.json.v1" };
+  const sections: Array<{ tag: string; data: Base64Blob }> = [];
   const extraChunks: Array<{ tag: string; data: Base64Blob }> = [];
 
   let sawMap = false;
@@ -204,10 +233,20 @@ export function decodeC2mToJsonV1(bytes: Uint8Array, warn: WarnFn = () => {}): C
 
   while (r.remaining() > 0) {
     const tag = r.readBytes(4).toString("ascii");
-    if (tag === TAG_END) break;
-
     const len = r.readU32LE();
+
+    if (tag === TAG_END) {
+      if (len !== 0) {
+        // If this ever occurs, we can read+discard len bytes instead of throwing.
+        throw new Error(`END must have length 0, got ${len}`);
+      }
+      break;
+    }
+
     const payload = r.readBytes(len);
+
+    // Preserve exact original order + raw payload for byte-identical re-emit
+    sections.push({ tag, data: toBase64(payload) });
 
     switch (tag) {
       case TAG_FILE_VERSION:
@@ -304,6 +343,7 @@ export function decodeC2mToJsonV1(bytes: Uint8Array, warn: WarnFn = () => {}): C
     }
   }
 
+  out.sections = sections;
   if (extraChunks.length > 0) out.extraChunks = extraChunks;
   return out;
 }
@@ -315,9 +355,193 @@ function findLastIndex<T>(arr: ReadonlyArray<T>, pred: (v: T) => boolean): numbe
   return -1;
 }
 
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function buildOptnPayload(o: NonNullable<C2mJsonV1["options"]>): Uint8Array {
+  const ow = new BinaryWriter();
+
+  const present = [
+    o.time !== undefined,
+    o.editorWindow !== undefined,
+    o.verifiedReplay !== undefined,
+    o.hideMap !== undefined,
+    o.readOnlyOption !== undefined,
+    o.replayHash !== undefined,
+    o.hideLogic !== undefined,
+    o.cc1Boots !== undefined,
+    o.blobPatterns !== undefined,
+  ];
+
+  const last = findLastIndex(present, (p) => p);
+  if (last !== -1) {
+    if (last >= 0) ow.writeU16LE(o.time ?? 0);
+    if (last >= 1) ow.writeU8(o.editorWindow ?? 0);
+    if (last >= 2) ow.writeU8(o.verifiedReplay ?? 0);
+    if (last >= 3) ow.writeU8(o.hideMap ?? 0);
+    if (last >= 4) ow.writeU8(o.readOnlyOption ?? 0);
+
+    if (last >= 5) {
+      if (o.replayHash) {
+        const rh = fromBase64(o.replayHash);
+        if (rh.length !== 16)
+          throw new Error(`options.replayHash must be 16 bytes, got ${rh.length}`);
+        ow.writeBytes(rh);
+      } else {
+        ow.writeBytes(new Uint8Array(16));
+      }
+    }
+
+    if (last >= 6) ow.writeU8(o.hideLogic ?? 0);
+    if (last >= 7) ow.writeU8(o.cc1Boots ?? 0);
+    if (last >= 8) ow.writeU8(o.blobPatterns ?? 0);
+  }
+
+  if (o.extra) ow.writeBytes(fromBase64(o.extra));
+
+  return ow.toBuffer();
+}
+
+function encodeFromSections(doc: C2mJsonV1): Uint8Array {
+  const w = new BinaryWriter();
+
+  const mapUnpacked = doc.map ? fromBase64(doc.map) : undefined;
+  const replayUnpacked = doc.replay ? fromBase64(doc.replay) : undefined;
+
+  let usedMap = false;
+  let usedReplay = false;
+
+  for (const sec of doc.sections ?? []) {
+    const tag = sec.tag;
+    const orig = fromBase64(sec.data);
+
+    let payload: Uint8Array = orig;
+
+    switch (tag) {
+      case TAG_FILE_VERSION:
+        if (doc.fileVersion !== undefined) {
+          const enc = encodeCp1252(doc.fileVersion);
+          payload = bytesEqual(enc, orig) ? orig : enc;
+        }
+        break;
+      case TAG_LOCK:
+        if (doc.lock !== undefined) {
+          const enc = encodeCp1252(doc.lock);
+          payload = bytesEqual(enc, orig) ? orig : enc;
+        }
+        break;
+      case TAG_TITLE:
+        if (doc.title !== undefined) {
+          const enc = encodeCp1252(doc.title);
+          payload = bytesEqual(enc, orig) ? orig : enc;
+        }
+        break;
+      case TAG_AUTHOR:
+        if (doc.author !== undefined) {
+          const enc = encodeCp1252(doc.author);
+          payload = bytesEqual(enc, orig) ? orig : enc;
+        }
+        break;
+      case TAG_EDITOR_VERSION:
+        if (doc.editorVersion !== undefined) {
+          const enc = encodeCp1252(doc.editorVersion);
+          payload = bytesEqual(enc, orig) ? orig : enc;
+        }
+        break;
+      case TAG_CLUE:
+        if (doc.clue !== undefined) {
+          const enc = encodeCp1252(doc.clue);
+          payload = bytesEqual(enc, orig) ? orig : enc;
+        }
+        break;
+      case TAG_NOTE:
+        if (doc.note !== undefined) {
+          const enc = encodeCp1252(doc.note);
+          payload = bytesEqual(enc, orig) ? orig : enc;
+        }
+        break;
+
+      case TAG_OPTIONS:
+        if (doc.options) {
+          const enc = buildOptnPayload(doc.options);
+          payload = bytesEqual(enc, orig) ? orig : enc;
+        }
+        break;
+
+      case TAG_PACKED_MAP:
+        if (!usedMap && mapUnpacked) {
+          const unpackedOrig = unpackC2mPacked(orig);
+          payload = bytesEqual(unpackedOrig, mapUnpacked) ? orig : packC2mLiteralOnly(mapUnpacked);
+          usedMap = true;
+        }
+        break;
+
+      case TAG_MAP:
+        if (!usedMap && mapUnpacked) {
+          payload = bytesEqual(orig, mapUnpacked) ? orig : mapUnpacked;
+          usedMap = true;
+        }
+        break;
+
+      case TAG_KEY:
+        if (doc.key) {
+          const kb = fromBase64(doc.key);
+          payload = bytesEqual(kb, orig) ? orig : kb;
+        }
+        break;
+
+      case TAG_PACKED_REPLAY:
+        if (!usedReplay && replayUnpacked) {
+          const unpackedOrig = unpackC2mPacked(orig);
+          payload = bytesEqual(unpackedOrig, replayUnpacked)
+            ? orig
+            : packC2mLiteralOnly(replayUnpacked);
+          usedReplay = true;
+        }
+        break;
+
+      case TAG_REPLAY:
+        if (!usedReplay && replayUnpacked) {
+          payload = bytesEqual(orig, replayUnpacked) ? orig : replayUnpacked;
+          usedReplay = true;
+        }
+        break;
+
+      case TAG_READ_ONLY:
+        // RDNY must be length 0; preserve original if already empty, otherwise force empty.
+        payload = orig.length === 0 ? orig : new Uint8Array(0);
+        break;
+
+      default:
+        // unknown: preserve exactly
+        payload = orig;
+        break;
+    }
+
+    w.writeTag4(tag);
+    w.writeU32LE(payload.length);
+    w.writeBytes(payload);
+  }
+
+  w.writeTag4(TAG_END);
+  w.writeU32LE(0);
+  return w.toBuffer();
+}
+
 export function encodeC2mFromJsonV1(doc: C2mJsonV1): Uint8Array {
   if (doc.schema !== "c2mTools.c2m.json.v1") {
     throw new Error(`Unsupported schema: ${doc.schema}`);
+  }
+
+  // If sections are present (decoder always provides them), re-emit using original order/payloads
+  // for byte-identical round-trip unless fields actually changed.
+  if (doc.sections && doc.sections.length > 0) {
+    return encodeFromSections(doc);
   }
 
   const w = new BinaryWriter();
@@ -351,69 +575,40 @@ export function encodeC2mFromJsonV1(doc: C2mJsonV1): Uint8Array {
     const o = doc.options;
     const ow = new BinaryWriter();
 
-    const steps: Array<{ name: string; present: boolean; write: () => void }> = [
-      {
-        name: "time",
-        present: o.time !== undefined,
-        write: () => ow.writeU16LE(o.time as number),
-      },
-      {
-        name: "editorWindow",
-        present: o.editorWindow !== undefined,
-        write: () => ow.writeU8(o.editorWindow as number),
-      },
-      {
-        name: "verifiedReplay",
-        present: o.verifiedReplay !== undefined,
-        write: () => ow.writeU8(o.verifiedReplay as number),
-      },
-      {
-        name: "hideMap",
-        present: o.hideMap !== undefined,
-        write: () => ow.writeU8(o.hideMap as number),
-      },
-      {
-        name: "readOnlyOption",
-        present: o.readOnlyOption !== undefined,
-        write: () => ow.writeU8(o.readOnlyOption as number),
-      },
-      {
-        name: "replayHash",
-        present: o.replayHash !== undefined,
-        write: () => {
-          const rh = fromBase64(o.replayHash as Base64Blob);
+    const present = [
+      o.time !== undefined,
+      o.editorWindow !== undefined,
+      o.verifiedReplay !== undefined,
+      o.hideMap !== undefined,
+      o.readOnlyOption !== undefined,
+      o.replayHash !== undefined,
+      o.hideLogic !== undefined,
+      o.cc1Boots !== undefined,
+      o.blobPatterns !== undefined,
+    ];
+
+    const last = findLastIndex(present, (p) => p);
+    if (last !== -1) {
+      if (last >= 0) ow.writeU16LE(o.time ?? 0);
+      if (last >= 1) ow.writeU8(o.editorWindow ?? 0);
+      if (last >= 2) ow.writeU8(o.verifiedReplay ?? 0);
+      if (last >= 3) ow.writeU8(o.hideMap ?? 0);
+      if (last >= 4) ow.writeU8(o.readOnlyOption ?? 0);
+
+      if (last >= 5) {
+        if (o.replayHash) {
+          const rh = fromBase64(o.replayHash);
           if (rh.length !== 16)
             throw new Error(`options.replayHash must be 16 bytes, got ${rh.length}`);
           ow.writeBytes(rh);
-        },
-      },
-      {
-        name: "hideLogic",
-        present: o.hideLogic !== undefined,
-        write: () => ow.writeU8(o.hideLogic as number),
-      },
-      {
-        name: "cc1Boots",
-        present: o.cc1Boots !== undefined,
-        write: () => ow.writeU8(o.cc1Boots as number),
-      },
-      {
-        name: "blobPatterns",
-        present: o.blobPatterns !== undefined,
-        write: () => ow.writeU8(o.blobPatterns as number),
-      },
-    ];
-
-    const last = findLastIndex(steps, (s) => s.present);
-    if (last !== -1) {
-      for (let i = 0; i <= last; i++) {
-        if (!steps[i]!.present) {
-          throw new Error(
-            `options must be a prefix record: missing options.${steps[i]!.name} while later fields are present`,
-          );
+        } else {
+          ow.writeBytes(new Uint8Array(16));
         }
       }
-      for (let i = 0; i <= last; i++) steps[i]!.write();
+
+      if (last >= 6) ow.writeU8(o.hideLogic ?? 0);
+      if (last >= 7) ow.writeU8(o.cc1Boots ?? 0);
+      if (last >= 8) ow.writeU8(o.blobPatterns ?? 0);
     }
 
     if (o.extra) {
@@ -422,11 +617,11 @@ export function encodeC2mFromJsonV1(doc: C2mJsonV1): Uint8Array {
     }
 
     const payload = ow.toBuffer();
-    if (payload.length > 0) {
-      w.writeTag4(TAG_OPTIONS);
-      w.writeU32LE(payload.length);
-      w.writeBytes(payload);
-    }
+
+    // Preserve presence of OPTN even when empty (len=0), because decode emits options:{} for OPTN.
+    w.writeTag4(TAG_OPTIONS);
+    w.writeU32LE(payload.length);
+    w.writeBytes(payload);
   }
 
   // Canonical: write PACK from unpacked map bytes
@@ -463,5 +658,6 @@ export function encodeC2mFromJsonV1(doc: C2mJsonV1): Uint8Array {
   }
 
   w.writeTag4(TAG_END);
+  w.writeU32LE(0); // END always has a length field (0)
   return w.toBuffer();
 }

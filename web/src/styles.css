@@ -1,0 +1,116 @@
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: #0f0f10;
+  color: #eaeaea;
+}
+
+a {
+  color: inherit;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #242424;
+  background: #151516;
+}
+
+.header .spacer {
+  flex: 1;
+}
+
+button {
+  background: #232325;
+  color: #eaeaea;
+  border: 1px solid #2f2f32;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.badge {
+  font-size: 12px;
+  padding: 3px 8px;
+  border: 1px solid #2f2f32;
+  border-radius: 999px;
+  color: #cfcfcf;
+}
+
+.dropzone {
+  margin: 10px 12px;
+  padding: 12px;
+  border: 1px dashed #3a3a3f;
+  border-radius: 10px;
+  background: #141416;
+}
+
+.dropzone.dragover {
+  border-color: #6a6a75;
+  background: #17171a;
+}
+
+.editorWrap {
+  flex: 1;
+  padding: 0 12px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+textarea {
+  flex: 1;
+  width: 100%;
+  resize: none;
+  border: 1px solid #2f2f32;
+  border-radius: 10px;
+  padding: 12px;
+  background: #101012;
+  color: #eaeaea;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.messages {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 0 12px 12px 12px;
+}
+
+.msg {
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #2f2f32;
+  background: #141416;
+  white-space: pre-wrap;
+}
+
+.msg.error {
+  border-color: #6a2a2a;
+  background: #1a1212;
+}
+
+.msg.warn {
+  border-color: #665c2b;
+  background: #191611;
+}

@@ -1,3 +1,4 @@
+// src/c2m/opaque/types.ts
 export type C2mOpaqueJsonV1 = Readonly<{
   schema: "c2mTools.c2m.opaque.v1";
   encoding: "base64";
