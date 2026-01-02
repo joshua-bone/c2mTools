@@ -1,3 +1,4 @@
+// src/cli.ts
 import { Command } from "commander";
 import { readFile, writeFile } from "node:fs/promises";
 
@@ -9,10 +10,14 @@ import {
 } from "./c2m/c2mJsonV1.js";
 
 import { runTransformTool } from "./c2m/transformTool.js";
+import { runRenderTool } from "./c2m/render/renderTool.js";
 
 const program = new Command();
 
-program.name("c2mtools").description("C2M tools (.c2m <-> JSON, plus transforms)").version("0.4.0");
+program
+  .name("c2mtools")
+  .description("C2M tools (.c2m <-> JSON, transforms, renderer)")
+  .version("0.6.0");
 
 program
   .command("to-json")
@@ -50,8 +55,8 @@ program
   .description(
     "Apply a geometric transform to a level or folder of levels. Default is to write copies; use --in-place to overwrite.",
   )
-  .argument("<op>", "rot90|rot180|rot270|flip-h|flip-v|flip-nwse|flip-nesw")
-  .argument("<input>", "Path to .c2m/.json file OR a directory containing .c2m files")
+  .argument("op", "rot90|rot180|rot270|flip-h|flip-v|flip-nwse|flip-nesw")
+  .argument("input", "Path to .c2m/.json OR a directory containing .c2m files")
   .option("-o, --out <path>", "Output file (single input) or output dir (directory input)")
   .option("--in-place", "Overwrite inputs in place (use with care)", false)
   .option("--recursive", "Recurse into subdirectories (directory input)", false)
@@ -74,6 +79,47 @@ program
       },
     ) => {
       await runTransformTool(op, input, opts);
+    },
+  );
+
+program
+  .command("render")
+  .description("Render a level or folder of levels to PNGs using a CC2 spritesheet")
+  .argument("input", "Path to .c2m/.json OR directory")
+  .option("--tileset <path>", "Path to spritesheet.png", "assets/cc2/spritesheet.png")
+  .option("-o, --out <path>", "Output file (single input) or output dir (directory input)")
+  .option("--recursive", "Recurse into subdirectories (directory input)", false)
+  .option("--include-json", "When input is a directory, include .json files too", false)
+  .option("--overwrite", "Overwrite existing PNGs", false)
+  .option("--dry-run", "Print planned operations but do not write anything", false)
+  .action(
+    async (
+      input: string,
+      opts: {
+        tileset: string;
+        out?: string;
+        recursive: boolean;
+        includeJson: boolean;
+        overwrite: boolean;
+        dryRun: boolean;
+      },
+    ) => {
+      const params: {
+        tilesetPath: string;
+        out?: string;
+        recursive: boolean;
+        includeJson: boolean;
+        overwrite: boolean;
+        dryRun: boolean;
+      } = {
+        tilesetPath: opts.tileset,
+        recursive: opts.recursive,
+        includeJson: opts.includeJson,
+        overwrite: opts.overwrite,
+        dryRun: opts.dryRun,
+      };
+      if (opts.out !== undefined) params.out = opts.out;
+      await runRenderTool(input, params);
     },
   );
 
