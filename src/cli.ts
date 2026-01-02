@@ -8,16 +8,15 @@ import {
   stringifyC2mJsonV1,
 } from "./c2m/c2mJsonV1.js";
 
+import { runTransformTool } from "./c2m/transformTool.js";
+
 const program = new Command();
 
-program
-  .name("c2mtools")
-  .description("Convert .c2m <-> JSON (v1: unpack PACK -> map base64)")
-  .version("0.2.0");
+program.name("c2mtools").description("C2M tools (.c2m <-> JSON, plus transforms)").version("0.4.0");
 
 program
   .command("to-json")
-  .description("Convert .c2m file to JSON (unpacks PACK map)")
+  .description("Convert .c2m file to JSON")
   .argument("<input>", "Path to .c2m file")
   .option("-o, --output <path>", "Write JSON to a file (default: stdout)")
   .action(async (input: string, opts: { output?: string }) => {
@@ -34,7 +33,7 @@ program
 
 program
   .command("from-json")
-  .description("Convert JSON file back to .c2m (packs map into PACK)")
+  .description("Convert JSON file back to .c2m")
   .argument("<input>", "Path to JSON file")
   .requiredOption("-o, --output <path>", "Write .c2m to this path")
   .action(async (input: string, opts: { output: string }) => {
@@ -45,6 +44,38 @@ program
     const bytes = encodeC2mFromJsonV1(doc);
     await writeFile(opts.output, bytes);
   });
+
+program
+  .command("transform")
+  .description(
+    "Apply a geometric transform to a level or folder of levels. Default is to write copies; use --in-place to overwrite.",
+  )
+  .argument("<op>", "rot90|rot180|rot270|flip-h|flip-v|flip-nwse|flip-nesw")
+  .argument("<input>", "Path to .c2m/.json file OR a directory containing .c2m files")
+  .option("-o, --out <path>", "Output file (single input) or output dir (directory input)")
+  .option("--in-place", "Overwrite inputs in place (use with care)", false)
+  .option("--recursive", "Recurse into subdirectories (directory input)", false)
+  .option("--include-json", "When input is a directory, include .json files too", false)
+  .option("--overwrite", "Allow overwriting existing outputs (non in-place)", false)
+  .option("--backup", "When --in-place, write a .bak copy before overwriting", false)
+  .option("--dry-run", "Print planned operations but do not write anything", false)
+  .action(
+    async (
+      op: string,
+      input: string,
+      opts: {
+        out?: string;
+        inPlace: boolean;
+        recursive: boolean;
+        includeJson: boolean;
+        overwrite: boolean;
+        backup: boolean;
+        dryRun: boolean;
+      },
+    ) => {
+      await runTransformTool(op, input, opts);
+    },
+  );
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   const msg = err instanceof Error ? err.message : String(err);
