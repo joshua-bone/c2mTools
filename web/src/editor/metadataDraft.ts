@@ -1,6 +1,7 @@
 import { parseC2mJsonV1, type C2mJsonV1 } from "../../../src/c2m/c2mJsonV1.js";
 
 export type C2mMetadataDraft = Readonly<{
+  fileVersion: string;
   title: string;
   author: string;
   editorVersion: string;
@@ -45,12 +46,22 @@ function stringValue(value: string | undefined): string {
   return value ?? "";
 }
 
+function fileVersionValue(value: string | undefined): string {
+  return value?.replace(/\0+$/g, "") ?? "";
+}
+
 function numericValue(value: number | undefined): string {
   return value === undefined ? "" : String(value);
 }
 
 function blankToUndefined(value: string): string | undefined {
   return value.length === 0 ? undefined : value;
+}
+
+function fileVersionToStoredValue(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return undefined;
+  return `${trimmed}\0`;
 }
 
 function parseOptionalIntegerString(
@@ -77,6 +88,7 @@ export function makeMetadataDraft(doc: C2mJsonV1): C2mMetadataDraft {
   const options = doc.options ?? {};
 
   return {
+    fileVersion: fileVersionValue(doc.fileVersion),
     title: stringValue(doc.title),
     author: stringValue(doc.author),
     editorVersion: stringValue(doc.editorVersion),
@@ -97,6 +109,7 @@ export function makeMetadataDraft(doc: C2mJsonV1): C2mMetadataDraft {
 
 export function metadataDraftEquals(a: C2mMetadataDraft, b: C2mMetadataDraft): boolean {
   return (
+    a.fileVersion === b.fileVersion &&
     a.title === b.title &&
     a.author === b.author &&
     a.editorVersion === b.editorVersion &&
@@ -142,6 +155,7 @@ export function applyMetadataDraft(doc: C2mJsonV1, draft: C2mMetadataDraft): C2m
 
   return parseC2mJsonV1({
     ...doc,
+    fileVersion: fileVersionToStoredValue(draft.fileVersion),
     title: blankToUndefined(draft.title),
     author: blankToUndefined(draft.author),
     editorVersion: blankToUndefined(draft.editorVersion),

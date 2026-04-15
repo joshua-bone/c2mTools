@@ -76,6 +76,7 @@ import {
 } from "./editor/fileName";
 import {
   canPlaceWireOnCell,
+  clearMapToFloor,
   connectWirePoints,
   copyMapRegion,
   disconnectWirePoints,
@@ -104,7 +105,6 @@ import {
   resizeMapEdge,
   type MapResizeDraft,
   type ResizeEdge,
-  type ResizeAnchor,
 } from "./editor/mapResize";
 import { buildNotccLevelUrl } from "./editor/notcc";
 import { createDefaultBrushTileSpec } from "./editor/renderPreview";
@@ -222,16 +222,56 @@ const LAYER_LABELS = {
   thinWalls: "Thin Walls",
 } as const;
 
-const RESIZE_ANCHORS: ReadonlyArray<ResizeAnchor> = Object.freeze([
-  "NW",
-  "N",
-  "NE",
-  "W",
-  "C",
-  "E",
-  "SW",
-  "S",
-  "SE",
+type SelectChoice = Readonly<{
+  value: string;
+  label: string;
+}>;
+
+const FILE_VERSION_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
+  { value: "", label: "Unset" },
+  { value: "3", label: "3" },
+  { value: "4", label: "4" },
+  { value: "5", label: "5" },
+  { value: "6", label: "6" },
+  { value: "7", label: "7 (latest)" },
+]);
+
+const EDITOR_WINDOW_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
+  { value: "", label: "Unset" },
+  { value: "0", label: "10x10 view" },
+  { value: "1", label: "9x9 view" },
+  { value: "2", label: "Split view" },
+]);
+
+const BINARY_FLAG_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
+  { value: "", label: "Unset" },
+  { value: "0", label: "Off" },
+  { value: "1", label: "On" },
+]);
+
+const VERIFIED_REPLAY_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
+  { value: "", label: "Unset" },
+  { value: "0", label: "Not verified" },
+  { value: "1", label: "Verified replay works" },
+]);
+
+const HIDE_MAP_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
+  { value: "", label: "Unset" },
+  { value: "0", label: "Show map in editor" },
+  { value: "1", label: "Hide map in editor" },
+]);
+
+const READ_ONLY_OPTION_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
+  { value: "", label: "Unset" },
+  { value: "0", label: "Editable" },
+  { value: "1", label: "Read-only" },
+]);
+
+const BLOB_PATTERN_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
+  { value: "", label: "Unset" },
+  { value: "0", label: "Deterministic" },
+  { value: "1", label: "4 patterns" },
+  { value: "2", label: "Extra random" },
 ]);
 
 type InspectorTab = "palette" | "inspect" | "advanced";
@@ -356,6 +396,18 @@ function isKeyboardPanKey(key: string): boolean {
     key === "arrowleft" ||
     key === "arrowright"
   );
+}
+
+function ensureChoiceValue(
+  choices: ReadonlyArray<SelectChoice>,
+  currentValue: string,
+  customLabelPrefix: string,
+): ReadonlyArray<SelectChoice> {
+  if (currentValue.length === 0 || choices.some((choice) => choice.value === currentValue)) {
+    return choices;
+  }
+
+  return [...choices, { value: currentValue, label: `${customLabelPrefix}: ${currentValue}` }];
 }
 
 function resolveRectScreenRect(
@@ -867,10 +919,74 @@ export default function App() {
     map !== null &&
     resizeDraft !== null &&
     !resizeDraftEquals(resizeDraft, makeMapResizeDraft(map));
-  const documentTitle = metadataDraft?.title || doc?.title || "Untitled Level";
-  const documentAuthor = metadataDraft?.author || doc?.author || "Unknown";
+  const documentTitle = metadataDraft
+    ? metadataDraft.title || "Untitled Level"
+    : (doc?.title ?? "Untitled Level");
   const hoverSummaryText = describeHoverSummary(boardStatus.hoverCellSummary);
   const displayFileName = fileName ?? DEFAULT_C2M_FILE_NAME;
+  const fileVersionChoices = useMemo(
+    () =>
+      ensureChoiceValue(FILE_VERSION_CHOICES, metadataDraft?.fileVersion ?? "", "Custom version"),
+    [metadataDraft?.fileVersion],
+  );
+  const editorWindowChoices = useMemo(
+    () =>
+      ensureChoiceValue(
+        EDITOR_WINDOW_CHOICES,
+        metadataDraft?.editorWindow ?? "",
+        "Custom editor window",
+      ),
+    [metadataDraft?.editorWindow],
+  );
+  const verifiedReplayChoices = useMemo(
+    () =>
+      ensureChoiceValue(
+        VERIFIED_REPLAY_CHOICES,
+        metadataDraft?.verifiedReplay ?? "",
+        "Custom verified replay flag",
+      ),
+    [metadataDraft?.verifiedReplay],
+  );
+  const hideMapChoices = useMemo(
+    () => ensureChoiceValue(HIDE_MAP_CHOICES, metadataDraft?.hideMap ?? "", "Custom hide-map flag"),
+    [metadataDraft?.hideMap],
+  );
+  const readOnlyOptionChoices = useMemo(
+    () =>
+      ensureChoiceValue(
+        READ_ONLY_OPTION_CHOICES,
+        metadataDraft?.readOnlyOption ?? "",
+        "Custom read-only flag",
+      ),
+    [metadataDraft?.readOnlyOption],
+  );
+  const hideLogicChoices = useMemo(
+    () =>
+      ensureChoiceValue(
+        BINARY_FLAG_CHOICES,
+        metadataDraft?.hideLogic ?? "",
+        "Custom hide-logic flag",
+      ),
+    [metadataDraft?.hideLogic],
+  );
+  const cc1BootsChoices = useMemo(
+    () =>
+      ensureChoiceValue(
+        BINARY_FLAG_CHOICES,
+        metadataDraft?.cc1Boots ?? "",
+        "Custom CC1 boots flag",
+      ),
+    [metadataDraft?.cc1Boots],
+  );
+  const blobPatternChoices = useMemo(
+    () =>
+      ensureChoiceValue(
+        BLOB_PATTERN_CHOICES,
+        metadataDraft?.blobPatterns ?? "",
+        "Custom blob behavior",
+      ),
+    [metadataDraft?.blobPatterns],
+  );
 
   const clearKeyboardPan = useCallback(() => {
     keyboardPanKeysRef.current.clear();
@@ -1394,6 +1510,15 @@ export default function App() {
     commitMapChange(nextMap);
     setPastePreviewActive(false);
   }, [canMutateBoard, commitMapChange, map, selection]);
+
+  const clearActiveMap = useCallback(() => {
+    if (!map || !canMutateBoard) return;
+
+    resetBoardTransientState({
+      clearSelection: true,
+    });
+    commitMapChange(clearMapToFloor(map));
+  }, [canMutateBoard, commitMapChange, map, resetBoardTransientState]);
 
   const beginPastePreview = useCallback(() => {
     if (!clipboard) return;
@@ -2581,6 +2706,90 @@ export default function App() {
                 onChange={(event) => updateMetadataDraftField("note", event.target.value)}
               />
             </label>
+          </fieldset>
+        </div>
+
+        <div className="leftPanelSubsection">
+          <div className="leftPanelSubsectionHeader">
+            <div className="sectionEyebrow">Options</div>
+          </div>
+
+          <fieldset className="plainFieldset" disabled={!canMutateBoard}>
+            <div className="formGrid">
+              <label className="fieldGroup">
+                <span className="fieldCaption">Time</span>
+                <input
+                  className="textField compactField"
+                  type="number"
+                  min={0}
+                  max={65535}
+                  value={metadataDraft.time}
+                  onChange={(event) => updateMetadataDraftField("time", event.target.value)}
+                />
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">Read-only Option</span>
+                <select
+                  className="textField compactField"
+                  value={metadataDraft.readOnlyOption}
+                  onChange={(event) =>
+                    updateMetadataDraftField("readOnlyOption", event.target.value)
+                  }
+                >
+                  {readOnlyOptionChoices.map((choice) => (
+                    <option key={choice.value} value={choice.value}>
+                      {choice.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">Hide Logic</span>
+                <select
+                  className="textField compactField"
+                  value={metadataDraft.hideLogic}
+                  onChange={(event) => updateMetadataDraftField("hideLogic", event.target.value)}
+                >
+                  {hideLogicChoices.map((choice) => (
+                    <option key={choice.value} value={choice.value}>
+                      {choice.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">CC1 Boots</span>
+                <select
+                  className="textField compactField"
+                  value={metadataDraft.cc1Boots}
+                  onChange={(event) => updateMetadataDraftField("cc1Boots", event.target.value)}
+                >
+                  {cc1BootsChoices.map((choice) => (
+                    <option key={choice.value} value={choice.value}>
+                      {choice.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">Blob Behavior</span>
+                <select
+                  className="textField compactField"
+                  value={metadataDraft.blobPatterns}
+                  onChange={(event) => updateMetadataDraftField("blobPatterns", event.target.value)}
+                >
+                  {blobPatternChoices.map((choice) => (
+                    <option key={choice.value} value={choice.value}>
+                      {choice.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
             <label className="checkboxRow">
               <input
@@ -2595,115 +2804,134 @@ export default function App() {
           </fieldset>
         </div>
 
-        <div className="leftPanelSubsection">
-          <div className="leftPanelSubsectionHeader">
-            <div className="sectionEyebrow">Options</div>
-          </div>
+        <details className="leftPanelSubsection advancedDisclosure">
+          <summary className="advancedDisclosureSummary">
+            <span className="sectionEyebrow">Advanced</span>
+          </summary>
 
-          <fieldset className="plainFieldset" disabled={!canMutateBoard}>
-            <div className="formGrid">
-              <label className="fieldGroup">
-                <span className="fieldCaption">time</span>
-                <input
-                  className="textField compactField"
-                  type="number"
-                  min={0}
-                  max={65535}
-                  value={metadataDraft.time}
-                  onChange={(event) => updateMetadataDraftField("time", event.target.value)}
-                />
-              </label>
+          <div className="advancedDisclosureBody">
+            <fieldset className="plainFieldset" disabled={!canMutateBoard}>
+              <div className="formGrid">
+                <label className="fieldGroup">
+                  <span className="fieldCaption">File Version</span>
+                  <select
+                    className="textField compactField"
+                    value={metadataDraft.fileVersion}
+                    onChange={(event) =>
+                      updateMetadataDraftField("fileVersion", event.target.value)
+                    }
+                  >
+                    {fileVersionChoices.map((choice) => (
+                      <option key={choice.value} value={choice.value}>
+                        {choice.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-              <label className="fieldGroup">
-                <span className="fieldCaption">editorWindow</span>
-                <input
-                  className="textField compactField"
-                  type="number"
-                  min={0}
-                  max={255}
-                  value={metadataDraft.editorWindow}
-                  onChange={(event) => updateMetadataDraftField("editorWindow", event.target.value)}
-                />
-              </label>
+                <label className="fieldGroup">
+                  <span className="fieldCaption">Editor Window</span>
+                  <select
+                    className="textField compactField"
+                    value={metadataDraft.editorWindow}
+                    onChange={(event) =>
+                      updateMetadataDraftField("editorWindow", event.target.value)
+                    }
+                  >
+                    {editorWindowChoices.map((choice) => (
+                      <option key={choice.value} value={choice.value}>
+                        {choice.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-              <label className="fieldGroup">
-                <span className="fieldCaption">verifiedReplay</span>
-                <input
-                  className="textField compactField"
-                  type="number"
-                  min={0}
-                  max={255}
-                  value={metadataDraft.verifiedReplay}
-                  onChange={(event) =>
-                    updateMetadataDraftField("verifiedReplay", event.target.value)
-                  }
-                />
-              </label>
+                <label className="fieldGroup">
+                  <span className="fieldCaption">Verified Replay</span>
+                  <select
+                    className="textField compactField"
+                    value={metadataDraft.verifiedReplay}
+                    onChange={(event) =>
+                      updateMetadataDraftField("verifiedReplay", event.target.value)
+                    }
+                  >
+                    {verifiedReplayChoices.map((choice) => (
+                      <option key={choice.value} value={choice.value}>
+                        {choice.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-              <label className="fieldGroup">
-                <span className="fieldCaption">hideMap</span>
-                <input
-                  className="textField compactField"
-                  type="number"
-                  min={0}
-                  max={255}
-                  value={metadataDraft.hideMap}
-                  onChange={(event) => updateMetadataDraftField("hideMap", event.target.value)}
-                />
-              </label>
+                <label className="fieldGroup">
+                  <span className="fieldCaption">Hide Map</span>
+                  <select
+                    className="textField compactField"
+                    value={metadataDraft.hideMap}
+                    onChange={(event) => updateMetadataDraftField("hideMap", event.target.value)}
+                  >
+                    {hideMapChoices.map((choice) => (
+                      <option key={choice.value} value={choice.value}>
+                        {choice.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </fieldset>
 
-              <label className="fieldGroup">
-                <span className="fieldCaption">readOnlyOption</span>
-                <input
-                  className="textField compactField"
-                  type="number"
-                  min={0}
-                  max={255}
-                  value={metadataDraft.readOnlyOption}
-                  onChange={(event) =>
-                    updateMetadataDraftField("readOnlyOption", event.target.value)
-                  }
-                />
-              </label>
-
-              <label className="fieldGroup">
-                <span className="fieldCaption">hideLogic</span>
-                <input
-                  className="textField compactField"
-                  type="number"
-                  min={0}
-                  max={255}
-                  value={metadataDraft.hideLogic}
-                  onChange={(event) => updateMetadataDraftField("hideLogic", event.target.value)}
-                />
-              </label>
-
-              <label className="fieldGroup">
-                <span className="fieldCaption">cc1Boots</span>
-                <input
-                  className="textField compactField"
-                  type="number"
-                  min={0}
-                  max={255}
-                  value={metadataDraft.cc1Boots}
-                  onChange={(event) => updateMetadataDraftField("cc1Boots", event.target.value)}
-                />
-              </label>
-
-              <label className="fieldGroup">
-                <span className="fieldCaption">blobPatterns</span>
-                <input
-                  className="textField compactField"
-                  type="number"
-                  min={0}
-                  max={255}
-                  value={metadataDraft.blobPatterns}
-                  onChange={(event) => updateMetadataDraftField("blobPatterns", event.target.value)}
-                />
-              </label>
+            <div className="stackedInfo">
+              <div className="inspectorLayerRow">
+                <span className="inspectorLayerLabel">Warnings</span>
+                <span className="inspectorLayerValue">{warnings.length}</span>
+              </div>
+              <div className="inspectorLayerRow">
+                <span className="inspectorLayerLabel">Raw Sections</span>
+                <span className="inspectorLayerValue">{preservedSectionTags.length}</span>
+              </div>
+              <div className="inspectorLayerRow">
+                <span className="inspectorLayerLabel">Extra Chunks</span>
+                <span className="inspectorLayerValue">{preservedExtraChunkTags.length}</span>
+              </div>
             </div>
-          </fieldset>
-        </div>
+
+            {warnings.length > 0 ? (
+              <label className="fieldGroup">
+                <span className="fieldCaption">Warning Messages</span>
+                <textarea
+                  className="textField inspectorTextArea codeArea"
+                  readOnly
+                  rows={Math.min(6, Math.max(2, warnings.length))}
+                  value={warnings.join("\n")}
+                />
+              </label>
+            ) : null}
+
+            {preservedSectionTags.length > 0 ? (
+              <label className="fieldGroup">
+                <span className="fieldCaption">Section Tags</span>
+                <textarea
+                  className="textField inspectorTextArea codeArea"
+                  readOnly
+                  rows={Math.min(4, Math.max(2, preservedSectionTags.length))}
+                  value={preservedSectionTags.join(" ")}
+                />
+              </label>
+            ) : null}
+
+            {preservedExtraChunkTags.length > 0 ? (
+              <label className="fieldGroup">
+                <span className="fieldCaption">Extra Chunk Tags</span>
+                <textarea
+                  className="textField inspectorTextArea codeArea"
+                  readOnly
+                  rows={Math.min(4, Math.max(2, preservedExtraChunkTags.length))}
+                  value={preservedExtraChunkTags.join(" ")}
+                />
+              </label>
+            ) : null}
+          </div>
+        </details>
       </>
     ) : (
       <div className="leftPanelSubsection">
@@ -2769,23 +2997,6 @@ export default function App() {
               />
             </label>
           </div>
-
-          <label className="fieldGroup">
-            <span className="fieldCaption">Anchor</span>
-            <select
-              className="textField compactField"
-              value={resizeDraft.anchor}
-              onChange={(event) =>
-                updateResizeDraftField("anchor", event.target.value as ResizeAnchor)
-              }
-            >
-              {RESIZE_ANCHORS.map((anchor) => (
-                <option key={anchor} value={anchor}>
-                  {anchor}
-                </option>
-              ))}
-            </select>
-          </label>
 
           <div className="panelSubtext">
             New cells are filled with `FLOOR`. Resizing is constrained to `10x10` through `100x100`.
@@ -3026,11 +3237,6 @@ export default function App() {
                 <span className="statusBadge">{doc ? "Loaded" : "Empty"}</span>
               </div>
 
-              <div className="levelManagerHint">
-                The C2M editor now follows the DATTools shell: document management on the left,
-                board work in the center, and palette plus inspection on the right.
-              </div>
-
               <div className="boardControlRow boardCommandRow">
                 <button type="button" className="actionButton" onClick={onNewClick}>
                   New
@@ -3056,52 +3262,11 @@ export default function App() {
                 </button>
               </div>
 
-              {doc ? (
-                <div className="stackedInfo">
-                  <div className="inspectorLayerRow">
-                    <span className="inspectorLayerLabel">Author</span>
-                    <span className="inspectorLayerValue">{documentAuthor}</span>
-                  </div>
-                  <div className="inspectorLayerRow">
-                    <span className="inspectorLayerLabel">Map Size</span>
-                    <span className="inspectorLayerValue">
-                      {map ? `${map.width}x${map.height}` : "No decoded map"}
-                    </span>
-                  </div>
-                  <div className="inspectorLayerRow">
-                    <span className="inspectorLayerLabel">Undo History</span>
-                    <span className="inspectorLayerValue">
-                      {history ? `${history.cursor}/${history.events.length}` : "0/0"}
-                    </span>
-                  </div>
-                  <div className="inspectorLayerRow">
-                    <span className="inspectorLayerLabel">Warnings</span>
-                    <span className="inspectorLayerValue">{warnings.length}</span>
-                  </div>
-                  <div className="inspectorLayerRow">
-                    <span className="inspectorLayerLabel">Raw Sections</span>
-                    <span className="inspectorLayerValue">{preservedSectionTags.length}</span>
-                  </div>
-                  <div className="inspectorLayerRow">
-                    <span className="inspectorLayerLabel">Extra Chunks</span>
-                    <span className="inspectorLayerValue">{preservedExtraChunkTags.length}</span>
-                  </div>
-                </div>
-              ) : (
+              {!doc ? (
                 <div className="emptyState">
                   Create a blank level or open an existing `.c2m`/`.json` file to start editing.
                 </div>
-              )}
-
-              <div className="leftPanelSubsection">
-                <div className="leftPanelSubsectionHeader">
-                  <div className="sectionEyebrow">Editing Rules</div>
-                </div>
-                <div className="boardHelpText">
-                  Terrain paint replaces the whole cell. Non-terrain paint only replaces its own
-                  logical layer. Maps can be resized from `10x10` through `100x100`.
-                </div>
-              </div>
+              ) : null}
 
               {doc ? documentMetadataPanel : null}
               {doc ? documentResizePanel : null}
@@ -3181,10 +3346,10 @@ export default function App() {
                 <button
                   type="button"
                   className="secondaryButton"
-                  onClick={clearSelectionState}
-                  disabled={!selection && !pastePreviewActive}
+                  onClick={clearActiveMap}
+                  disabled={!canMutateBoard || !map}
                 >
-                  Clear
+                  Clear Map
                 </button>
               </div>
 
@@ -3220,20 +3385,6 @@ export default function App() {
                 >
                   {viewMode === "board" ? "Raw JSON" : "Board"}
                 </button>
-              </div>
-
-              <div className="board3dButtonGrid">
-                {TRANSFORMS.map((transform) => (
-                  <button
-                    key={transform.op}
-                    type="button"
-                    className="secondaryButton"
-                    disabled={!doc || !jsonOk}
-                    onClick={() => applyTransform(transform.op)}
-                  >
-                    {transform.label}
-                  </button>
-                ))}
               </div>
 
               <div className="boardHelpText">
@@ -4394,17 +4545,9 @@ export default function App() {
               </div>
 
               <div className="inspectorSection">
-                <div className="inspectorSectionTitle">Preserved Payloads</div>
+                <div className="inspectorSectionTitle">Binary Payloads</div>
                 {doc ? (
                   <>
-                    <div className="inspectorLayerRow">
-                      <span className="inspectorLayerLabel">Raw Sections</span>
-                      <span className="inspectorLayerValue">{preservedSectionTags.length}</span>
-                    </div>
-                    <div className="inspectorLayerRow">
-                      <span className="inspectorLayerLabel">Extra Chunks</span>
-                      <span className="inspectorLayerValue">{preservedExtraChunkTags.length}</span>
-                    </div>
                     <div className="inspectorLayerRow">
                       <span className="inspectorLayerLabel">Key Blob</span>
                       <span className="inspectorLayerValue">
@@ -4429,30 +4572,10 @@ export default function App() {
                         {describeBlobPresence(doc.options?.extra !== undefined)}
                       </span>
                     </div>
-
-                    <label className="fieldGroup">
-                      <span className="fieldCaption">Section Tags</span>
-                      <textarea
-                        className="textField inspectorTextArea codeArea"
-                        readOnly
-                        rows={4}
-                        value={preservedSectionTags.join(" ")}
-                      />
-                    </label>
-
-                    <label className="fieldGroup">
-                      <span className="fieldCaption">Extra Chunk Tags</span>
-                      <textarea
-                        className="textField inspectorTextArea codeArea"
-                        readOnly
-                        rows={3}
-                        value={preservedExtraChunkTags.join(" ")}
-                      />
-                    </label>
                   </>
                 ) : (
                   <div className="emptyPanelState">
-                    Open a document to inspect preserved sections, blobs, and extra chunks.
+                    Open a document to inspect preserved binary payloads.
                   </div>
                 )}
               </div>

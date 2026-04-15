@@ -147,6 +147,18 @@ function buildNextMap(map: MapJson, nextTiles: TileSpecJson[]): MapJson {
   };
 }
 
+export function clearMapToFloor(map: MapJson): MapJson {
+  if (map.tiles.every((tile) => tile === "FLOOR")) {
+    return map;
+  }
+
+  return {
+    width: map.width,
+    height: map.height,
+    tiles: Array<TileSpecJson>(map.width * map.height).fill("FLOOR"),
+  };
+}
+
 export function classifyBrushRole(brush: TileSpecJson) {
   return getBrushRole(brush);
 }

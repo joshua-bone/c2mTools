@@ -9,6 +9,7 @@ import {
 } from "../web/src/editor/boardGeometry.js";
 import {
   connectWirePoints,
+  clearMapToFloor,
   classifyBrushRole,
   copyMapRegion,
   disconnectWirePoints,
@@ -372,5 +373,27 @@ describe("c2m level editing", () => {
     expect(shifted.height).toBe(10);
     expect(shifted.tiles[pointToIndex({ x: 1, y: 1 }, shifted)]).toBe("WATER");
     expect(shifted.tiles[pointToIndex({ x: 0, y: 0 }, shifted)]).toBe("FIRE");
+  });
+
+  it("clears the entire map to floor tiles", () => {
+    let map = withTile(createMap(10, 10), { x: 0, y: 0 }, "WATER");
+    map = withTile(
+      map,
+      { x: 4, y: 4 },
+      {
+        tile: "ANT",
+        dir: "N",
+        lower: {
+          tile: "BLUE_KEY",
+          lower: "FLOOR",
+        },
+      },
+    );
+
+    const cleared = clearMapToFloor(map);
+
+    expect(cleared.tiles.every((tile) => tile === "FLOOR")).toBe(true);
+    expect(cleared.width).toBe(map.width);
+    expect(cleared.height).toBe(map.height);
   });
 });

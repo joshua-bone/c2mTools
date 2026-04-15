@@ -255,8 +255,7 @@ canvas {
 
 .panelSubtext,
 .boardHelpText,
-.hoverSummary,
-.levelManagerHint {
+.hoverSummary {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.4;
@@ -304,6 +303,42 @@ canvas {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.advancedDisclosure {
+  display: block;
+}
+
+.advancedDisclosureSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.advancedDisclosureSummary::-webkit-details-marker {
+  display: none;
+}
+
+.advancedDisclosureSummary::before {
+  content: "▸";
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  transition: transform 0.12s ease;
+}
+
+.advancedDisclosure[open] .advancedDisclosureSummary::before {
+  transform: rotate(90deg);
+}
+
+.advancedDisclosureBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 8px;
 }
 
 .boardMenuBar {
@@ -462,17 +497,6 @@ canvas {
   background: rgba(30, 41, 36, 0.08);
   font-size: 9px;
   color: var(--muted);
-}
-
-.board3dButtonGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-}
-
-.board3dButtonGrid .secondaryButton {
-  width: 100%;
-  justify-content: center;
 }
 
 .stackedInfo {
