@@ -139,6 +139,7 @@ const TERRAIN_GROUPS: ReadonlyArray<ReadonlyArray<string>> = Object.freeze([
     "LOGIC_GATE:LATCH_CCW",
     "LOGIC_GATE:NAND",
     "LOGIC_GATE:COUNTER",
+    "WIRE_TUNNEL",
     "RAILROAD_SIGN",
   ],
   [
@@ -372,6 +373,22 @@ function makeLogicGateEntries(direction: Dir, counterValue: number): PaletteBrus
   });
 }
 
+function makeWireTunnelEntry(direction: Dir): PaletteBrushEntry {
+  const tunnelBase: TileSpecJson = {
+    tile: "FLOOR",
+    modifiers: [{ kind: "WIRES", wires: ["N"], tunnels: ["N"] }],
+  };
+
+  return makeBrushEntry(
+    "WIRE_TUNNEL",
+    "terrain",
+    orientBrush(tunnelBase, direction),
+    "Wire Tunnel",
+    "wire tunnel underground wire",
+    TERRAIN_GROUP_ORDER.get("WIRE_TUNNEL") ?? 814,
+  );
+}
+
 function resolveBasePaletteTile(tileName: string, direction: Dir): TileSpecJson {
   if (classifyTileLayer(tileName) === "mob") {
     return orientBrush(createDefaultBrushTileSpec(tileName), direction);
@@ -426,6 +443,7 @@ function makeTemplateEntries(direction: Dir, counterValue: number): PaletteTileE
     ),
     ...makeRailroadEntries(direction),
     ...makeLogicGateEntries(direction, counterValue),
+    makeWireTunnelEntry(direction),
     ...makeDirectionalBlockEntries(direction),
     makeToolEntry("WIRE_TOOL", "tool", "Wire Tool", "wire tool spool", 99999, { x: 12, y: 26 }),
   ];

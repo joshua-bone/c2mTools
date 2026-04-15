@@ -4171,7 +4171,13 @@ export default function App() {
                                                     wiresModifier.tunnels.length > 0
                                                     ? {
                                                         kind: "WIRES",
-                                                        wires: nextWires,
+                                                        wires: CARDINAL_DIRS.filter(
+                                                          (candidate) =>
+                                                            nextWires.includes(candidate) ||
+                                                            wiresModifier.tunnels.includes(
+                                                              candidate,
+                                                            ),
+                                                        ),
                                                         tunnels: [...wiresModifier.tunnels],
                                                       }
                                                     : null,
@@ -4208,7 +4214,12 @@ export default function App() {
                                                     nextTunnels.length > 0
                                                     ? {
                                                         kind: "WIRES",
-                                                        wires: [...wiresModifier.wires],
+                                                        wires: CARDINAL_DIRS.filter(
+                                                          (candidate) =>
+                                                            wiresModifier.wires.includes(
+                                                              candidate,
+                                                            ) || nextTunnels.includes(candidate),
+                                                        ),
                                                         tunnels: nextTunnels,
                                                       }
                                                     : null,

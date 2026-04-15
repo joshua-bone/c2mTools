@@ -96,7 +96,18 @@ function sortDirsUnique(dirs: ReadonlyArray<Dir>): Dir[] {
 }
 
 export function resolveRequiredWireDirections(tile: TileSpecObjJson): Dir[] {
-  return tile.tile === "LOGIC_GATE" ? resolveWireableDirections(tile) : [];
+  const required = new Set<Dir>();
+
+  if (tile.tile === "LOGIC_GATE") {
+    for (const dir of resolveWireableDirections(tile)) required.add(dir);
+  }
+
+  const wiresModifier = getTileModifier(tile, "WIRES");
+  if (wiresModifier?.kind === "WIRES") {
+    for (const dir of wiresModifier.tunnels) required.add(dir);
+  }
+
+  return sortDirsUnique([...required]);
 }
 
 export function resolveWireableDirections(tile: TileSpecObjJson): Dir[] {

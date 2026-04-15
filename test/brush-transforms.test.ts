@@ -109,4 +109,19 @@ describe("brush transforms", () => {
       modifiers: [{ kind: "LOGIC", gate: "COUNTER", counterValue: 0 }],
     });
   });
+
+  it("rotates wire tunnels with their matching wire direction", () => {
+    expect(
+      rotateBrushSpec(
+        {
+          tile: "FLOOR",
+          modifiers: [{ kind: "WIRES", wires: ["N"], tunnels: ["N"] }],
+        },
+        "clockwise",
+      ),
+    ).toEqual({
+      tile: "FLOOR",
+      modifiers: [{ kind: "WIRES", wires: ["E"], tunnels: ["E"] }],
+    });
+  });
 });

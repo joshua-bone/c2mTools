@@ -99,6 +99,7 @@ describe("palette sections", () => {
     expect(allKeys).toContain("RAILROAD_TRACK:switch");
     expect(allKeys).toContain("WIRE_TOOL");
     expect(allKeys).toContain("LOGIC_GATE:COUNTER");
+    expect(allKeys).toContain("WIRE_TUNNEL");
     expect(allKeys).toContain("ICE_CORNER");
     expect(allKeys).toContain("FORCE_FLOOR");
     expect(allKeys).toContain("SWIVEL_DOOR");
@@ -167,6 +168,15 @@ describe("palette sections", () => {
             { kind: "WIRES", wires: ["N", "E", "S"], tunnels: [] },
             { kind: "LOGIC", gate: "AND", facing: "E" },
           ],
+        },
+      }),
+    );
+    expect(allEntries.find((entry) => entry.key === "WIRE_TUNNEL")).toEqual(
+      expect.objectContaining({
+        kind: "brush",
+        tile: {
+          tile: "FLOOR",
+          modifiers: [{ kind: "WIRES", wires: ["E"], tunnels: ["E"] }],
         },
       }),
     );

@@ -189,7 +189,14 @@ function mapModifier(modifier: ModifierJson, direction: BrushCycleDirection): Mo
         style: cycleCustomStyle(modifier.style, direction),
       };
     case "WIRES":
-      return modifier;
+      return {
+        kind: "WIRES",
+        wires: sortDirsUnique([
+          ...modifier.wires.map((dir) => rotateDir(dir, direction)),
+          ...modifier.tunnels.map((dir) => rotateDir(dir, direction)),
+        ]),
+        tunnels: sortDirsUnique(modifier.tunnels.map((dir) => rotateDir(dir, direction))),
+      };
   }
 }
 

@@ -389,6 +389,27 @@ describe("c2m level editing", () => {
     });
   });
 
+  it("does not remove wires required by wire tunnels", () => {
+    let map = withTile(
+      createMap(),
+      { x: 2, y: 2 },
+      {
+        tile: "FLOOR",
+        modifiers: [{ kind: "WIRES", wires: ["E"], tunnels: ["E"] }],
+      },
+    );
+    map = connectWirePoints(placeWireNode(map, { x: 3, y: 2 }), { x: 2, y: 2 }, { x: 3, y: 2 });
+
+    expect(
+      disconnectWirePoints(map, { x: 2, y: 2 }, { x: 3, y: 2 }).tiles[
+        pointToIndex({ x: 2, y: 2 }, map)
+      ],
+    ).toEqual({
+      tile: "FLOOR",
+      modifiers: [{ kind: "WIRES", wires: ["E"], tunnels: ["E"] }],
+    });
+  });
+
   it("wrap-shifts maps without changing their dimensions", () => {
     let map = withTile(createMap(10, 10), { x: 0, y: 0 }, "WATER");
     map = withTile(map, { x: 9, y: 9 }, "FIRE");

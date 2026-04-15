@@ -121,6 +121,13 @@ describe("c2m cell inspector helpers", () => {
       }),
     ).toEqual(["N", "S"]);
 
+    expect(
+      resolveRequiredWireDirections({
+        tile: "FLOOR",
+        modifiers: [{ kind: "WIRES", wires: [], tunnels: ["E"] }],
+      }),
+    ).toEqual(["E"]);
+
     expect(resolveRequiredWireDirections({ tile: "FLOOR" })).toEqual([]);
   });
 });
