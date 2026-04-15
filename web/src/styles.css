@@ -583,10 +583,6 @@ canvas {
     0 0 0 9999px rgba(27, 37, 44, 0.02);
 }
 
-.boardFooterSection {
-  border-top: 1px solid rgba(57, 75, 66, 0.08);
-}
-
 .boardEdgeControlGroup {
   position: absolute;
   z-index: 3;

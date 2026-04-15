@@ -3824,6 +3824,9 @@ export default function App() {
               </span>
               <span className="statusBadge">{activeToolLabel}</span>
               <span className="statusBadge">{Math.round(boardStatus.boardZoom * 100)}%</span>
+              {viewMode === "board" && hoverSummaryText ? (
+                <span className="statusBadge">{hoverSummaryText}</span>
+              ) : null}
               {selection ? (
                 <span className="statusBadge">{`Selection ${selection.width}x${selection.height}`}</span>
               ) : null}
@@ -3832,11 +3835,9 @@ export default function App() {
               ) : null}
             </div>
 
-            {viewMode === "json" || hoverSummaryText ? (
+            {viewMode === "json" ? (
               <div className="hoverSummary">
-                {viewMode === "board"
-                  ? hoverSummaryText
-                  : "Invalid raw JSON edits stay local until they parse successfully again."}
+                Invalid raw JSON edits stay local until they parse successfully again.
               </div>
             ) : null}
           </section>
@@ -4076,24 +4077,6 @@ export default function App() {
                   </>
                 )}
               </div>
-
-              <section className="panelSection boardFooterSection">
-                <div className="boardMeta">
-                  <span className="statusBadge">
-                    Hover{" "}
-                    {boardStatus.hoverPoint
-                      ? `${boardStatus.hoverPoint.x},${boardStatus.hoverPoint.y}`
-                      : "none"}
-                  </span>
-                  <span className="statusBadge">{boardStatus.isPanning ? "Panning" : "Idle"}</span>
-                  {pastePreviewRect ? (
-                    <span className="statusBadge">{`Paste ${pastePreviewRect.width}x${pastePreviewRect.height}`}</span>
-                  ) : null}
-                  {transientDirtyCells.length > 0 ? (
-                    <span className="statusBadge">{`Preview ${transientDirtyCells.length}`}</span>
-                  ) : null}
-                </div>
-              </section>
             </>
           )}
         </section>
