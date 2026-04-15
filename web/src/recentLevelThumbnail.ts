@@ -2,9 +2,10 @@ import type { C2mJsonV1 } from "../../src/c2m/c2mJsonV1.js";
 import type { CC2Tileset } from "../../src/c2m/render/cc2Tileset.js";
 import { getSharedCc2CanvasCellCache } from "./cc2CanvasCache.js";
 import { drawCc2MapToCanvas } from "./canvasMapRenderer.js";
+import { resolveRecentLevelThumbnailTileSize } from "./recentLevelSizing.js";
 
-const MAX_THUMBNAIL_DIMENSION = 208;
 const THUMBNAIL_MIME_TYPE = "image/png";
+const SOURCE_TILE_PIXEL_SIZE = 32;
 
 export function renderRecentLevelThumbnail(
   doc: C2mJsonV1,
@@ -15,10 +16,8 @@ export function renderRecentLevelThumbnail(
   const sourceCanvas = document.createElement("canvas");
   drawCc2MapToCanvas(sourceCanvas, doc.map, getSharedCc2CanvasCellCache(tileset));
 
-  const scale = Math.min(
-    1,
-    MAX_THUMBNAIL_DIMENSION / Math.max(sourceCanvas.width, sourceCanvas.height),
-  );
+  const thumbnailTileSize = resolveRecentLevelThumbnailTileSize(doc.map);
+  const scale = thumbnailTileSize / SOURCE_TILE_PIXEL_SIZE;
   const thumbnailCanvas = document.createElement("canvas");
   thumbnailCanvas.width = Math.max(1, Math.round(sourceCanvas.width * scale));
   thumbnailCanvas.height = Math.max(1, Math.round(sourceCanvas.height * scale));
