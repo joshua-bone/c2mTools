@@ -9,7 +9,11 @@ import { createPreviewTileSpec, renderTilePreview } from "./editor/renderPreview
 
 type TilePreviewProps = Readonly<{
   tileset: CC2Tileset | null;
-  tile: string | TileSpecJson;
+  tile?: string | TileSpecJson;
+  spriteSheetCell?: Readonly<{
+    x: number;
+    y: number;
+  }>;
   className?: string;
   pixelSize?: number;
   showDirectionArrow?: boolean;
@@ -18,6 +22,7 @@ type TilePreviewProps = Readonly<{
 export function TilePreview({
   tileset,
   tile,
+  spriteSheetCell,
   className,
   pixelSize,
   showDirectionArrow = false,
@@ -37,14 +42,18 @@ export function TilePreview({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const previewTile = createPreviewTileSpec(tile);
-    drawRgbaImageToContext(ctx, renderTilePreview(tileset, previewTile), 0, 0);
+    if (spriteSheetCell) {
+      drawRgbaImageToContext(ctx, tileset.draw(spriteSheetCell.x, spriteSheetCell.y), 0, 0);
+    } else if (tile !== undefined) {
+      const previewTile = createPreviewTileSpec(tile);
+      drawRgbaImageToContext(ctx, renderTilePreview(tileset, previewTile), 0, 0);
 
-    const direction = showDirectionArrow ? resolveMobDirectionArrow(previewTile) : null;
-    if (direction) {
-      drawDirectionArrow(ctx, direction, BOARD_TILE_PIXEL_SIZE);
+      const direction = showDirectionArrow ? resolveMobDirectionArrow(previewTile) : null;
+      if (direction) {
+        drawDirectionArrow(ctx, direction, BOARD_TILE_PIXEL_SIZE);
+      }
     }
-  }, [showDirectionArrow, tile, tileset]);
+  }, [showDirectionArrow, spriteSheetCell, tile, tileset]);
 
   return (
     <canvas

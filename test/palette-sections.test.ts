@@ -50,18 +50,82 @@ describe("palette sections", () => {
     ]);
   });
 
+  it("keeps related items adjacent in the palette order", () => {
+    const itemKeys =
+      getPaletteSections({ query: "" })
+        .find((section) => section.key === "item")
+        ?.tiles.map((tile) => tile.key) ?? [];
+
+    expect(itemKeys.indexOf("RED_KEY")).toBeLessThan(itemKeys.indexOf("GREEN_KEY"));
+    expect(itemKeys.indexOf("FLIPPERS")).toBeLessThan(itemKeys.indexOf("SPEED_BOOTS"));
+    expect(itemKeys.indexOf("IC_CHIP")).toBeLessThan(itemKeys.indexOf("GREEN_BOMB"));
+    expect(itemKeys.indexOf("TIME_BONUS")).toBeLessThan(itemKeys.indexOf("TIME_BOMB"));
+  });
+
   it("includes C2M-specific palette variants and excludes obsolete tiles", () => {
     const sections = getPaletteSections({ query: "" });
     const allKeys = sections.flatMap((section) => section.tiles.map((tile) => tile.key));
 
-    expect(allKeys).toContain("RAILROAD_TRACK:vertical");
+    expect(allKeys).toContain("RAILROAD_TRACK:line");
     expect(allKeys).toContain("RAILROAD_TRACK:corner");
     expect(allKeys).toContain("RAILROAD_TRACK:switch");
+    expect(allKeys).toContain("WIRE_TOOL");
+    expect(allKeys).toContain("LOGIC_GATE:COUNTER");
+    expect(allKeys).toContain("ICE_CORNER");
+    expect(allKeys).toContain("FORCE_FLOOR");
+    expect(allKeys).toContain("SWIVEL_DOOR");
     expect(allKeys).toContain("DIRECTIONAL_BLOCK:4");
     expect(allKeys).not.toContain("CLONE_MACHINE_OLD");
     expect(allKeys).not.toContain("EXPLOSION_ANIMATION_UNUSED");
     expect(allKeys).not.toContain("THIN_WALL_S");
     expect(allKeys).not.toContain("THIN_WALL_E");
     expect(allKeys).not.toContain("THIN_WALL_SE");
+  });
+
+  it("resolves direction-driven palette variants from the shared global direction state", () => {
+    const sections = getPaletteSections({
+      query: "",
+      globalDirection: "E",
+      logicCounterValue: 7,
+    });
+    const allEntries = sections.flatMap((section) => section.tiles);
+
+    expect(allEntries.find((entry) => entry.key === "FORCE_FLOOR")).toEqual(
+      expect.objectContaining({
+        kind: "brush",
+        tile: "FORCE_E",
+      }),
+    );
+    expect(allEntries.find((entry) => entry.key === "ICE_CORNER")).toEqual(
+      expect.objectContaining({
+        kind: "brush",
+        tile: "ICE_CORNER_SE",
+      }),
+    );
+    expect(allEntries.find((entry) => entry.key === "SWIVEL_DOOR")).toEqual(
+      expect.objectContaining({
+        kind: "brush",
+        tile: "SWIVEL_DOOR_SE",
+      }),
+    );
+    expect(allEntries.find((entry) => entry.key === "THINWALL_CANOPY")).toEqual(
+      expect.objectContaining({
+        kind: "brush",
+        tile: {
+          tile: "THINWALL_CANOPY",
+          thinWallCanopy: { walls: ["E"], canopy: false },
+          lower: "FLOOR",
+        },
+      }),
+    );
+    expect(allEntries.find((entry) => entry.key === "LOGIC_GATE:COUNTER")).toEqual(
+      expect.objectContaining({
+        kind: "brush",
+        tile: {
+          tile: "LOGIC_GATE",
+          modifiers: [{ kind: "LOGIC", gate: "COUNTER", counterValue: 7 }],
+        },
+      }),
+    );
   });
 });

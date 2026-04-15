@@ -853,7 +853,7 @@ function encodeTileSpec(w: BinaryWriter, spec: TileSpecJson): void {
 
   for (const m of mods) {
     const v = modifierValue(tileId, m);
-    if (v === 0) continue; // canonical: omit zero modifiers
+    if (v === 0 && m.kind !== "WIRES") continue; // preserve explicit empty wire nodes for the editor
     writeModifier(w, v);
   }
 

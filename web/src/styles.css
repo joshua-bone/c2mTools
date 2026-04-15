@@ -790,18 +790,20 @@ canvas {
 
 .paletteTileGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  grid-template-columns: repeat(auto-fill, 32px);
+  grid-auto-rows: 32px;
   gap: 0;
   width: 100%;
   min-height: 0;
   align-content: start;
+  justify-content: start;
 }
 
 .paletteGridItem {
   position: relative;
   display: block;
-  width: 100%;
-  aspect-ratio: 1;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: none;
   border-radius: 0;
@@ -818,8 +820,8 @@ canvas {
 
 .paletteGridCanvas {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 32px;
+  height: 32px;
   background: transparent;
 }
 

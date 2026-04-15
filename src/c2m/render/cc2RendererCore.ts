@@ -25,16 +25,20 @@ function dirIndex(d: Dir | undefined): 0 | 1 | 2 | 3 {
   return 0;
 }
 
-function wiresMask(tile: TileSpecObjJson): { wires: number; tunnels: number } {
+function wiresMask(tile: TileSpecObjJson): {
+  wires: number;
+  tunnels: number;
+  hasModifier: boolean;
+} {
   const m = getModifier(tile, "WIRES");
-  if (!m || m.kind !== "WIRES") return { wires: 0, tunnels: 0 };
+  if (!m || m.kind !== "WIRES") return { wires: 0, tunnels: 0, hasModifier: false };
 
   const bit = (d: Dir): number => (d === "N" ? 1 : d === "E" ? 2 : d === "S" ? 4 : 8);
   let w = 0;
   for (const d of m.wires) w |= bit(d);
   let t = 0;
   for (const d of m.tunnels) t |= bit(d);
-  return { wires: w & 0x0f, tunnels: t & 0x0f };
+  return { wires: w & 0x0f, tunnels: t & 0x0f, hasModifier: true };
 }
 
 function renderWireable(
@@ -45,10 +49,14 @@ function renderWireable(
   isSwitch: boolean,
 ): RgbaImage {
   const own = ts.draw(ownX, ownY);
-  const { wires } = wiresMask(tile);
+  const { wires, hasModifier } = wiresMask(tile);
 
   const baseXY = isSwitch ? { x: 14, y: 21 } : { x: 0, y: 2 };
-  if (wires === 0) return ts.merge(own, ts.draw(baseXY.x, baseXY.y));
+  if (wires === 0) {
+    return hasModifier
+      ? ts.merge(ts.draw(12, 26), own)
+      : ts.merge(own, ts.draw(baseXY.x, baseXY.y));
+  }
 
   let base = ts.draw(13, 26);
 
@@ -75,11 +83,13 @@ function renderSuperWireable(
   overlayY: number,
   tile: TileSpecObjJson,
 ): RgbaImage {
-  const { wires, tunnels } = wiresMask(tile);
+  const { wires, tunnels, hasModifier } = wiresMask(tile);
   const modifierLow = wires & 0x0f;
   const modifierHigh = tunnels & 0x0f;
 
-  if (modifierLow === 0 && modifierHigh === 0) return ts.draw(ownX, ownY);
+  if (modifierLow === 0 && modifierHigh === 0) {
+    return hasModifier ? ts.merge(ts.draw(12, 26), ts.draw(ownX, ownY)) : ts.draw(ownX, ownY);
+  }
 
   let base = ts.merge(ts.draw(overlayX, overlayY), ts.draw(13, 26));
 

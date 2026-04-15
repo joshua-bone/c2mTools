@@ -54,6 +54,7 @@ import {
 } from "./editor/cellInspector";
 import {
   getLineIndices,
+  indexToPoint,
   normalizeRect,
   pointToIndex,
   rectToIndices,
@@ -73,11 +74,14 @@ import {
   normalizeJsonFileName,
 } from "./editor/fileName";
 import {
+  canPlaceWireOnCell,
+  connectWirePoints,
   copyMapRegion,
   floodFillMap,
   paintMapCells,
   paintMapLine,
   pasteMapRegion,
+  placeWireNode,
   resolveClipboardPreviewRect,
   resolveEyedropperBrushAtPoint,
   shiftMapWrap,
@@ -98,7 +102,12 @@ import {
   type ResizeAnchor,
 } from "./editor/mapResize";
 import { createDefaultBrushTileSpec } from "./editor/renderPreview";
-import { rotateBrushSpec, tileSpecKey, type BrushCycleDirection } from "./editor/brushTransforms";
+import {
+  rotateBrushSpec,
+  rotateDir,
+  tileSpecKey,
+  type BrushCycleDirection,
+} from "./editor/brushTransforms";
 import {
   TOOL_SHORTCUTS,
   isEditableShortcutTarget,
@@ -131,6 +140,8 @@ const ZOOM_STEP = 1.15;
 const MAX_PARTIAL_REDRAW_CELLS = 1024;
 const PARTIAL_REDRAW_RATIO = 0.2;
 const ERASER_BRUSH: TileSpecJson = "FLOOR";
+const EYEDROPPER_CURSOR =
+  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g transform='rotate(45 12 12)'><rect x='10' y='2.5' width='4' height='11' rx='1.4' fill='%23f6fbff' stroke='%23121a1f' stroke-width='1.6'/><path d='M10 5.5H8.4A1.4 1.4 0 0 0 7 6.9v3.7A1.4 1.4 0 0 0 8.4 12H10' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/><path d='M14 13v6' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><path d='M10.3 19.3h7.4' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><circle cx='14' cy='21' r='1.5' fill='%23235f7a'/></g></svg>\") 4 20, crosshair";
 
 const TRANSFORMS: Array<{ label: string; op: LevelTransformKind }> = [
   { label: "Rot 90", op: "ROTATE_90" },
@@ -189,7 +200,7 @@ type LeftPanelTab = "document" | "controls";
 type BoardMenuId = "file" | "view" | "transform";
 type PaletteAssignmentTarget = "primary" | "secondary";
 
-type ToolMode = EditorToolMode;
+type ToolMode = EditorToolMode | "wire";
 
 type InitialAppState = Readonly<{
   history: C2mEditorHistory | null;
@@ -233,7 +244,14 @@ type SelectDragState = Readonly<{
   current: GridPoint;
 }>;
 
-type DragState = BrushDragState | LineDragState | SelectDragState;
+type WireDragState = Readonly<{
+  tool: "wire";
+  pointerId: number;
+  lastPoint: GridPoint;
+  previewMap: MapJson;
+}>;
+
+type DragState = BrushDragState | LineDragState | SelectDragState | WireDragState;
 
 function asErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -643,6 +661,8 @@ export default function App() {
   );
   const [paletteQuery, setPaletteQuery] = useState("");
   const [tool, setTool] = useState<ToolMode>("brush");
+  const [globalDirection, setGlobalDirection] = useState<Dir>("N");
+  const [logicCounterValue, setLogicCounterValue] = useState(0);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("palette");
   const [leftPanelTab, setLeftPanelTab] = useState<LeftPanelTab>("document");
   const [boardMenuOpen, setBoardMenuOpen] = useState<BoardMenuId | null>(null);
@@ -652,6 +672,7 @@ export default function App() {
   const [clipboard, setClipboard] = useState<C2mClipboard | null>(null);
   const [pastePreviewActive, setPastePreviewActive] = useState(false);
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [pendingWirePoint, setPendingWirePoint] = useState<GridPoint | null>(null);
   const [transientMap, setTransientMap] = useState<MapJson | null>(null);
   const [metadataDraft, setMetadataDraft] = useState<C2mMetadataDraft | null>(null);
   const [metadataError, setMetadataError] = useState<string | null>(null);
@@ -664,6 +685,7 @@ export default function App() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isAltPressed, setIsAltPressed] = useState(false);
   const [tileset, setTileset] = useState<CC2Tileset | null>(null);
   const [tilesetError, setTilesetError] = useState<string | null>(null);
 
@@ -691,8 +713,8 @@ export default function App() {
   });
 
   const paletteSections = useMemo(
-    () => getPaletteSections({ query: paletteQuery }),
-    [paletteQuery],
+    () => getPaletteSections({ query: paletteQuery, globalDirection, logicCounterValue }),
+    [globalDirection, logicCounterValue, paletteQuery],
   );
 
   const boardRect = useMemo(
@@ -722,6 +744,11 @@ export default function App() {
     if (!activeMap || !boardRect || !boardStatus.hoverPoint) return null;
     return resolveBoardCellScreenRect(boardStatus.hoverPoint, activeMap, boardRect);
   }, [activeMap, boardRect, boardStatus.hoverPoint]);
+  const boardCanvasCursor = boardStatus.isPanning
+    ? "grabbing"
+    : isAltPressed || tool === "eyedropper"
+      ? EYEDROPPER_CURSOR
+      : undefined;
 
   const selectionPreviewRect = useMemo(() => {
     if (!activeMap) return null;
@@ -771,7 +798,8 @@ export default function App() {
     describeTileSpec(secondaryBrush) ?? formatTileDisplayName(getTileSpecName(secondaryBrush));
   const primaryBrushKey = tileSpecKey(primaryBrush);
   const secondaryBrushKey = tileSpecKey(secondaryBrush);
-  const activeToolMeta = TOOL_SHORTCUTS.find((entry) => entry.id === tool) ?? TOOL_SHORTCUTS[0];
+  const activeToolLabel =
+    tool === "wire" ? "Wire" : (TOOL_SHORTCUTS.find((entry) => entry.id === tool)?.label ?? tool);
   const preservedSectionTags = doc?.sections?.map((section) => section.tag) ?? [];
   const preservedExtraChunkTags = doc?.extraChunks?.map((section) => section.tag) ?? [];
   const metadataDirty =
@@ -792,6 +820,7 @@ export default function App() {
       dragPanRef.current = null;
       setDragState(null);
       setTransientMap(null);
+      setPendingWirePoint(null);
       setPastePreviewActive(false);
       if (options.clearSelection) setSelection(null);
 
@@ -806,6 +835,33 @@ export default function App() {
     },
     [],
   );
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.altKey) setIsAltPressed(true);
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (!event.altKey) setIsAltPressed(false);
+    };
+    const onBlur = () => {
+      setIsAltPressed(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (tool !== "wire") {
+      setPendingWirePoint(null);
+    }
+  }, [tool]);
 
   const loadDocument = useCallback(
     (
@@ -1068,24 +1124,82 @@ export default function App() {
     setBoardMenuOpen((current) => (current === menu ? null : menu));
   }, []);
 
-  const assignPaletteBrush = useCallback((brush: TileSpecJson, target: PaletteAssignmentTarget) => {
-    setLastPaletteAssignmentTarget(target);
-    if (target === "secondary") {
-      setSecondaryBrush(brush);
-      return;
-    }
-    setPrimaryBrush(brush);
-  }, []);
+  const assignPaletteBrush = useCallback(
+    (brush: TileSpecJson, target: PaletteAssignmentTarget) => {
+      setLastPaletteAssignmentTarget(target);
+      if (tool === "wire") setTool("brush");
+      const logicModifier = getTileModifier(toTileSpecObj(brush), "LOGIC");
+      if (logicModifier?.kind === "LOGIC" && logicModifier.gate === "COUNTER") {
+        setLogicCounterValue(logicModifier.counterValue ?? 0);
+      }
+      if (target === "secondary") {
+        setSecondaryBrush(brush);
+        return;
+      }
+      setPrimaryBrush(brush);
+    },
+    [tool],
+  );
+
+  const rotateBrushForGlobalDirection = useCallback(
+    (brush: TileSpecJson, direction: BrushCycleDirection): TileSpecJson => {
+      const tile = toTileSpecObj(brush);
+      const logicModifier = getTileModifier(tile, "LOGIC");
+      if (
+        tile.tile === "CUSTOM_WALL" ||
+        tile.tile === "CUSTOM_FLOOR" ||
+        tile.tile === "LETTER_TILE" ||
+        (logicModifier?.kind === "LOGIC" && logicModifier.gate === "COUNTER")
+      ) {
+        return brush;
+      }
+      return rotateBrushSpec(brush, direction) ?? brush;
+    },
+    [],
+  );
+
+  const rotateGlobalDirection = useCallback(
+    (direction: BrushCycleDirection) => {
+      setGlobalDirection((current) => rotateDir(current, direction));
+      setPrimaryBrush((current) => rotateBrushForGlobalDirection(current, direction));
+      setSecondaryBrush((current) => rotateBrushForGlobalDirection(current, direction));
+    },
+    [rotateBrushForGlobalDirection],
+  );
 
   const rotateSelectedPaletteBrush = useCallback(
     (direction: BrushCycleDirection) => {
       const target = lastPaletteAssignmentTarget;
       const currentBrush = target === "secondary" ? secondaryBrush : primaryBrush;
-      const nextBrush = rotateBrushSpec(currentBrush, direction);
-      if (!nextBrush) return;
-      assignPaletteBrush(nextBrush, target);
+      const currentTile = toTileSpecObj(currentBrush);
+      const logicModifier = getTileModifier(currentTile, "LOGIC");
+
+      if (
+        currentTile.tile === "CUSTOM_WALL" ||
+        currentTile.tile === "LETTER_TILE" ||
+        (logicModifier?.kind === "LOGIC" && logicModifier.gate === "COUNTER")
+      ) {
+        const nextBrush = rotateBrushSpec(currentBrush, direction);
+        if (!nextBrush) return;
+        if (logicModifier?.kind === "LOGIC" && logicModifier.gate === "COUNTER") {
+          const nextCounter = getTileModifier(toTileSpecObj(nextBrush), "LOGIC");
+          if (nextCounter?.kind === "LOGIC" && nextCounter.gate === "COUNTER") {
+            setLogicCounterValue(nextCounter.counterValue ?? 0);
+          }
+        }
+        assignPaletteBrush(nextBrush, target);
+        return;
+      }
+
+      rotateGlobalDirection(direction);
     },
-    [assignPaletteBrush, lastPaletteAssignmentTarget, primaryBrush, secondaryBrush],
+    [
+      assignPaletteBrush,
+      lastPaletteAssignmentTarget,
+      primaryBrush,
+      rotateGlobalDirection,
+      secondaryBrush,
+    ],
   );
 
   const copySelection = useCallback(() => {
@@ -1725,6 +1839,31 @@ export default function App() {
         return;
       }
 
+      if (tool === "wire") {
+        if (event.button !== 0 || !canMutateBoard) return;
+        const cell = activeMap.tiles[pointToIndex(point, activeMap)];
+        if (!cell || !canPlaceWireOnCell(cell)) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        let nextPreviewMap = placeWireNode(activeMap, point);
+        if (
+          pendingWirePoint &&
+          (pendingWirePoint.x !== point.x || pendingWirePoint.y !== point.y)
+        ) {
+          nextPreviewMap = connectWirePoints(nextPreviewMap, pendingWirePoint, point);
+        }
+        setPastePreviewActive(false);
+        setPendingWirePoint(point);
+        setTransientMap(nextPreviewMap);
+        setDragState({
+          tool: "wire",
+          pointerId: event.pointerId,
+          lastPoint: point,
+          previewMap: nextPreviewMap,
+        });
+        return;
+      }
+
       if (tool === "select") {
         if (event.button !== 0) return;
         event.preventDefault();
@@ -1879,6 +2018,39 @@ export default function App() {
           });
           return;
         }
+
+        if (dragState.tool === "wire") {
+          if (!point) return;
+          if (point.x === dragState.lastPoint.x && point.y === dragState.lastPoint.y) return;
+          const cell = activeMap.tiles[pointToIndex(point, activeMap)];
+          if (!cell || !canPlaceWireOnCell(cell)) return;
+
+          let nextPreviewMap = dragState.previewMap;
+          const linePoints = getLineIndices(dragState.lastPoint, point, activeMap).map((index) =>
+            indexToPoint(index, activeMap),
+          );
+          for (let index = 1; index < linePoints.length; index += 1) {
+            nextPreviewMap = connectWirePoints(
+              nextPreviewMap,
+              linePoints[index - 1]!,
+              linePoints[index]!,
+            );
+          }
+          nextPreviewMap = placeWireNode(nextPreviewMap, point);
+
+          setPendingWirePoint(point);
+          setTransientMap(nextPreviewMap);
+          setDragState({
+            ...dragState,
+            lastPoint: point,
+            previewMap: nextPreviewMap,
+          });
+          boardStatusStoreRef.current.update({
+            hoverPoint: point,
+            hoverCellSummary: buildHoverCellSummary(nextPreviewMap, point),
+          });
+          return;
+        }
       }
 
       updateHoverAtClientPoint(event.clientX, event.clientY);
@@ -1936,6 +2108,14 @@ export default function App() {
           return;
         }
 
+        if (dragState.tool === "wire") {
+          commitMapChange(dragState.previewMap);
+          setTransientMap(null);
+          setDragState(null);
+          updateHoverAtClientPoint(event.clientX, event.clientY);
+          return;
+        }
+
         if (dragState.tool === "select") {
           if (activeMap) {
             setSelection(normalizeRect(dragState.start, point ?? dragState.current, activeMap));
@@ -1964,6 +2144,7 @@ export default function App() {
     dragPanRef.current = null;
     setDragState(null);
     setTransientMap(null);
+    setPendingWirePoint(null);
     boardStatusStoreRef.current.update({
       isPanning: false,
       hoverPoint: null,
@@ -2360,7 +2541,7 @@ export default function App() {
                   <div className="sectionEyebrow">Controls</div>
                   <h2 className="sectionTitle">Board Tools</h2>
                 </div>
-                <span className="statusBadge">{activeToolMeta?.label ?? tool}</span>
+                <span className="statusBadge">{activeToolLabel}</span>
               </div>
 
               <div className="boardControlRow boardToolRow">
@@ -2483,9 +2664,11 @@ export default function App() {
 
               <div className="boardHelpText">
                 Left and right mouse buttons paint using the active palette slots. Hold `Alt` for a
-                temporary eyedropper. Use `,` and `.` to rotate mobs, rail pieces, and directional
-                brushes or cycle decorative wall colors and letter symbols. Middle mouse or
-                `Cmd`/`Ctrl` plus drag pans. Mouse wheel zooms the board.
+                temporary eyedropper. Use `,` and `.` to rotate the shared palette direction,
+                railroad pieces, and directional brushes, or cycle decorative wall colors, letter
+                symbols, and logic counters when those brushes are selected. The wire tool is picked
+                from the palette with LMB only. Middle mouse or `Cmd`/`Ctrl` plus drag pans. Mouse
+                wheel zooms the board.
               </div>
             </section>
           ) : null}
@@ -2517,7 +2700,7 @@ export default function App() {
               <span className="statusBadge">
                 {activeMap ? `${activeMap.width}x${activeMap.height}` : "No map"}
               </span>
-              <span className="statusBadge">{activeToolMeta?.label ?? tool}</span>
+              <span className="statusBadge">{activeToolLabel}</span>
               <span className="statusBadge">{Math.round(boardStatus.boardZoom * 100)}%</span>
               <span className="statusBadge">{tileset ? "Tileset ready" : "Tileset missing"}</span>
               {selection ? (
@@ -2622,6 +2805,7 @@ export default function App() {
                               top: boardRect.y,
                               width: boardRect.width,
                               height: boardRect.height,
+                              ...(boardCanvasCursor ? { cursor: boardCanvasCursor } : {}),
                             }
                           : undefined
                       }
@@ -2670,6 +2854,28 @@ export default function App() {
                                     1.5,
                                     rect.width / Math.max(10, selectionPreviewRect.width * 6),
                                   )}
+                                />
+                              );
+                            })()
+                          : null}
+
+                        {pendingWirePoint
+                          ? (() => {
+                              const rect = resolveBoardCellScreenRect(
+                                pendingWirePoint,
+                                activeMap,
+                                boardRect,
+                              );
+
+                              return (
+                                <rect
+                                  x={rect.x}
+                                  y={rect.y}
+                                  width={rect.width}
+                                  height={rect.height}
+                                  fill="rgba(196, 55, 55, 0.12)"
+                                  stroke="rgba(196, 55, 55, 0.96)"
+                                  strokeWidth={Math.max(1.5, rect.width / 10)}
                                 />
                               );
                             })()
@@ -2779,7 +2985,7 @@ export default function App() {
                     tileset={tileset}
                     tile={primaryBrush}
                     className="activeTileCompactCanvas"
-                    pixelSize={40}
+                    pixelSize={32}
                     showDirectionArrow
                   />
                   <div className="activeTileCompactBody">
@@ -2797,7 +3003,7 @@ export default function App() {
                     tileset={tileset}
                     tile={secondaryBrush}
                     className="activeTileCompactCanvas"
-                    pixelSize={40}
+                    pixelSize={32}
                     showDirectionArrow
                   />
                   <div className="activeTileCompactBody">
@@ -2828,30 +3034,46 @@ export default function App() {
                       <div className="paletteTileSectionTitle">{section.title}</div>
                       <div className="paletteTileGrid">
                         {section.tiles.map((entry) => {
-                          const entryKey = tileSpecKey(entry.tile);
-                          const isPrimary = primaryBrushKey === entryKey;
-                          const isSecondary = secondaryBrushKey === entryKey;
+                          const entryKey = entry.kind === "brush" ? tileSpecKey(entry.tile) : null;
+                          const isPrimary =
+                            entry.kind === "brush" &&
+                            tool !== "wire" &&
+                            primaryBrushKey === entryKey;
+                          const isSecondary =
+                            entry.kind === "brush" && secondaryBrushKey === entryKey;
+                          const isWireTool = entry.kind === "tool" && tool === "wire";
 
                           return (
                             <button
                               key={entry.key}
                               type="button"
-                              className={`paletteGridItem ${isPrimary ? "selectedPrimary" : ""} ${isSecondary ? "selectedSecondary" : ""} ${isPrimary && isSecondary ? "selectedBoth" : ""}`}
+                              className={`paletteGridItem ${isPrimary || isWireTool ? "selectedPrimary" : ""} ${isSecondary ? "selectedSecondary" : ""} ${isPrimary && isSecondary ? "selectedBoth" : ""}`}
                               title={entry.label}
                               aria-label={entry.label}
-                              onClick={() => assignPaletteBrush(entry.tile, "primary")}
+                              onClick={() => {
+                                if (entry.kind === "tool") {
+                                  setLastPaletteAssignmentTarget("primary");
+                                  setTool("wire");
+                                  return;
+                                }
+                                assignPaletteBrush(entry.tile, "primary");
+                              }}
                               onContextMenu={(event) => {
                                 event.preventDefault();
+                                if (entry.kind !== "brush" || !entry.allowSecondaryAssign) return;
                                 assignPaletteBrush(entry.tile, "secondary");
                               }}
                             >
                               <TilePreview
                                 tileset={tileset}
-                                tile={entry.tile}
                                 className="paletteGridCanvas"
+                                pixelSize={32}
                                 showDirectionArrow
+                                {...(entry.kind === "brush"
+                                  ? { tile: entry.tile }
+                                  : { spriteSheetCell: entry.previewSpriteCell })}
                               />
-                              {isPrimary ? (
+                              {isPrimary || isWireTool ? (
                                 <span className="paletteGridMarker primary">L</span>
                               ) : null}
                               {isSecondary ? (
@@ -3471,7 +3693,9 @@ export default function App() {
                 <div className="inspectorLayerRow">
                   <span className="inspectorLayerLabel">Tool</span>
                   <span className="inspectorLayerValue">
-                    {activeToolMeta?.label ?? tool} ({activeToolMeta?.shortcut ?? "?"})
+                    {tool === "wire"
+                      ? "Wire"
+                      : `${activeToolLabel} (${TOOL_SHORTCUTS.find((entry) => entry.id === tool)?.shortcut ?? "?"})`}
                   </span>
                 </div>
                 <div className="inspectorLayerRow">

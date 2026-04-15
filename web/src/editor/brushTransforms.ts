@@ -10,7 +10,7 @@ import type {
 
 export type BrushCycleDirection = "clockwise" | "counterclockwise";
 
-const DIR_ORDER: ReadonlyArray<Dir> = Object.freeze(["N", "E", "S", "W"]);
+export const DIR_ORDER: ReadonlyArray<Dir> = Object.freeze(["N", "E", "S", "W"]);
 const TRACK_PIECE_ORDER: ReadonlyArray<TrackPiece> = Object.freeze([
   "TURN_NE",
   "TURN_SE",
@@ -34,7 +34,7 @@ function toTileSpecObj(spec: TileSpecJson): TileSpecObjJson {
   return typeof spec === "string" ? { tile: spec } : spec;
 }
 
-function rotateDir(dir: Dir, direction: BrushCycleDirection): Dir {
+export function rotateDir(dir: Dir, direction: BrushCycleDirection): Dir {
   const index = DIR_ORDER.indexOf(dir);
   const offset = direction === "clockwise" ? 1 : -1;
   return DIR_ORDER[(index + offset + DIR_ORDER.length) % DIR_ORDER.length] ?? dir;
@@ -85,6 +85,48 @@ function rotateTrackActive(active: TrackActive, direction: BrushCycleDirection):
   }
 }
 
+function rotateTileName(tileName: string, direction: BrushCycleDirection): string {
+  const rotateForceTile = (dir: Dir): string => {
+    const nextDir = rotateDir(dir, direction);
+    return nextDir === "N"
+      ? "FORCE_N"
+      : nextDir === "E"
+        ? "FORCE_E"
+        : nextDir === "S"
+          ? "FORCE_S"
+          : "FORCE_W";
+  };
+
+  switch (tileName) {
+    case "FORCE_N":
+      return rotateForceTile("N");
+    case "FORCE_E":
+      return rotateForceTile("E");
+    case "FORCE_S":
+      return rotateForceTile("S");
+    case "FORCE_W":
+      return rotateForceTile("W");
+    case "ICE_CORNER_NE":
+      return direction === "clockwise" ? "ICE_CORNER_SE" : "ICE_CORNER_NW";
+    case "ICE_CORNER_SE":
+      return direction === "clockwise" ? "ICE_CORNER_SW" : "ICE_CORNER_NE";
+    case "ICE_CORNER_SW":
+      return direction === "clockwise" ? "ICE_CORNER_NW" : "ICE_CORNER_SE";
+    case "ICE_CORNER_NW":
+      return direction === "clockwise" ? "ICE_CORNER_NE" : "ICE_CORNER_SW";
+    case "SWIVEL_DOOR_NE":
+      return direction === "clockwise" ? "SWIVEL_DOOR_SE" : "SWIVEL_DOOR_NW";
+    case "SWIVEL_DOOR_SE":
+      return direction === "clockwise" ? "SWIVEL_DOOR_SW" : "SWIVEL_DOOR_NE";
+    case "SWIVEL_DOOR_SW":
+      return direction === "clockwise" ? "SWIVEL_DOOR_NW" : "SWIVEL_DOOR_SE";
+    case "SWIVEL_DOOR_NW":
+      return direction === "clockwise" ? "SWIVEL_DOOR_NE" : "SWIVEL_DOOR_SW";
+    default:
+      return tileName;
+  }
+}
+
 function rotateSymbol(symbol: string, direction: BrushCycleDirection): string {
   const index = LETTER_SYMBOL_ORDER.indexOf(symbol);
   const offset = direction === "clockwise" ? 1 : -1;
@@ -127,7 +169,11 @@ function mapModifier(modifier: ModifierJson, direction: BrushCycleDirection): Mo
       };
     case "LOGIC":
       return modifier.gate === "COUNTER"
-        ? modifier
+        ? {
+            ...modifier,
+            counterValue: (((modifier.counterValue ?? 0) + (direction === "clockwise" ? 1 : 9)) %
+              10) as number,
+          }
         : {
             ...modifier,
             facing: rotateDir(modifier.facing ?? "N", direction),
@@ -156,6 +202,7 @@ export function rotateBrushSpec(
   direction: BrushCycleDirection,
 ): TileSpecJson | null {
   const tile = toTileSpecObj(brush);
+  const nextTileName = rotateTileName(tile.tile, direction);
   let changed = false;
 
   const nextTile: {
@@ -175,7 +222,7 @@ export function rotateBrushSpec(
     modifiers: ModifierJson[] | undefined;
     lower: TileSpecJson | undefined;
   } = {
-    tile: tile.tile,
+    tile: nextTileName,
     dir: tile.dir,
     thinWallCanopy: tile.thinWallCanopy
       ? {
@@ -203,6 +250,7 @@ export function rotateBrushSpec(
     changed = true;
   }
 
+  if (nextTileName !== tile.tile) changed = true;
   if (tile.thinWallCanopy) changed = true;
   if (tile.directionalArrows) changed = true;
   if (tile.modifiers && tile.modifiers.length > 0) changed = true;

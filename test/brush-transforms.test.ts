@@ -40,6 +40,12 @@ describe("brush transforms", () => {
     });
   });
 
+  it("rotates directional terrain tile names", () => {
+    expect(rotateBrushSpec("FORCE_N", "clockwise")).toBe("FORCE_E");
+    expect(rotateBrushSpec("ICE_CORNER_NE", "clockwise")).toBe("ICE_CORNER_SE");
+    expect(rotateBrushSpec("SWIVEL_DOOR_NE", "counterclockwise")).toBe("SWIVEL_DOOR_NW");
+  });
+
   it("rotates directional block arrows with the brush", () => {
     expect(
       rotateBrushSpec(
@@ -88,6 +94,19 @@ describe("brush transforms", () => {
     ).toEqual({
       tile: "LETTER_TILE",
       modifiers: [{ kind: "LETTER_SYMBOL", symbol: "@" }],
+    });
+
+    expect(
+      rotateBrushSpec(
+        {
+          tile: "LOGIC_GATE",
+          modifiers: [{ kind: "LOGIC", gate: "COUNTER", counterValue: 9 }],
+        },
+        "clockwise",
+      ),
+    ).toEqual({
+      tile: "LOGIC_GATE",
+      modifiers: [{ kind: "LOGIC", gate: "COUNTER", counterValue: 0 }],
     });
   });
 });

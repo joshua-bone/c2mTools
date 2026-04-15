@@ -1,29 +1,56 @@
 import { C2M_PAINTABLE_TILE_NAMES, classifyTileLayer } from "../../src/c2m/cellStack.js";
-import type { TileSpecJson } from "../../src/c2m/mapCodec.js";
-import { describeTileSpec, formatTileDisplayName, getTileSpecName } from "./editor/tileDisplay.js";
+import type { Dir, LogicGate, TileSpecJson } from "../../src/c2m/mapCodec.js";
+import { DIR_ORDER, rotateBrushSpec } from "./editor/brushTransforms.js";
 import { createDefaultBrushTileSpec } from "./editor/renderPreview.js";
+import { describeTileSpec, formatTileDisplayName } from "./editor/tileDisplay.js";
 
-export type PaletteTileEntry = Readonly<{
+type PaletteSectionKey = "terrain" | "item" | "mob" | "overlay";
+
+export type PaletteBrushEntry = Readonly<{
+  kind: "brush";
   key: string;
+  sectionKey: PaletteSectionKey;
   tile: TileSpecJson;
   label: string;
   searchText: string;
   order: number;
+  allowSecondaryAssign: boolean;
 }>;
 
-export type PaletteTileSection = Readonly<{
+export type PaletteToolEntry = Readonly<{
+  kind: "tool";
   key: string;
+  sectionKey: PaletteSectionKey;
+  tool: "wire";
+  previewSpriteCell: Readonly<{ x: number; y: number }>;
+  label: string;
+  searchText: string;
+  order: number;
+  allowSecondaryAssign: false;
+}>;
+
+export type PaletteTileEntry = PaletteBrushEntry | PaletteToolEntry;
+
+export type PaletteTileSection = Readonly<{
+  key: PaletteSectionKey;
   title: string;
   tiles: ReadonlyArray<PaletteTileEntry>;
 }>;
 
 type PaletteSectionsOptions = Readonly<{
   query: string;
+  globalDirection?: Dir;
+  logicCounterValue?: number;
 }>;
 
-const SECTION_ORDER = ["terrain", "item", "mob", "overlay"] as const;
+const SECTION_ORDER: ReadonlyArray<PaletteSectionKey> = Object.freeze([
+  "terrain",
+  "item",
+  "mob",
+  "overlay",
+]);
 
-const SECTION_TITLES: Record<(typeof SECTION_ORDER)[number], string> = {
+const SECTION_TITLES: Record<PaletteSectionKey, string> = {
   terrain: "Terrain",
   item: "Items",
   mob: "Creatures",
@@ -36,6 +63,25 @@ const EXCLUDED_TILE_NAMES = new Set([
   "THIN_WALL_S",
   "THIN_WALL_E",
   "THIN_WALL_SE",
+]);
+
+const TEMPLATE_REPLACED_TILE_NAMES = new Set([
+  "RAILROAD_TRACK",
+  "DIRECTIONAL_BLOCK",
+  "LOGIC_GATE",
+  "THINWALL_CANOPY",
+  "FORCE_N",
+  "FORCE_E",
+  "FORCE_S",
+  "FORCE_W",
+  "ICE_CORNER_NE",
+  "ICE_CORNER_NW",
+  "ICE_CORNER_SE",
+  "ICE_CORNER_SW",
+  "SWIVEL_DOOR_NE",
+  "SWIVEL_DOOR_NW",
+  "SWIVEL_DOOR_SE",
+  "SWIVEL_DOOR_SW",
 ]);
 
 const TERRAIN_GROUPS: ReadonlyArray<ReadonlyArray<string>> = Object.freeze([
@@ -61,8 +107,8 @@ const TERRAIN_GROUPS: ReadonlyArray<ReadonlyArray<string>> = Object.freeze([
     "SWITCH_ON",
     "YELLOW_TANK_BUTTON",
   ],
-  ["ICE", "ICE_CORNER_NE", "ICE_CORNER_NW", "ICE_CORNER_SE", "ICE_CORNER_SW"],
-  ["FORCE_N", "FORCE_E", "FORCE_S", "FORCE_W", "FORCE_RANDOM"],
+  ["ICE", "ICE_CORNER"],
+  ["FORCE_FLOOR", "FORCE_RANDOM"],
   ["WATER", "FIRE", "SLIME"],
   ["DIRT", "GRAVEL", "POP_UP_WALL", "APPEARING_WALL", "INVISIBLE_WALL"],
   [
@@ -74,7 +120,24 @@ const TERRAIN_GROUPS: ReadonlyArray<ReadonlyArray<string>> = Object.freeze([
     "BLUE_TELEPORT",
     "RED_TELEPORT",
   ],
-  ["TRAP", "OPEN_TRAP_UNUSED", "CLONE_MACHINE", "RAILROAD_TRACK", "LOGIC_GATE", "RAILROAD_SIGN"],
+  [
+    "TRAP",
+    "OPEN_TRAP_UNUSED",
+    "CLONE_MACHINE",
+    "RAILROAD_TRACK:line",
+    "RAILROAD_TRACK:corner",
+    "RAILROAD_TRACK:switch",
+    "LOGIC_GATE:INVERTER",
+    "LOGIC_GATE:AND",
+    "LOGIC_GATE:OR",
+    "LOGIC_GATE:XOR",
+    "LOGIC_GATE:LATCH_CW",
+    "LOGIC_GATE:LATCH_CCW",
+    "LOGIC_GATE:NAND",
+    "LOGIC_GATE:COUNTER",
+    "WIRE_TOOL",
+    "RAILROAD_SIGN",
+  ],
   [
     "GREEN_TOGGLE_FLOOR",
     "GREEN_TOGGLE_WALL",
@@ -84,10 +147,7 @@ const TERRAIN_GROUPS: ReadonlyArray<ReadonlyArray<string>> = Object.freeze([
     "CUSTOM_WALL",
     "LETTER_TILE",
     "TURTLE",
-    "SWIVEL_DOOR_SW",
-    "SWIVEL_DOOR_NW",
-    "SWIVEL_DOOR_NE",
-    "SWIVEL_DOOR_SE",
+    "SWIVEL_DOOR",
     "MALE_ONLY_SIGN",
     "FEMALE_ONLY_SIGN",
     "CLUE",
@@ -96,154 +156,296 @@ const TERRAIN_GROUPS: ReadonlyArray<ReadonlyArray<string>> = Object.freeze([
   ],
 ]);
 
+const ITEM_GROUPS: ReadonlyArray<ReadonlyArray<string>> = Object.freeze([
+  ["RED_KEY", "BLUE_KEY", "YELLOW_KEY", "GREEN_KEY"],
+  [
+    "FLIPPERS",
+    "FIRE_BOOTS",
+    "SUCTION_BOOTS",
+    "CLEATS",
+    "HIKING_BOOTS",
+    "LIGHTNING_BOLT",
+    "HELMET",
+    "SPEED_BOOTS",
+    "HOOK",
+    "STEEL_FOIL",
+  ],
+  ["IC_CHIP", "EXTRA_IC_CHIP", "GREEN_CHIP", "GREEN_BOMB", "CHERRY_BOMB"],
+  ["TIME_BONUS", "TIME_PENALTY", "STOPWATCH", "TIME_BOMB"],
+  ["FLAG_10", "FLAG_100", "FLAG_1000", "FLAG_2X"],
+  ["BOWLING_BALL", "THIEF_BRIBE", "SECRET_EYE", "RAILROAD_SIGN"],
+]);
+
 const TERRAIN_GROUP_ORDER = new Map(
   TERRAIN_GROUPS.flatMap((group, groupIndex) =>
-    group.map((tileName, itemIndex) => [tileName, groupIndex * 100 + itemIndex] as const),
+    group.map((key, itemIndex) => [key, groupIndex * 100 + itemIndex] as const),
   ),
 );
 
-function makeRailroadEntry(
+const ITEM_GROUP_ORDER = new Map(
+  ITEM_GROUPS.flatMap((group, groupIndex) =>
+    group.map((key, itemIndex) => [key, groupIndex * 100 + itemIndex] as const),
+  ),
+);
+
+function rotateBrushSteps(brush: TileSpecJson, steps: number): TileSpecJson {
+  let current = brush;
+  for (let index = 0; index < steps; index += 1) {
+    current = rotateBrushSpec(current, "clockwise") ?? current;
+  }
+  return current;
+}
+
+function orientBrush(brush: TileSpecJson, direction: Dir): TileSpecJson {
+  return rotateBrushSteps(brush, DIR_ORDER.indexOf(direction));
+}
+
+function makeBrushEntry(
   key: string,
+  sectionKey: PaletteSectionKey,
+  tile: TileSpecJson,
   label: string,
-  pieces: ReadonlyArray<
-    "TURN_NE" | "TURN_SE" | "TURN_SW" | "TURN_NW" | "HORIZONTAL" | "VERTICAL" | "SWITCH"
-  >,
-  active: "NE" | "SE" | "SW" | "NW" | "H" | "V",
+  searchText: string,
   order: number,
-): PaletteTileEntry {
-  const tile: TileSpecJson = {
+  allowSecondaryAssign = true,
+): PaletteBrushEntry {
+  return {
+    kind: "brush",
+    key,
+    sectionKey,
+    tile,
+    label,
+    searchText,
+    order,
+    allowSecondaryAssign,
+  };
+}
+
+function makeToolEntry(
+  key: string,
+  sectionKey: PaletteSectionKey,
+  label: string,
+  searchText: string,
+  order: number,
+  previewSpriteCell: Readonly<{ x: number; y: number }>,
+): PaletteToolEntry {
+  return {
+    kind: "tool",
+    key,
+    sectionKey,
+    tool: "wire",
+    previewSpriteCell,
+    label,
+    searchText,
+    order,
+    allowSecondaryAssign: false,
+  };
+}
+
+function makeRailroadEntries(direction: Dir): PaletteBrushEntry[] {
+  const lineBase: TileSpecJson = {
     tile: "RAILROAD_TRACK",
-    modifiers: [
+    modifiers: [{ kind: "TRACKS", pieces: ["VERTICAL"], active: "V", entered: "N" }],
+  };
+  const cornerBase: TileSpecJson = {
+    tile: "RAILROAD_TRACK",
+    modifiers: [{ kind: "TRACKS", pieces: ["TURN_NE"], active: "NE", entered: "N" }],
+  };
+  const switchBrush: TileSpecJson = {
+    tile: "RAILROAD_TRACK",
+    modifiers: [{ kind: "TRACKS", pieces: ["SWITCH"], active: "V", entered: "N" }],
+  };
+
+  return [
+    makeBrushEntry(
+      "RAILROAD_TRACK:line",
+      "terrain",
+      orientBrush(lineBase, direction),
+      "Railroad Track",
+      "railroad track line vertical horizontal",
+      800,
+    ),
+    makeBrushEntry(
+      "RAILROAD_TRACK:corner",
+      "terrain",
+      orientBrush(cornerBase, direction),
+      "Railroad Corner",
+      "railroad track corner",
+      801,
+    ),
+    makeBrushEntry(
+      "RAILROAD_TRACK:switch",
+      "terrain",
+      switchBrush,
+      "Railroad Switch",
+      "railroad switch track",
+      802,
+    ),
+  ];
+}
+
+function makeDirectionalBlockEntries(direction: Dir): PaletteBrushEntry[] {
+  const one = direction;
+  const clockwise = DIR_ORDER[(DIR_ORDER.indexOf(direction) + 1) % DIR_ORDER.length] ?? direction;
+  const opposite = DIR_ORDER[(DIR_ORDER.indexOf(direction) + 2) % DIR_ORDER.length] ?? direction;
+  const counterclockwise =
+    DIR_ORDER[(DIR_ORDER.indexOf(direction) + 3) % DIR_ORDER.length] ?? direction;
+
+  const build = (key: string, label: string, arrows: ReadonlyArray<Dir>, order: number) =>
+    makeBrushEntry(
+      key,
+      "mob",
       {
-        kind: "TRACKS",
-        pieces: [...pieces],
-        active,
-        entered: "N",
+        tile: "DIRECTIONAL_BLOCK",
+        dir: direction,
+        directionalArrows: { arrows: [...arrows] },
+        lower: "FLOOR",
       },
-    ],
-  };
+      label,
+      `${label} directional block ${arrows.join(" ")}`,
+      order,
+    );
 
-  return {
-    key,
-    tile,
-    label,
-    searchText: `${label} railroad railroad track ${pieces.join(" ")}`,
-    order,
-  };
+  return [
+    build("DIRECTIONAL_BLOCK:0", "Directional Block (0 Directions)", [], 9000),
+    build("DIRECTIONAL_BLOCK:1", "Directional Block (1 Direction)", [one], 9001),
+    build("DIRECTIONAL_BLOCK:2-adj", "Directional Block (2 Adjacent)", [one, clockwise], 9002),
+    build("DIRECTIONAL_BLOCK:2-opp", "Directional Block (2 Opposite)", [one, opposite], 9003),
+    build(
+      "DIRECTIONAL_BLOCK:3",
+      "Directional Block (3 Directions)",
+      [one, clockwise, opposite],
+      9004,
+    ),
+    build(
+      "DIRECTIONAL_BLOCK:4",
+      "Directional Block (4 Directions)",
+      [one, clockwise, opposite, counterclockwise],
+      9005,
+    ),
+  ];
 }
 
-function makeDirectionalBlockEntry(
-  key: string,
-  label: string,
-  arrows: ReadonlyArray<"N" | "E" | "S" | "W">,
-  order: number,
-): PaletteTileEntry {
-  const tile: TileSpecJson = {
-    tile: "DIRECTIONAL_BLOCK",
-    dir: "N",
-    directionalArrows: {
-      arrows: [...arrows],
-    },
-    lower: "FLOOR",
-  };
+function makeLogicGateEntries(direction: Dir, counterValue: number): PaletteBrushEntry[] {
+  const gates: ReadonlyArray<LogicGate> = Object.freeze([
+    "INVERTER",
+    "AND",
+    "OR",
+    "XOR",
+    "LATCH_CW",
+    "LATCH_CCW",
+    "NAND",
+    "COUNTER",
+  ]);
 
-  return {
-    key,
-    tile,
-    label,
-    searchText: `${label} directional block ${arrows.join(" ")}`,
-    order,
-  };
+  return gates.map((gate, index) =>
+    makeBrushEntry(
+      `LOGIC_GATE:${gate}`,
+      "terrain",
+      gate === "COUNTER"
+        ? {
+            tile: "LOGIC_GATE",
+            modifiers: [{ kind: "LOGIC", gate, counterValue }],
+          }
+        : {
+            tile: "LOGIC_GATE",
+            modifiers: [{ kind: "LOGIC", gate, facing: direction }],
+          },
+      gate === "COUNTER" ? "Logic Gate (Counter)" : `Logic Gate (${formatTileDisplayName(gate)})`,
+      `logic gate ${gate.toLowerCase()} counter`,
+      803 + index,
+    ),
+  );
 }
 
-const PALETTE_VARIANTS = new Map<string, ReadonlyArray<PaletteTileEntry>>([
-  [
-    "RAILROAD_TRACK",
-    Object.freeze([
-      makeRailroadEntry("RAILROAD_TRACK:vertical", "Railroad Track (N/S)", ["VERTICAL"], "V", 8000),
-      makeRailroadEntry(
-        "RAILROAD_TRACK:corner",
-        "Railroad Track (Corner)",
-        ["TURN_NE"],
-        "NE",
-        8001,
-      ),
-      makeRailroadEntry(
-        "RAILROAD_TRACK:switch",
-        "Railroad Track (Switch)",
-        ["VERTICAL", "TURN_NE", "SWITCH"],
-        "V",
-        8002,
-      ),
-    ]),
-  ],
-  [
-    "DIRECTIONAL_BLOCK",
-    Object.freeze([
-      makeDirectionalBlockEntry(
-        "DIRECTIONAL_BLOCK:0",
-        "Directional Block (0 Directions)",
-        [],
-        9000,
-      ),
-      makeDirectionalBlockEntry(
-        "DIRECTIONAL_BLOCK:1",
-        "Directional Block (1 Direction)",
-        ["N"],
-        9001,
-      ),
-      makeDirectionalBlockEntry(
-        "DIRECTIONAL_BLOCK:2-adj",
-        "Directional Block (2 Adjacent)",
-        ["N", "E"],
-        9002,
-      ),
-      makeDirectionalBlockEntry(
-        "DIRECTIONAL_BLOCK:2-opp",
-        "Directional Block (2 Opposite)",
-        ["N", "S"],
-        9003,
-      ),
-      makeDirectionalBlockEntry(
-        "DIRECTIONAL_BLOCK:3",
-        "Directional Block (3 Directions)",
-        ["N", "E", "S"],
-        9004,
-      ),
-      makeDirectionalBlockEntry(
-        "DIRECTIONAL_BLOCK:4",
-        "Directional Block (4 Directions)",
-        ["N", "E", "S", "W"],
-        9005,
-      ),
-    ]),
-  ],
-]);
+function resolveBasePaletteTile(tileName: string, direction: Dir): TileSpecJson {
+  if (classifyTileLayer(tileName) === "mob") {
+    return orientBrush(createDefaultBrushTileSpec(tileName), direction);
+  }
 
-function terrainSortOrder(tileName: string): number {
-  return TERRAIN_GROUP_ORDER.get(tileName) ?? 10000;
+  return createDefaultBrushTileSpec(tileName);
 }
 
-function makeBaseEntry(tileName: string): PaletteTileEntry {
-  const tile = createDefaultBrushTileSpec(tileName);
-  const label = describeTileSpec(tile) ?? formatTileDisplayName(tileName);
+function makeTemplateEntries(direction: Dir, counterValue: number): PaletteTileEntry[] {
+  return [
+    makeBrushEntry(
+      "ICE_CORNER",
+      "terrain",
+      orientBrush("ICE_CORNER_NE", direction),
+      "Ice Corner",
+      "ice corner",
+      300,
+    ),
+    makeBrushEntry(
+      "FORCE_FLOOR",
+      "terrain",
+      orientBrush("FORCE_N", direction),
+      "Force Floor",
+      "force floor",
+      400,
+    ),
+    makeBrushEntry(
+      "SWIVEL_DOOR",
+      "terrain",
+      orientBrush("SWIVEL_DOOR_NE", direction),
+      "Swivel Door",
+      "swivel door",
+      900,
+    ),
+    makeBrushEntry(
+      "THINWALL_CANOPY",
+      "overlay",
+      orientBrush(
+        {
+          tile: "THINWALL_CANOPY",
+          thinWallCanopy: {
+            walls: ["N"],
+            canopy: false,
+          },
+          lower: "FLOOR",
+        },
+        direction,
+      ),
+      "Thin Wall",
+      "thin wall canopy",
+      40000,
+    ),
+    ...makeRailroadEntries(direction),
+    ...makeLogicGateEntries(direction, counterValue),
+    ...makeDirectionalBlockEntries(direction),
+    makeToolEntry("WIRE_TOOL", "terrain", "Wire Tool", "wire tool spool", 811, { x: 12, y: 26 }),
+  ];
+}
+
+function terrainSortOrder(entryKey: string): number {
+  return TERRAIN_GROUP_ORDER.get(entryKey) ?? 10000;
+}
+
+function itemSortOrder(entryKey: string): number {
+  return ITEM_GROUP_ORDER.get(entryKey) ?? 20000;
+}
+
+function buildBaseEntry(tileName: string, direction: Dir): PaletteBrushEntry {
+  const tile = resolveBasePaletteTile(tileName, direction);
+  const label = formatTileDisplayName(tileName);
   const sectionKey = sectionKeyForTile(tileName);
   const order =
     sectionKey === "terrain"
       ? terrainSortOrder(tileName)
       : sectionKey === "item"
-        ? 20000
+        ? itemSortOrder(tileName)
         : sectionKey === "mob"
           ? 30000
           : 40000;
 
-  return {
-    key: tileName,
+  return makeBrushEntry(
+    tileName,
+    sectionKey,
     tile,
     label,
-    searchText: `${tileName} ${label} ${formatTileDisplayName(tileName)}`,
+    `${tileName} ${label} ${describeTileSpec(tile) ?? ""}`,
     order,
-  };
+  );
 }
 
 function matchesQuery(entry: PaletteTileEntry, query: string): boolean {
@@ -252,7 +454,7 @@ function matchesQuery(entry: PaletteTileEntry, query: string): boolean {
   return entry.searchText.toLowerCase().includes(normalizedQuery);
 }
 
-function sectionKeyForTile(tileName: string): (typeof SECTION_ORDER)[number] {
+function sectionKeyForTile(tileName: string): PaletteSectionKey {
   const layer = classifyTileLayer(tileName);
   if (layer === "item") return "item";
   if (layer === "mob") return "mob";
@@ -260,40 +462,27 @@ function sectionKeyForTile(tileName: string): (typeof SECTION_ORDER)[number] {
   return "terrain";
 }
 
-function buildPaletteEntries(): PaletteTileEntry[] {
-  const entries: PaletteTileEntry[] = [];
+function buildPaletteEntries(direction: Dir, counterValue: number): PaletteTileEntry[] {
+  const entries: PaletteTileEntry[] = [...makeTemplateEntries(direction, counterValue)];
 
   for (const tileName of C2M_PAINTABLE_TILE_NAMES) {
-    if (EXCLUDED_TILE_NAMES.has(tileName)) continue;
-
-    const variants = PALETTE_VARIANTS.get(tileName);
-    if (variants) {
-      entries.push(...variants);
-      continue;
-    }
-
-    entries.push(makeBaseEntry(tileName));
+    if (EXCLUDED_TILE_NAMES.has(tileName) || TEMPLATE_REPLACED_TILE_NAMES.has(tileName)) continue;
+    entries.push(buildBaseEntry(tileName, direction));
   }
 
   return entries;
 }
 
-const ALL_PALETTE_ENTRIES = buildPaletteEntries();
-
 export function getPaletteSections(options: PaletteSectionsOptions): PaletteTileSection[] {
-  const bySection = new Map<(typeof SECTION_ORDER)[number], PaletteTileEntry[]>();
+  const direction = options.globalDirection ?? "N";
+  const counterValue = options.logicCounterValue ?? 0;
+  const bySection = new Map<PaletteSectionKey, PaletteTileEntry[]>();
 
-  for (const entry of ALL_PALETTE_ENTRIES) {
+  for (const entry of buildPaletteEntries(direction, counterValue)) {
     if (!matchesQuery(entry, options.query)) continue;
-
-    const sectionKey = sectionKeyForTile(getTileSpecName(entry.tile));
-    const sectionTiles = bySection.get(sectionKey);
-    if (sectionTiles) {
-      sectionTiles.push(entry);
-      continue;
-    }
-
-    bySection.set(sectionKey, [entry]);
+    const sectionTiles = bySection.get(entry.sectionKey);
+    if (sectionTiles) sectionTiles.push(entry);
+    else bySection.set(entry.sectionKey, [entry]);
   }
 
   return SECTION_ORDER.flatMap((sectionKey) => {

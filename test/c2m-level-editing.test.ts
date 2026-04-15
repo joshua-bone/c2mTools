@@ -8,11 +8,13 @@ import {
   pointToIndex,
 } from "../web/src/editor/boardGeometry.js";
 import {
+  connectWirePoints,
   classifyBrushRole,
   copyMapRegion,
   paintMapCells,
   paintMapLine,
   pasteMapRegion,
+  placeWireNode,
   resolveClipboardPreviewRect,
   resolveEyedropperBrushAtPoint,
   shiftMapWrap,
@@ -241,6 +243,78 @@ describe("c2m level editing", () => {
           ],
         },
       },
+    });
+  });
+
+  it("only applies the railroad switch brush on existing railroad terrain", () => {
+    const plainMap = createMap();
+    const nextPlainMap = paintMapCells(plainMap, [0], {
+      tile: "RAILROAD_TRACK",
+      modifiers: [{ kind: "TRACKS", pieces: ["SWITCH"], active: "V", entered: "N" }],
+    });
+    expect(nextPlainMap).toBe(plainMap);
+
+    const railroadMap = withTile(
+      plainMap,
+      { x: 0, y: 0 },
+      {
+        tile: "RAILROAD_TRACK",
+        modifiers: [{ kind: "TRACKS", pieces: ["VERTICAL"], active: "V", entered: "N" }],
+      },
+    );
+    expect(
+      paintMapCells(railroadMap, [0], {
+        tile: "RAILROAD_TRACK",
+        modifiers: [{ kind: "TRACKS", pieces: ["SWITCH"], active: "H", entered: "E" }],
+      }).tiles[0],
+    ).toEqual({
+      tile: "RAILROAD_TRACK",
+      modifiers: [{ kind: "TRACKS", pieces: ["VERTICAL", "SWITCH"], active: "V", entered: "N" }],
+    });
+  });
+
+  it("stacks thin walls instead of replacing the existing overlay", () => {
+    const map = withTile(
+      createMap(),
+      { x: 1, y: 1 },
+      {
+        tile: "THINWALL_CANOPY",
+        thinWallCanopy: { walls: ["N"], canopy: false },
+        lower: "FLOOR",
+      },
+    );
+
+    expect(
+      paintMapCells(map, [pointToIndex({ x: 1, y: 1 }, map)], {
+        tile: "THINWALL_CANOPY",
+        thinWallCanopy: { walls: ["E"], canopy: false },
+        lower: "FLOOR",
+      }).tiles[pointToIndex({ x: 1, y: 1 }, map)],
+    ).toEqual({
+      tile: "THINWALL_CANOPY",
+      thinWallCanopy: { walls: ["N", "E"], canopy: false },
+      lower: "FLOOR",
+    });
+  });
+
+  it("places and connects explicit wire nodes on wireable terrain", () => {
+    const map = createMap();
+    const withNode = placeWireNode(map, { x: 2, y: 2 });
+    const index = pointToIndex({ x: 2, y: 2 }, map);
+
+    expect(withNode.tiles[index]).toEqual({
+      tile: "FLOOR",
+      modifiers: [{ kind: "WIRES", wires: [], tunnels: [] }],
+    });
+
+    const connected = connectWirePoints(withNode, { x: 2, y: 2 }, { x: 3, y: 2 });
+    expect(connected.tiles[index]).toEqual({
+      tile: "FLOOR",
+      modifiers: [{ kind: "WIRES", wires: ["E"], tunnels: [] }],
+    });
+    expect(connected.tiles[pointToIndex({ x: 3, y: 2 }, map)]).toEqual({
+      tile: "FLOOR",
+      modifiers: [{ kind: "WIRES", wires: ["W"], tunnels: [] }],
     });
   });
 

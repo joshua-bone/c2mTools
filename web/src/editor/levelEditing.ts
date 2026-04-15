@@ -7,7 +7,7 @@ import {
   replaceCellForBrush,
   resolveBrushRole,
 } from "../../../src/c2m/cellStack.js";
-import type { MapJson, TileSpecJson } from "../../../src/c2m/mapCodec.js";
+import type { Dir, MapJson, TileSpecJson, TileSpecObjJson } from "../../../src/c2m/mapCodec.js";
 import {
   clampPoint,
   getLineIndices,
@@ -16,6 +16,7 @@ import {
   type GridPoint,
   type GridRect,
 } from "./boardGeometry.js";
+import { getTileModifier, setTileModifier, tileAllowsWires } from "./cellInspector.js";
 
 export type C2mClipboard = Readonly<{
   width: number;
@@ -37,6 +38,7 @@ const TRACK_PIECE_ORDER = [
   "VERTICAL",
   "SWITCH",
 ] as const;
+const CARDINAL_DIRS: ReadonlyArray<Dir> = Object.freeze(["N", "E", "S", "W"]);
 
 function tilesEqual(a: TileSpecJson, b: TileSpecJson): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -69,14 +71,16 @@ function mergeRailroadTracks(currentTile: TileSpecJson, brush: TileSpecJson): Ti
 
   const pieceSet = new Set([...currentModifier.pieces, ...brushModifier.pieces]);
   const pieces = TRACK_PIECE_ORDER.filter((piece) => pieceSet.has(piece));
+  const isSwitchOnlyBrush =
+    brushModifier.pieces.length === 1 && brushModifier.pieces[0] === "SWITCH";
   const nextTerrain = canonicalizeTileSpec({
     tile: "RAILROAD_TRACK",
     modifiers: [
       {
         kind: "TRACKS",
         pieces: [...pieces],
-        active: brushModifier.active,
-        entered: brushModifier.entered,
+        active: isSwitchOnlyBrush ? currentModifier.active : brushModifier.active,
+        entered: isSwitchOnlyBrush ? currentModifier.entered : brushModifier.entered,
       },
     ],
   });
@@ -84,6 +88,41 @@ function mergeRailroadTracks(currentTile: TileSpecJson, brush: TileSpecJson): Ti
   return buildCellFromLayers({
     ...currentLayers,
     terrain: typeof nextTerrain === "string" ? { tile: nextTerrain } : nextTerrain,
+  });
+}
+
+function isSwitchOnlyRailroadBrush(brush: TileSpecJson): boolean {
+  const layers = flattenCellLayers(brush);
+  if (layers.terrain.tile !== "RAILROAD_TRACK") return false;
+  const modifier = layers.terrain.modifiers?.find((entry) => entry.kind === "TRACKS");
+  return (
+    modifier?.kind === "TRACKS" && modifier.pieces.length === 1 && modifier.pieces[0] === "SWITCH"
+  );
+}
+
+function mergeThinWalls(currentTile: TileSpecJson, brush: TileSpecJson): TileSpecJson | null {
+  const currentLayers = flattenCellLayers(currentTile);
+  const brushLayers = flattenCellLayers(brush);
+  if (!brushLayers.thinWalls || brushLayers.thinWalls.tile !== "THINWALL_CANOPY") return null;
+  if (!currentLayers.thinWalls || currentLayers.thinWalls.tile !== "THINWALL_CANOPY") return null;
+
+  const wallSet = new Set([
+    ...(currentLayers.thinWalls.thinWallCanopy?.walls ?? []),
+    ...(brushLayers.thinWalls.thinWallCanopy?.walls ?? []),
+  ]);
+  const nextThinWalls: TileSpecObjJson = {
+    tile: "THINWALL_CANOPY",
+    thinWallCanopy: {
+      walls: CARDINAL_DIRS.filter((dir) => wallSet.has(dir)),
+      canopy:
+        (currentLayers.thinWalls.thinWallCanopy?.canopy ?? false) ||
+        (brushLayers.thinWalls.thinWallCanopy?.canopy ?? false),
+    },
+  };
+
+  return buildCellFromLayers({
+    ...currentLayers,
+    thinWalls: nextThinWalls,
   });
 }
 
@@ -118,6 +157,21 @@ function applyBrushToTile(tile: TileSpecJson, brush: TileSpecJson): BrushApplica
     return {
       tile: mergedRailroadTile,
       changed: !tilesEqual(tile, mergedRailroadTile),
+    };
+  }
+
+  if (isSwitchOnlyRailroadBrush(brush)) {
+    return {
+      tile,
+      changed: false,
+    };
+  }
+
+  const mergedThinWalls = mergeThinWalls(tile, brush);
+  if (mergedThinWalls) {
+    return {
+      tile: mergedThinWalls,
+      changed: !tilesEqual(tile, mergedThinWalls),
     };
   }
 
@@ -286,4 +340,104 @@ export function shiftMapWrap(map: MapJson, dx: number, dy: number): MapJson {
     height: map.height,
     tiles: nextTiles,
   };
+}
+
+function buildNextCellAtIndex(
+  map: MapJson,
+  index: number,
+  updater: (cell: TileSpecJson) => TileSpecJson,
+): MapJson {
+  const cell = map.tiles[index];
+  if (cell === undefined) return map;
+
+  const nextCell = updater(cell);
+  if (tilesEqual(cell, nextCell)) return map;
+
+  const nextTiles = [...map.tiles];
+  nextTiles[index] = nextCell;
+  return {
+    width: map.width,
+    height: map.height,
+    tiles: nextTiles,
+  };
+}
+
+function withWireModifier(tile: TileSpecObjJson): TileSpecObjJson {
+  const existing = getTileModifier(tile, "WIRES");
+  if (existing) return tile;
+  return setTileModifier(tile, "WIRES", { kind: "WIRES", wires: [], tunnels: [] });
+}
+
+function getWireDirection(from: GridPoint, to: GridPoint): Dir | null {
+  if (to.x === from.x && to.y === from.y - 1) return "N";
+  if (to.x === from.x + 1 && to.y === from.y) return "E";
+  if (to.x === from.x && to.y === from.y + 1) return "S";
+  if (to.x === from.x - 1 && to.y === from.y) return "W";
+  return null;
+}
+
+function oppositeDir(dir: Dir): Dir {
+  return dir === "N" ? "S" : dir === "E" ? "W" : dir === "S" ? "N" : "E";
+}
+
+function sortDirs(dirs: ReadonlyArray<Dir>): Dir[] {
+  const set = new Set(dirs);
+  return CARDINAL_DIRS.filter((dir) => set.has(dir));
+}
+
+function addWireDir(tile: TileSpecObjJson, dir: Dir): TileSpecObjJson {
+  const nextTile = withWireModifier(tile);
+  const modifier = getTileModifier(nextTile, "WIRES");
+  if (!modifier) return nextTile;
+  return setTileModifier(nextTile, "WIRES", {
+    kind: "WIRES",
+    wires: sortDirs([...modifier.wires, dir]),
+    tunnels: [...modifier.tunnels],
+  });
+}
+
+export function canPlaceWireOnCell(cell: TileSpecJson): boolean {
+  return tileAllowsWires(flattenCellLayers(cell).terrain.tile);
+}
+
+export function placeWireNode(map: MapJson, point: GridPoint): MapJson {
+  if (point.x < 0 || point.y < 0 || point.x >= map.width || point.y >= map.height) return map;
+
+  return buildNextCellAtIndex(map, pointToIndex(point, map), (cell) => {
+    const layers = flattenCellLayers(cell);
+    if (!tileAllowsWires(layers.terrain.tile)) return cell;
+
+    return buildCellFromLayers({
+      ...layers,
+      terrain: withWireModifier(layers.terrain),
+    });
+  });
+}
+
+export function connectWirePoints(map: MapJson, from: GridPoint, to: GridPoint): MapJson {
+  const dir = getWireDirection(from, to);
+  if (!dir) return map;
+
+  const firstIndex = pointToIndex(from, map);
+  const secondIndex = pointToIndex(to, map);
+  const firstCell = map.tiles[firstIndex];
+  const secondCell = map.tiles[secondIndex];
+  if (!firstCell || !secondCell) return map;
+  if (!canPlaceWireOnCell(firstCell) || !canPlaceWireOnCell(secondCell)) return map;
+
+  const withFirst = buildNextCellAtIndex(map, firstIndex, (cell) => {
+    const layers = flattenCellLayers(cell);
+    return buildCellFromLayers({
+      ...layers,
+      terrain: addWireDir(layers.terrain, dir),
+    });
+  });
+
+  return buildNextCellAtIndex(withFirst, secondIndex, (cell) => {
+    const layers = flattenCellLayers(cell);
+    return buildCellFromLayers({
+      ...layers,
+      terrain: addWireDir(layers.terrain, oppositeDir(dir)),
+    });
+  });
 }

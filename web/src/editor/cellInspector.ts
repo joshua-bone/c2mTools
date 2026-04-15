@@ -72,6 +72,10 @@ const WIRES_TILE_NAMES = new Set<string>([
   "BLACK_BUTTON",
 ]);
 
+export function tileAllowsWires(tileName: string): boolean {
+  return WIRES_TILE_NAMES.has(tileName);
+}
+
 function stripLower(tile: TileSpecObjJson): TileSpecObjJson {
   const cloned = cloneTileSpec(tile);
   if (typeof cloned === "string") return { tile: cloned };
@@ -145,7 +149,7 @@ export function tileSupportsModifierKind(
 ): boolean {
   switch (kind) {
     case "WIRES":
-      return WIRES_TILE_NAMES.has(tile.tile);
+      return tileAllowsWires(tile.tile);
     case "TRACKS":
       return tile.tile === "RAILROAD_TRACK";
     case "CLONE_ARROWS":
