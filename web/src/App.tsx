@@ -2746,6 +2746,18 @@ export default function App() {
                   onChange={(event) => updateMetadataDraftField("author", event.target.value)}
                 />
               </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">Time</span>
+                <input
+                  className="textField compactField"
+                  type="number"
+                  min={0}
+                  max={65535}
+                  value={metadataDraft.time}
+                  onChange={(event) => updateMetadataDraftField("time", event.target.value)}
+                />
+              </label>
             </div>
 
             <label className="fieldGroup">
@@ -2770,90 +2782,6 @@ export default function App() {
           </fieldset>
         </div>
 
-        <div className="leftPanelSubsection">
-          <div className="leftPanelSubsectionHeader">
-            <div className="sectionEyebrow">Options</div>
-          </div>
-
-          <fieldset className="plainFieldset" disabled={!canMutateBoard}>
-            <div className="formGrid documentOptionsGrid">
-              <label className="fieldGroup">
-                <span className="fieldCaption">Time</span>
-                <input
-                  className="textField compactField"
-                  type="number"
-                  min={0}
-                  max={65535}
-                  value={metadataDraft.time}
-                  onChange={(event) => updateMetadataDraftField("time", event.target.value)}
-                />
-              </label>
-
-              <label className="fieldGroup">
-                <span className="fieldCaption">Read-only Option</span>
-                <select
-                  className="textField compactField"
-                  value={metadataDraft.readOnlyOption}
-                  onChange={(event) =>
-                    updateMetadataDraftField("readOnlyOption", event.target.value)
-                  }
-                >
-                  {readOnlyOptionChoices.map((choice) => (
-                    <option key={choice.value} value={choice.value}>
-                      {choice.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="fieldGroup">
-                <span className="fieldCaption">Hide Logic</span>
-                <select
-                  className="textField compactField"
-                  value={metadataDraft.hideLogic}
-                  onChange={(event) => updateMetadataDraftField("hideLogic", event.target.value)}
-                >
-                  {hideLogicChoices.map((choice) => (
-                    <option key={choice.value} value={choice.value}>
-                      {choice.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="fieldGroup">
-                <span className="fieldCaption">CC1 Boots</span>
-                <select
-                  className="textField compactField"
-                  value={metadataDraft.cc1Boots}
-                  onChange={(event) => updateMetadataDraftField("cc1Boots", event.target.value)}
-                >
-                  {cc1BootsChoices.map((choice) => (
-                    <option key={choice.value} value={choice.value}>
-                      {choice.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="fieldGroup">
-                <span className="fieldCaption">Blob Behavior</span>
-                <select
-                  className="textField compactField"
-                  value={metadataDraft.blobPatterns}
-                  onChange={(event) => updateMetadataDraftField("blobPatterns", event.target.value)}
-                >
-                  {blobPatternChoices.map((choice) => (
-                    <option key={choice.value} value={choice.value}>
-                      {choice.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </fieldset>
-        </div>
-
         <details className="leftPanelSubsection advancedDisclosure">
           <summary className="advancedDisclosureSummary">
             <span className="sectionEyebrow">Advanced</span>
@@ -2861,6 +2789,72 @@ export default function App() {
 
           <div className="advancedDisclosureBody">
             <fieldset className="plainFieldset" disabled={!canMutateBoard}>
+              <div className="formGrid singleColumnFormGrid">
+                <label className="fieldGroup">
+                  <span className="fieldCaption">Read-only Option</span>
+                  <select
+                    className="textField compactField"
+                    value={metadataDraft.readOnlyOption}
+                    onChange={(event) =>
+                      updateMetadataDraftField("readOnlyOption", event.target.value)
+                    }
+                  >
+                    {readOnlyOptionChoices.map((choice) => (
+                      <option key={choice.value} value={choice.value}>
+                        {choice.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="fieldGroup">
+                  <span className="fieldCaption">Hide Logic</span>
+                  <select
+                    className="textField compactField"
+                    value={metadataDraft.hideLogic}
+                    onChange={(event) => updateMetadataDraftField("hideLogic", event.target.value)}
+                  >
+                    {hideLogicChoices.map((choice) => (
+                      <option key={choice.value} value={choice.value}>
+                        {choice.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="fieldGroup">
+                  <span className="fieldCaption">CC1 Boots</span>
+                  <select
+                    className="textField compactField"
+                    value={metadataDraft.cc1Boots}
+                    onChange={(event) => updateMetadataDraftField("cc1Boots", event.target.value)}
+                  >
+                    {cc1BootsChoices.map((choice) => (
+                      <option key={choice.value} value={choice.value}>
+                        {choice.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="fieldGroup">
+                  <span className="fieldCaption">Blob Behavior</span>
+                  <select
+                    className="textField compactField"
+                    value={metadataDraft.blobPatterns}
+                    onChange={(event) =>
+                      updateMetadataDraftField("blobPatterns", event.target.value)
+                    }
+                  >
+                    {blobPatternChoices.map((choice) => (
+                      <option key={choice.value} value={choice.value}>
+                        {choice.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
               <div className="formGrid">
                 <label className="fieldGroup">
                   <span className="fieldCaption">File Version</span>

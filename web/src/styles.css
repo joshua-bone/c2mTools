@@ -1119,7 +1119,7 @@ select.textField.compactField {
   gap: 8px;
 }
 
-.documentOptionsGrid {
+.singleColumnFormGrid {
   grid-template-columns: minmax(0, 1fr);
 }
 
