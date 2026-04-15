@@ -16,7 +16,12 @@ import {
   type GridPoint,
   type GridRect,
 } from "./boardGeometry.js";
-import { getTileModifier, resolveWireableDirections, setTileModifier } from "./cellInspector.js";
+import {
+  getTileModifier,
+  resolveRequiredWireDirections,
+  resolveWireableDirections,
+  setTileModifier,
+} from "./cellInspector.js";
 
 export type C2mClipboard = Readonly<{
   width: number;
@@ -376,8 +381,28 @@ function buildNextCellAtIndex(
 
 function withWireModifier(tile: TileSpecObjJson): TileSpecObjJson {
   const existing = getTileModifier(tile, "WIRES");
-  if (existing) return tile;
-  return setTileModifier(tile, "WIRES", { kind: "WIRES", wires: [], tunnels: [] });
+  const requiredWires = resolveRequiredWireDirections(tile);
+  if (existing) {
+    const wires = sortDirs([...existing.wires, ...requiredWires]);
+    if (
+      wires.length === existing.wires.length &&
+      wires.every((dir, index) => dir === existing.wires[index])
+    ) {
+      return tile;
+    }
+
+    return setTileModifier(tile, "WIRES", {
+      kind: "WIRES",
+      wires,
+      tunnels: [...existing.tunnels],
+    });
+  }
+
+  return setTileModifier(tile, "WIRES", {
+    kind: "WIRES",
+    wires: requiredWires,
+    tunnels: [],
+  });
 }
 
 function getWireDirection(from: GridPoint, to: GridPoint): Dir | null {
@@ -403,7 +428,7 @@ function addWireDir(tile: TileSpecObjJson, dir: Dir): TileSpecObjJson {
   if (!modifier) return nextTile;
   return setTileModifier(nextTile, "WIRES", {
     kind: "WIRES",
-    wires: sortDirs([...modifier.wires, dir]),
+    wires: sortDirs([...modifier.wires, ...resolveRequiredWireDirections(nextTile), dir]),
     tunnels: [...modifier.tunnels],
   });
 }
@@ -468,7 +493,10 @@ function removeWireDir(tile: TileSpecObjJson, dir: Dir): TileSpecObjJson {
   if (!modifier) return tile;
   return setTileModifier(tile, "WIRES", {
     kind: "WIRES",
-    wires: sortDirs(modifier.wires.filter((entry) => entry !== dir)),
+    wires: sortDirs([
+      ...modifier.wires.filter((entry) => entry !== dir),
+      ...resolveRequiredWireDirections(tile),
+    ]),
     tunnels: [...modifier.tunnels],
   });
 }

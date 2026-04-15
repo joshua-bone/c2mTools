@@ -1,6 +1,7 @@
 import { C2M_PAINTABLE_TILE_NAMES, classifyTileLayer } from "../../src/c2m/cellStack.js";
-import type { Dir, LogicGate, TileSpecJson } from "../../src/c2m/mapCodec.js";
+import type { Dir, LogicGate, ModifierJson, TileSpecJson } from "../../src/c2m/mapCodec.js";
 import { DIR_ORDER, rotateBrushSpec } from "./editor/brushTransforms.js";
+import { resolveRequiredWireDirections } from "./editor/cellInspector.js";
 import { createDefaultBrushTileSpec } from "./editor/renderPreview.js";
 import { describeTileSpec, formatTileDisplayName } from "./editor/tileDisplay.js";
 
@@ -88,6 +89,7 @@ const TEMPLATE_REPLACED_TILE_NAMES = new Set([
 
 const TERRAIN_GROUPS: ReadonlyArray<ReadonlyArray<string>> = Object.freeze([
   [
+    "FLOOR",
     "WALL",
     "STEEL_WALL",
     "SOLID_BLUE_WALL",
@@ -339,24 +341,35 @@ function makeLogicGateEntries(direction: Dir, counterValue: number): PaletteBrus
     "COUNTER",
   ]);
 
-  return gates.map((gate, index) =>
-    makeBrushEntry(
+  return gates.map((gate, index) => {
+    const logicModifier: Extract<ModifierJson, { kind: "LOGIC" }> =
+      gate === "COUNTER"
+        ? { kind: "LOGIC", gate, counterValue }
+        : { kind: "LOGIC", gate, facing: direction };
+    const gateTile = {
+      tile: "LOGIC_GATE",
+      modifiers: [
+        {
+          kind: "WIRES",
+          wires: resolveRequiredWireDirections({
+            tile: "LOGIC_GATE",
+            modifiers: [logicModifier],
+          }),
+          tunnels: [],
+        },
+        logicModifier,
+      ],
+    } satisfies TileSpecJson;
+
+    return makeBrushEntry(
       `LOGIC_GATE:${gate}`,
       "terrain",
-      gate === "COUNTER"
-        ? {
-            tile: "LOGIC_GATE",
-            modifiers: [{ kind: "LOGIC", gate, counterValue }],
-          }
-        : {
-            tile: "LOGIC_GATE",
-            modifiers: [{ kind: "LOGIC", gate, facing: direction }],
-          },
+      gateTile,
       gate === "COUNTER" ? "Logic Gate (Counter)" : `Logic Gate (${formatTileDisplayName(gate)})`,
       `logic gate ${gate.toLowerCase()} counter`,
       803 + index,
-    ),
-  );
+    );
+  });
 }
 
 function resolveBasePaletteTile(tileName: string, direction: Dir): TileSpecJson {

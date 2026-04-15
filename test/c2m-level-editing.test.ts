@@ -357,7 +357,33 @@ describe("c2m level editing", () => {
     ).toEqual({
       tile: "LOGIC_GATE",
       modifiers: [
-        { kind: "WIRES", wires: ["E"], tunnels: [] },
+        { kind: "WIRES", wires: ["N", "E", "S"], tunnels: [] },
+        { kind: "LOGIC", gate: "AND", facing: "E" },
+      ],
+    });
+  });
+
+  it("does not remove required logic-gate wires", () => {
+    const map = withTile(
+      createMap(),
+      { x: 2, y: 2 },
+      {
+        tile: "LOGIC_GATE",
+        modifiers: [
+          { kind: "WIRES", wires: ["N", "E", "S"], tunnels: [] },
+          { kind: "LOGIC", gate: "AND", facing: "E" },
+        ],
+      },
+    );
+
+    expect(
+      disconnectWirePoints(map, { x: 2, y: 2 }, { x: 3, y: 2 }).tiles[
+        pointToIndex({ x: 2, y: 2 }, map)
+      ],
+    ).toEqual({
+      tile: "LOGIC_GATE",
+      modifiers: [
+        { kind: "WIRES", wires: ["N", "E", "S"], tunnels: [] },
         { kind: "LOGIC", gate: "AND", facing: "E" },
       ],
     });

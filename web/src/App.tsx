@@ -321,6 +321,7 @@ type WireDragState = Readonly<{
   tool: "wire";
   pointerId: number;
   lastPoint: GridPoint;
+  baseMap: MapJson;
   previewMap: MapJson;
   mode: "add" | "remove";
 }>;
@@ -1179,15 +1180,20 @@ export default function App() {
     [],
   );
 
-  const commitDocumentChange = useCallback((nextDoc: C2mJsonV1) => {
+  const applyDocumentChange = useCallback((nextDoc: C2mJsonV1, commitHistory: boolean) => {
     const nextJsonText = stringifyC2mJsonV1(nextDoc);
     syncedJsonTextRef.current = nextJsonText;
     setHistory((current) =>
       current
-        ? commitHistoryEvent(current, {
-            type: "replace-doc",
-            doc: nextDoc,
-          })
+        ? commitHistory
+          ? commitHistoryEvent(current, {
+              type: "replace-doc",
+              doc: nextDoc,
+            })
+          : {
+              ...current,
+              doc: nextDoc,
+            }
         : createEditorHistory(nextDoc),
     );
     setJsonText(nextJsonText);
@@ -1196,6 +1202,20 @@ export default function App() {
     setParseError(null);
     setRenderError(null);
   }, []);
+
+  const commitDocumentChange = useCallback(
+    (nextDoc: C2mJsonV1) => {
+      applyDocumentChange(nextDoc, true);
+    },
+    [applyDocumentChange],
+  );
+
+  const replaceDocumentChangeLive = useCallback(
+    (nextDoc: C2mJsonV1) => {
+      applyDocumentChange(nextDoc, false);
+    },
+    [applyDocumentChange],
+  );
 
   const commitMapChange = useCallback(
     (nextMap: MapJson): boolean => {
@@ -1209,6 +1229,20 @@ export default function App() {
       return true;
     },
     [commitDocumentChange, doc, jsonOk],
+  );
+
+  const replaceMapChangeLive = useCallback(
+    (nextMap: MapJson): boolean => {
+      if (!doc?.map || !jsonOk) return false;
+      if (nextMap === doc.map) return false;
+
+      replaceDocumentChangeLive({
+        ...doc,
+        map: nextMap,
+      });
+      return true;
+    },
+    [doc, jsonOk, replaceDocumentChangeLive],
   );
 
   const updateMetadataDraftField = useCallback(
@@ -2269,14 +2303,20 @@ export default function App() {
               : disconnectWirePoints(nextPreviewMap, pendingWirePoint, point);
         }
         setPastePreviewActive(false);
+        replaceMapChangeLive(nextPreviewMap);
         setPendingWirePoint(point);
         setTransientMap(nextPreviewMap);
         setDragState({
           tool: "wire",
           pointerId: event.pointerId,
           lastPoint: point,
+          baseMap: map ?? activeMap,
           previewMap: nextPreviewMap,
           mode,
+        });
+        boardStatusStoreRef.current.update({
+          hoverPoint: point,
+          hoverCellSummary: buildHoverCellSummary(nextPreviewMap, point),
         });
         return;
       }
@@ -2344,9 +2384,11 @@ export default function App() {
       clipboard,
       commitMapChange,
       commitPastePreview,
+      map,
       pastePreviewActive,
       resolveBoardCellAtClientPoint,
       resolvePaintBrushForInput,
+      replaceMapChangeLive,
       tool,
       updateHoverAtClientPoint,
       beginBoardPanGesture,
@@ -2458,6 +2500,7 @@ export default function App() {
           }
 
           setPendingWirePoint(point);
+          replaceMapChangeLive(nextPreviewMap);
           setTransientMap(nextPreviewMap);
           setDragState({
             ...dragState,
@@ -2481,6 +2524,7 @@ export default function App() {
       boardRect,
       boardStatus.boardZoom,
       dragState,
+      replaceMapChangeLive,
       resolveBoardCellAtClientPoint,
       updateHoverAtClientPoint,
       viewportSize.height,
@@ -2528,7 +2572,12 @@ export default function App() {
         }
 
         if (dragState.tool === "wire") {
-          commitMapChange(dragState.previewMap);
+          if (doc && dragState.previewMap !== dragState.baseMap) {
+            commitDocumentChange({
+              ...doc,
+              map: dragState.previewMap,
+            });
+          }
           setTransientMap(null);
           setPendingWirePoint(dragState.mode === "add" ? (point ?? dragState.lastPoint) : null);
           setDragState(null);
@@ -2553,6 +2602,8 @@ export default function App() {
       activeMap,
       canMutateBoard,
       commitMapChange,
+      commitDocumentChange,
+      doc,
       dragState,
       map,
       resolveBoardCellAtClientPoint,
@@ -2562,6 +2613,9 @@ export default function App() {
 
   const onBoardPointerCancel = useCallback(() => {
     dragPanRef.current = null;
+    if (dragState?.tool === "wire") {
+      replaceMapChangeLive(dragState.baseMap);
+    }
     setDragState(null);
     setTransientMap(null);
     setPendingWirePoint(null);
@@ -2570,7 +2624,7 @@ export default function App() {
       hoverPoint: null,
       hoverCellSummary: null,
     });
-  }, []);
+  }, [dragState, replaceMapChangeLive]);
 
   const onBoardPointerLeave = useCallback(() => {
     if (dragPanRef.current || dragState) return;
@@ -3857,7 +3911,7 @@ export default function App() {
                               onClick={() => {
                                 if (entry.kind === "tool") {
                                   setLastPaletteAssignmentTarget("primary");
-                                  setTool("wire");
+                                  setTool((current) => (current === "wire" ? "brush" : "wire"));
                                   return;
                                 }
                                 assignPaletteBrush(entry.tile, "primary");

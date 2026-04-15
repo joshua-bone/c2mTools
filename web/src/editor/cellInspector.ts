@@ -95,6 +95,10 @@ function sortDirsUnique(dirs: ReadonlyArray<Dir>): Dir[] {
   return CARDINAL_DIRS.filter((dir) => set.has(dir));
 }
 
+export function resolveRequiredWireDirections(tile: TileSpecObjJson): Dir[] {
+  return tile.tile === "LOGIC_GATE" ? resolveWireableDirections(tile) : [];
+}
+
 export function resolveWireableDirections(tile: TileSpecObjJson): Dir[] {
   if (GENERIC_WIREABLE_TILE_NAMES.has(tile.tile)) {
     return [...CARDINAL_DIRS];

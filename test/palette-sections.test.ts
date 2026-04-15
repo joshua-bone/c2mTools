@@ -77,6 +77,8 @@ describe("palette sections", () => {
         .find((section) => section.key === "terrain")
         ?.tiles.map((tile) => tile.key) ?? [];
 
+    expect(terrainKeys[0]).toBe("FLOOR");
+    expect(terrainKeys[1]).toBe("WALL");
     expect(terrainKeys.indexOf("GREEN_TOGGLE_WALL")).toBe(
       terrainKeys.indexOf("GREEN_TOGGLE_FLOOR") + 1,
     );
@@ -149,7 +151,22 @@ describe("palette sections", () => {
         kind: "brush",
         tile: {
           tile: "LOGIC_GATE",
-          modifiers: [{ kind: "LOGIC", gate: "COUNTER", counterValue: 7 }],
+          modifiers: [
+            { kind: "WIRES", wires: ["N", "E", "S", "W"], tunnels: [] },
+            { kind: "LOGIC", gate: "COUNTER", counterValue: 7 },
+          ],
+        },
+      }),
+    );
+    expect(allEntries.find((entry) => entry.key === "LOGIC_GATE:AND")).toEqual(
+      expect.objectContaining({
+        kind: "brush",
+        tile: {
+          tile: "LOGIC_GATE",
+          modifiers: [
+            { kind: "WIRES", wires: ["N", "E", "S"], tunnels: [] },
+            { kind: "LOGIC", gate: "AND", facing: "E" },
+          ],
         },
       }),
     );

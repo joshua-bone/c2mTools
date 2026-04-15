@@ -4,6 +4,7 @@ import type { MapJson, TileSpecJson } from "../src/c2m/mapCodec.js";
 import { pointToIndex } from "../web/src/editor/boardGeometry.js";
 import { createEmptyC2mDoc } from "../web/src/editor/createEmptyC2mDoc.js";
 import {
+  resolveRequiredWireDirections,
   resolveWireableDirections,
   setTileModifier,
   updateCellLayerAtPoint,
@@ -103,5 +104,23 @@ describe("c2m cell inspector helpers", () => {
         modifiers: [{ kind: "LOGIC", gate: "COUNTER", counterValue: 4 }],
       }),
     ).toEqual(["N", "E", "S", "W"]);
+  });
+
+  it("treats logic-gate connection directions as required wires", () => {
+    expect(
+      resolveRequiredWireDirections({
+        tile: "LOGIC_GATE",
+        modifiers: [{ kind: "LOGIC", gate: "AND", facing: "E" }],
+      }),
+    ).toEqual(["N", "E", "S"]);
+
+    expect(
+      resolveRequiredWireDirections({
+        tile: "LOGIC_GATE",
+        modifiers: [{ kind: "LOGIC", gate: "INVERTER", facing: "S" }],
+      }),
+    ).toEqual(["N", "S"]);
+
+    expect(resolveRequiredWireDirections({ tile: "FLOOR" })).toEqual([]);
   });
 });
