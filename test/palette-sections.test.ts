@@ -6,13 +6,7 @@ describe("palette sections", () => {
   it("groups the shared CC2 tile catalog into terrain, items, mobs, and overlays", () => {
     const sections = getPaletteSections({ query: "" });
 
-    expect(sections.map((section) => section.key)).toEqual([
-      "terrain",
-      "item",
-      "mob",
-      "overlay",
-      "tool",
-    ]);
+    expect(sections.map((section) => section.key)).toEqual(["terrain", "item", "mob", "overlay"]);
     expect(
       sections.find((section) => section.key === "terrain")?.tiles.map((tile) => tile.key),
     ).toContain("WATER");
@@ -28,9 +22,6 @@ describe("palette sections", () => {
     expect(
       sections.find((section) => section.key === "overlay")?.tiles.map((tile) => tile.key),
     ).toContain("NOT_ALLOWED_MARKER");
-    expect(
-      sections.find((section) => section.key === "tool")?.tiles.map((tile) => tile.key),
-    ).toEqual(["WIRE_TOOL"]);
   });
 
   it("filters by both raw tile names and formatted display names", () => {
@@ -97,7 +88,6 @@ describe("palette sections", () => {
     expect(allKeys).toContain("RAILROAD_TRACK:line");
     expect(allKeys).toContain("RAILROAD_TRACK:corner");
     expect(allKeys).toContain("RAILROAD_TRACK:switch");
-    expect(allKeys).toContain("WIRE_TOOL");
     expect(allKeys).toContain("LOGIC_GATE:COUNTER");
     expect(allKeys).toContain("WIRE_TUNNEL");
     expect(allKeys).toContain("ICE_CORNER");

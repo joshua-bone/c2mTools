@@ -273,7 +273,7 @@ type LeftPanelTab = "document" | "controls";
 type BoardMenuId = "file" | "view" | "transform";
 type PaletteAssignmentTarget = "primary" | "secondary";
 
-type ToolMode = EditorToolMode | "wire";
+type ToolMode = EditorToolMode;
 
 type InitialAppState = Readonly<{
   history: C2mEditorHistory | null;
@@ -912,8 +912,7 @@ export default function App() {
     describeTileSpec(secondaryBrush) ?? formatTileDisplayName(getTileSpecName(secondaryBrush));
   const primaryBrushKey = tileSpecKey(primaryBrush);
   const secondaryBrushKey = tileSpecKey(secondaryBrush);
-  const activeToolLabel =
-    tool === "wire" ? "Wire" : (TOOL_SHORTCUTS.find((entry) => entry.id === tool)?.label ?? tool);
+  const activeToolLabel = TOOL_SHORTCUTS.find((entry) => entry.id === tool)?.label ?? tool;
   const preservedSectionTags = doc?.sections?.map((section) => section.tag) ?? [];
   const preservedExtraChunkTags = doc?.extraChunks?.map((section) => section.tag) ?? [];
   const resizeDirty =
@@ -3351,33 +3350,9 @@ export default function App() {
               <div className="sectionHeader">
                 <div>
                   <div className="sectionEyebrow">Controls</div>
-                  <h2 className="sectionTitle">Board Tools</h2>
+                  <h2 className="sectionTitle">Board Commands</h2>
                 </div>
                 <span className="statusBadge">{activeToolLabel}</span>
-              </div>
-
-              <div className="boardControlRow boardToolRow">
-                {TOOL_SHORTCUTS.map((entry) => {
-                  const mutatesBoard =
-                    entry.id === "brush" ||
-                    entry.id === "line" ||
-                    entry.id === "fill" ||
-                    entry.id === "erase";
-
-                  return (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      className={`toolButton ${tool === entry.id ? "active" : ""}`}
-                      disabled={mutatesBoard && !canMutateBoard}
-                      onClick={() => setTool(entry.id)}
-                      title={`${entry.label} (${entry.shortcut})`}
-                    >
-                      <span>{entry.label}</span>
-                      <span className="toolShortcut">{entry.shortcut}</span>
-                    </button>
-                  );
-                })}
               </div>
 
               <div className="boardControlRow boardCommandRow">
@@ -3464,10 +3439,10 @@ export default function App() {
                 Left and right mouse buttons paint using the active palette slots. Hold `Alt` for a
                 temporary eyedropper. Use `,` and `.` to rotate the shared palette direction,
                 railroad pieces, and directional brushes, or cycle decorative wall colors, letter
-                symbols, and logic counters when those brushes are selected. The wire tool is picked
-                from the palette with LMB only. Middle mouse, `Cmd`/`Ctrl` plus drag, or dragging
-                empty board space pans. Arrow keys and `WASD` also move the camera. Mouse wheel
-                zooms the board. Press `F5` to test the current level in NotCC.
+                symbols, and logic counters when those brushes are selected. Press `R` for the wire
+                tool. Middle mouse, `Cmd`/`Ctrl` plus drag, or dragging empty board space pans.
+                Arrow keys and `WASD` also move the camera. Mouse wheel zooms the board. Press `F5`
+                to test the current level in NotCC.
               </div>
             </section>
           ) : null}
@@ -3478,20 +3453,37 @@ export default function App() {
         <section className="panel boardPanel">
           <section className="panelSection">
             <div className="sectionHeader">
-              <div>
+              <div className="boardHeaderBlock">
                 <div className="sectionEyebrow">{viewMode === "board" ? "Board" : "Advanced"}</div>
                 <h2 className="sectionTitle">
                   {viewMode === "board" ? documentTitle : "Raw JSON Workspace"}
                 </h2>
-              </div>
-              <div className="sectionActions">
-                <button
-                  type="button"
-                  className="secondaryButton"
-                  onClick={() => setViewMode(viewMode === "board" ? "json" : "board")}
-                >
-                  {viewMode === "board" ? "Open Raw JSON" : "Return To Board"}
-                </button>
+                {viewMode === "board" ? (
+                  <div className="boardControlRow boardToolRow boardHeaderToolRow">
+                    {TOOL_SHORTCUTS.map((entry) => {
+                      const mutatesBoard =
+                        entry.id === "brush" ||
+                        entry.id === "line" ||
+                        entry.id === "fill" ||
+                        entry.id === "erase" ||
+                        entry.id === "wire";
+
+                      return (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          className={`toolButton ${tool === entry.id ? "active" : ""}`}
+                          disabled={mutatesBoard && !canMutateBoard}
+                          onClick={() => setTool(entry.id)}
+                          title={`${entry.label} (${entry.shortcut})`}
+                        >
+                          <span>{entry.label}</span>
+                          <span className="toolShortcut">{entry.shortcut}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -3862,33 +3854,22 @@ export default function App() {
                       <div className="paletteTileSectionTitle">{section.title}</div>
                       <div className="paletteTileGrid">
                         {section.tiles.map((entry) => {
-                          const entryKey = entry.kind === "brush" ? tileSpecKey(entry.tile) : null;
-                          const isPrimary =
-                            entry.kind === "brush" &&
-                            tool !== "wire" &&
-                            primaryBrushKey === entryKey;
-                          const isSecondary =
-                            entry.kind === "brush" && secondaryBrushKey === entryKey;
-                          const isWireTool = entry.kind === "tool" && tool === "wire";
-
+                          const entryKey = tileSpecKey(entry.tile);
+                          const isPrimary = tool !== "wire" && primaryBrushKey === entryKey;
+                          const isSecondary = secondaryBrushKey === entryKey;
                           return (
                             <button
                               key={entry.key}
                               type="button"
-                              className={`paletteGridItem ${isPrimary || isWireTool ? "selectedPrimary" : ""} ${isSecondary ? "selectedSecondary" : ""} ${isPrimary && isSecondary ? "selectedBoth" : ""}`}
+                              className={`paletteGridItem ${isPrimary ? "selectedPrimary" : ""} ${isSecondary ? "selectedSecondary" : ""} ${isPrimary && isSecondary ? "selectedBoth" : ""}`}
                               title={entry.label}
                               aria-label={entry.label}
                               onClick={() => {
-                                if (entry.kind === "tool") {
-                                  setLastPaletteAssignmentTarget("primary");
-                                  setTool((current) => (current === "wire" ? "brush" : "wire"));
-                                  return;
-                                }
                                 assignPaletteBrush(entry.tile, "primary");
                               }}
                               onContextMenu={(event) => {
                                 event.preventDefault();
-                                if (entry.kind !== "brush" || !entry.allowSecondaryAssign) return;
+                                if (!entry.allowSecondaryAssign) return;
                                 assignPaletteBrush(entry.tile, "secondary");
                               }}
                             >
@@ -3897,11 +3878,9 @@ export default function App() {
                                 className="paletteGridCanvas"
                                 pixelSize={32}
                                 directionArrowMode="palette"
-                                {...(entry.kind === "brush"
-                                  ? { tile: entry.tile }
-                                  : { spriteSheetCell: entry.previewSpriteCell })}
+                                tile={entry.tile}
                               />
-                              {isPrimary || isWireTool ? (
+                              {isPrimary ? (
                                 <span className="paletteGridMarker primary">L</span>
                               ) : null}
                               {isSecondary ? (
@@ -4581,7 +4560,7 @@ export default function App() {
                     <span>Redo</span>
                   </div>
                   <div className="shortcutRow">
-                    <span className="shortcutKey">B L F V E I</span>
+                    <span className="shortcutKey">B L F V E R I</span>
                     <span>Tool switch</span>
                   </div>
                   <div className="shortcutRow">

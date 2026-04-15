@@ -77,6 +77,23 @@ describe("editor shortcuts", () => {
     expect(
       resolveEditorShortcut(
         {
+          key: "r",
+          metaKey: false,
+          ctrlKey: false,
+          shiftKey: false,
+          altKey: false,
+        },
+        {
+          hasSelection: false,
+          hasClipboard: false,
+          pastePreviewActive: false,
+        },
+      ),
+    ).toEqual({ type: "set-tool", tool: "wire" });
+
+    expect(
+      resolveEditorShortcut(
+        {
           key: "i",
           metaKey: false,
           ctrlKey: false,

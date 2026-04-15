@@ -1,4 +1,4 @@
-export type EditorToolMode = "brush" | "line" | "fill" | "select" | "erase" | "eyedropper";
+export type EditorToolMode = "brush" | "line" | "fill" | "select" | "erase" | "wire" | "eyedropper";
 
 export type EditorShortcutCommand =
   | Readonly<{ type: "undo" }>
@@ -36,6 +36,7 @@ export const TOOL_SHORTCUTS: ReadonlyArray<
   { id: "fill", label: "Bucket", shortcut: "F" },
   { id: "select", label: "Select", shortcut: "V" },
   { id: "erase", label: "Erase", shortcut: "E" },
+  { id: "wire", label: "Wire", shortcut: "R" },
   { id: "eyedropper", label: "Eyedropper", shortcut: "I" },
 ]);
 
@@ -78,6 +79,7 @@ export function resolveEditorShortcut(
   if (key === "f") return { type: "set-tool", tool: "fill" };
   if (key === "v") return { type: "set-tool", tool: "select" };
   if (key === "e") return { type: "set-tool", tool: "erase" };
+  if (key === "r") return { type: "set-tool", tool: "wire" };
   if (key === "i") return { type: "set-tool", tool: "eyedropper" };
 
   return null;

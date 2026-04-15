@@ -5,7 +5,7 @@ import { resolveRequiredWireDirections } from "./editor/cellInspector.js";
 import { createDefaultBrushTileSpec } from "./editor/renderPreview.js";
 import { describeTileSpec, formatTileDisplayName } from "./editor/tileDisplay.js";
 
-type PaletteSectionKey = "terrain" | "item" | "mob" | "overlay" | "tool";
+type PaletteSectionKey = "terrain" | "item" | "mob" | "overlay";
 
 export type PaletteBrushEntry = Readonly<{
   kind: "brush";
@@ -18,19 +18,7 @@ export type PaletteBrushEntry = Readonly<{
   allowSecondaryAssign: boolean;
 }>;
 
-export type PaletteToolEntry = Readonly<{
-  kind: "tool";
-  key: string;
-  sectionKey: PaletteSectionKey;
-  tool: "wire";
-  previewSpriteCell: Readonly<{ x: number; y: number }>;
-  label: string;
-  searchText: string;
-  order: number;
-  allowSecondaryAssign: false;
-}>;
-
-export type PaletteTileEntry = PaletteBrushEntry | PaletteToolEntry;
+export type PaletteTileEntry = PaletteBrushEntry;
 
 export type PaletteTileSection = Readonly<{
   key: PaletteSectionKey;
@@ -49,7 +37,6 @@ const SECTION_ORDER: ReadonlyArray<PaletteSectionKey> = Object.freeze([
   "item",
   "mob",
   "overlay",
-  "tool",
 ]);
 
 const SECTION_TITLES: Record<PaletteSectionKey, string> = {
@@ -57,7 +44,6 @@ const SECTION_TITLES: Record<PaletteSectionKey, string> = {
   item: "Items",
   mob: "Creatures",
   overlay: "Overlays",
-  tool: "Tools",
 };
 
 const EXCLUDED_TILE_NAMES = new Set([
@@ -222,27 +208,6 @@ function makeBrushEntry(
     searchText,
     order,
     allowSecondaryAssign,
-  };
-}
-
-function makeToolEntry(
-  key: string,
-  sectionKey: PaletteSectionKey,
-  label: string,
-  searchText: string,
-  order: number,
-  previewSpriteCell: Readonly<{ x: number; y: number }>,
-): PaletteToolEntry {
-  return {
-    kind: "tool",
-    key,
-    sectionKey,
-    tool: "wire",
-    previewSpriteCell,
-    label,
-    searchText,
-    order,
-    allowSecondaryAssign: false,
   };
 }
 
@@ -445,7 +410,6 @@ function makeTemplateEntries(direction: Dir, counterValue: number): PaletteTileE
     ...makeLogicGateEntries(direction, counterValue),
     makeWireTunnelEntry(direction),
     ...makeDirectionalBlockEntries(direction),
-    makeToolEntry("WIRE_TOOL", "tool", "Wire Tool", "wire tool spool", 99999, { x: 12, y: 26 }),
   ];
 }
 
