@@ -5,7 +5,7 @@ Tools for working with Chip’s Challenge 2 `.c2m` files:
 - Convert `.c2m` ⇄ JSON (schema `c2mTools.c2m.json.v1`)
 - Transform levels (rotate/flip) while preserving direction semantics
 - Render levels to PNG
-- [Web app](https://joshua-bone.github.io/c2mTools/): JSON editor + image view + transform buttons
+- [Web app](https://joshua-bone.github.io/c2mTools/): board-first `.c2m` editor with painting, metadata, resize, transforms, and raw JSON access
 
 Deep references:
 
@@ -45,9 +45,11 @@ npm run dev:web
 
 Open the URL Vite prints. The app supports:
 
-- Open/drag `.c2m`
-- Toggle **JSON** / **Image**
-- Apply transforms (rot/flip), with both views updating
+- Create, open, and save `.c2m` files
+- Board-first editing with brush, line, fill, erase, eyedropper, selection, copy/paste, and undo/redo
+- Metadata editing, supported `options.*` editing, bounded resize, and modifier-heavy cell inspection
+- Advanced raw JSON editing with preserved section/chunk fidelity
+- Rotate/flip transforms from the same editor shell
 
 ### 4) Build + run the CLI
 
@@ -81,6 +83,14 @@ npm exec -- c2mtools render fixtures/c2m --tileset assets/cc2/spritesheet.png --
 This repo is configured to deploy the Vite build via GitHub Actions.
 
 See `docs/web-app.md` for exact steps and troubleshooting.
+
+## Web editor notes
+
+- Maps are constrained to `10x10` through `100x100`.
+- Painting terrain replaces the full cell.
+- Painting a non-terrain item replaces only its logical layer.
+- Invalid raw JSON pauses visual editing until the JSON parses again.
+- Unsupported or preservation-sensitive fields still remain accessible through raw JSON.
 
 ## License
 

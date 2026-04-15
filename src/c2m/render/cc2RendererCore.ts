@@ -1,18 +1,11 @@
 // src/c2m/render/cc2RendererCore.ts
 import type { C2mJsonV1 } from "../c2mJsonV1.js";
 import type { MapJson, TileSpecJson, TileSpecObjJson, ModifierJson, Dir } from "../mapCodec.js";
+import { flattenCellLayers } from "../cellStack.js";
 import { createImage, blit, type RgbaImage } from "./rgbaImage.js";
 import { CC2Tileset } from "./cc2Tileset.js";
 
 const T = 32;
-
-type CellLayers = {
-  terrain: TileSpecObjJson;
-  sob?: TileSpecObjJson;
-  noSign?: TileSpecObjJson;
-  mob?: TileSpecObjJson;
-  thinWalls?: TileSpecObjJson;
-};
 
 function toObjTile(t: TileSpecJson): TileSpecObjJson {
   return typeof t === "string" ? { tile: t } : t;
@@ -22,117 +15,6 @@ function getModifier(tile: TileSpecObjJson, kind: ModifierJson["kind"]): Modifie
   const mods = tile.modifiers ?? [];
   for (const m of mods) if (m.kind === kind) return m;
   return undefined;
-}
-
-function isMob(name: string): boolean {
-  return (
-    name === "CHIP" ||
-    name === "MELINDA" ||
-    name === "DIRT_BLOCK" ||
-    name === "WALKER" ||
-    name === "SHIP" ||
-    name === "ICE_BLOCK" ||
-    name === "BLUE_TANK" ||
-    name === "ANT" ||
-    name === "CENTIPEDE" ||
-    name === "PURPLE_BALL" ||
-    name === "BLOB" ||
-    name === "ANGRY_TEETH" ||
-    name === "TIMID_TEETH" ||
-    name === "FIRE_BOX" ||
-    name === "YELLOW_TANK" ||
-    name === "MIRROR_CHIP" ||
-    name === "MIRROR_MELINDA" ||
-    name === "ROVER" ||
-    name === "DIRECTIONAL_BLOCK" ||
-    name === "FLOOR_MIMIC" ||
-    name === "GHOST"
-  );
-}
-
-function isSob(name: string): boolean {
-  return (
-    name === "RED_KEY" ||
-    name === "BLUE_KEY" ||
-    name === "YELLOW_KEY" ||
-    name === "GREEN_KEY" ||
-    name === "IC_CHIP" ||
-    name === "EXTRA_IC_CHIP" ||
-    name === "CLEATS" ||
-    name === "SUCTION_BOOTS" ||
-    name === "FIRE_BOOTS" ||
-    name === "FLIPPERS" ||
-    name === "CHERRY_BOMB" ||
-    name === "TIME_BONUS" ||
-    name === "STOPWATCH" ||
-    name === "TIME_BOMB" ||
-    name === "HELMET" ||
-    name === "HIKING_BOOTS" ||
-    name === "LIGHTNING_BOLT" ||
-    name === "BOWLING_BALL" ||
-    name === "TIME_PENALTY" ||
-    name === "RAILROAD_SIGN" ||
-    name === "FLAG_10" ||
-    name === "FLAG_100" ||
-    name === "FLAG_1000" ||
-    name === "FLAG_2X" ||
-    name === "GREEN_BOMB" ||
-    name === "GREEN_CHIP" ||
-    name === "STEEL_FOIL" ||
-    name === "SECRET_EYE" ||
-    name === "THIEF_BRIBE" ||
-    name === "SPEED_BOOTS" ||
-    name === "HOOK"
-  );
-}
-
-function isThinWalls(name: string): boolean {
-  return name === "THINWALL_CANOPY";
-}
-
-function isNoSign(name: string): boolean {
-  // Your friend uses tile_index 127 as "NoSign" overlay. In our naming that is NOT_ALLOWED_MARKER.
-  return name === "NOT_ALLOWED_MARKER";
-}
-
-function flattenCell(spec: TileSpecJson): CellLayers {
-  let cur: TileSpecJson | undefined = spec;
-  const layers: Partial<CellLayers> = {};
-
-  while (cur) {
-    const obj = toObjTile(cur);
-    const name = obj.tile;
-
-    if (isThinWalls(name)) {
-      layers.thinWalls = obj;
-      cur = obj.lower;
-      continue;
-    }
-
-    if (isNoSign(name)) {
-      layers.noSign = obj;
-      cur = obj.lower;
-      continue;
-    }
-
-    if (isMob(name)) {
-      layers.mob = obj;
-      cur = obj.lower;
-      continue;
-    }
-
-    if (isSob(name)) {
-      layers.sob = obj;
-      cur = obj.lower;
-      continue;
-    }
-
-    layers.terrain = obj;
-    break;
-  }
-
-  if (!layers.terrain) layers.terrain = toObjTile(spec);
-  return layers as CellLayers;
 }
 
 function dirIndex(d: Dir | undefined): 0 | 1 | 2 | 3 {
@@ -622,11 +504,11 @@ export class CC2RendererCore {
         const spec = map.tiles[idx];
         if (spec === undefined) throw new Error(`Missing tile at idx ${idx}`);
 
-        const layers = flattenCell(spec);
+        const layers = flattenCellLayers(spec);
 
         blit(out, renderTerrain(this.tileset, layers.terrain), x * T, y * T);
 
-        if (layers.sob) blit(out, renderSob(this.tileset, layers.sob), x * T, y * T);
+        if (layers.item) blit(out, renderSob(this.tileset, layers.item), x * T, y * T);
         if (layers.noSign) blit(out, renderNoSign(this.tileset), x * T, y * T);
 
         if (layers.mob) {
@@ -635,7 +517,7 @@ export class CC2RendererCore {
           const hideableHidden =
             (layers.mob.tile === "DIRT_BLOCK" || layers.mob.tile === "ICE_BLOCK") &&
             isPlainFloor &&
-            !layers.sob &&
+            !layers.item &&
             !layers.noSign;
 
           blit(out, renderMob(this.tileset, layers.mob, { hideableHidden }), x * T, y * T);

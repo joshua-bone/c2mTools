@@ -415,125 +415,212 @@ function buildOptnPayload(o: NonNullable<C2mJsonV1["options"]>): Uint8Array {
   return ow.toBuffer();
 }
 
+function maybeEncodeText(value: string | undefined): Uint8Array | null {
+  return value === undefined ? null : encodeCp1252(value);
+}
+
+function resolveKnownSectionPayload(
+  doc: C2mJsonV1,
+  tag: string,
+): Readonly<{
+  payload: Uint8Array;
+  usesMap?: boolean;
+  usesReplay?: boolean;
+  packLiteral?: boolean;
+}> | null {
+  switch (tag) {
+    case TAG_FILE_VERSION: {
+      const payload = maybeEncodeText(doc.fileVersion);
+      return payload ? { payload } : null;
+    }
+    case TAG_LOCK: {
+      const payload = maybeEncodeText(doc.lock);
+      return payload ? { payload } : null;
+    }
+    case TAG_TITLE: {
+      const payload = maybeEncodeText(doc.title);
+      return payload ? { payload } : null;
+    }
+    case TAG_AUTHOR: {
+      const payload = maybeEncodeText(doc.author);
+      return payload ? { payload } : null;
+    }
+    case TAG_EDITOR_VERSION: {
+      const payload = maybeEncodeText(doc.editorVersion);
+      return payload ? { payload } : null;
+    }
+    case TAG_CLUE: {
+      const payload = maybeEncodeText(doc.clue);
+      return payload ? { payload } : null;
+    }
+    case TAG_NOTE: {
+      const payload = maybeEncodeText(doc.note);
+      return payload ? { payload } : null;
+    }
+    case TAG_OPTIONS:
+      return doc.options ? { payload: buildOptnPayload(doc.options) } : null;
+    case TAG_PACKED_MAP:
+      return doc.map
+        ? {
+            payload: encodeMapJsonToBytes(doc.map),
+            usesMap: true,
+            packLiteral: true,
+          }
+        : null;
+    case TAG_MAP:
+      return doc.map
+        ? {
+            payload: encodeMapJsonToBytes(doc.map),
+            usesMap: true,
+          }
+        : null;
+    case TAG_KEY:
+      return doc.key ? { payload: fromBase64(doc.key) } : null;
+    case TAG_PACKED_REPLAY:
+      return doc.replay
+        ? {
+            payload: fromBase64(doc.replay),
+            usesReplay: true,
+            packLiteral: true,
+          }
+        : null;
+    case TAG_REPLAY:
+      return doc.replay
+        ? {
+            payload: fromBase64(doc.replay),
+            usesReplay: true,
+          }
+        : null;
+    case TAG_READ_ONLY:
+      return doc.readOnlyChunk ? { payload: new Uint8Array(0) } : null;
+    default:
+      return null;
+  }
+}
+
 function encodeFromSections(doc: C2mJsonV1): Uint8Array {
   const w = new BinaryWriter();
 
-  const mapUnpacked = doc.map ? encodeMapJsonToBytes(doc.map) : undefined;
-  const replayUnpacked = doc.replay ? fromBase64(doc.replay) : undefined;
-
   let usedMap = false;
   let usedReplay = false;
+  const seenKnownTags = new Set<string>();
 
   for (const sec of doc.sections ?? []) {
     const tag = sec.tag;
     const orig = fromBase64(sec.data);
 
-    let payload: Uint8Array = orig;
+    const resolved = resolveKnownSectionPayload(doc, tag);
+    if (resolved) {
+      if (resolved.usesMap) {
+        if (usedMap) {
+          w.writeTag4(tag);
+          w.writeU32LE(orig.length);
+          w.writeBytes(orig);
+          continue;
+        }
+        usedMap = true;
+      }
+      if (resolved.usesReplay) {
+        if (usedReplay) {
+          w.writeTag4(tag);
+          w.writeU32LE(orig.length);
+          w.writeBytes(orig);
+          continue;
+        }
+        usedReplay = true;
+      }
 
-    switch (tag) {
-      case TAG_FILE_VERSION:
-        if (doc.fileVersion !== undefined) {
-          const enc = encodeCp1252(doc.fileVersion);
-          payload = bytesEqual(enc, orig) ? orig : enc;
-        }
-        break;
-      case TAG_LOCK:
-        if (doc.lock !== undefined) {
-          const enc = encodeCp1252(doc.lock);
-          payload = bytesEqual(enc, orig) ? orig : enc;
-        }
-        break;
-      case TAG_TITLE:
-        if (doc.title !== undefined) {
-          const enc = encodeCp1252(doc.title);
-          payload = bytesEqual(enc, orig) ? orig : enc;
-        }
-        break;
-      case TAG_AUTHOR:
-        if (doc.author !== undefined) {
-          const enc = encodeCp1252(doc.author);
-          payload = bytesEqual(enc, orig) ? orig : enc;
-        }
-        break;
-      case TAG_EDITOR_VERSION:
-        if (doc.editorVersion !== undefined) {
-          const enc = encodeCp1252(doc.editorVersion);
-          payload = bytesEqual(enc, orig) ? orig : enc;
-        }
-        break;
-      case TAG_CLUE:
-        if (doc.clue !== undefined) {
-          const enc = encodeCp1252(doc.clue);
-          payload = bytesEqual(enc, orig) ? orig : enc;
-        }
-        break;
-      case TAG_NOTE:
-        if (doc.note !== undefined) {
-          const enc = encodeCp1252(doc.note);
-          payload = bytesEqual(enc, orig) ? orig : enc;
-        }
-        break;
-
-      case TAG_OPTIONS:
-        if (doc.options) {
-          const enc = buildOptnPayload(doc.options);
-          payload = bytesEqual(enc, orig) ? orig : enc;
-        }
-        break;
-
-      case TAG_PACKED_MAP:
-        if (!usedMap && mapUnpacked) {
-          const unpackedOrig = unpackC2mPacked(orig);
-          payload = bytesEqual(unpackedOrig, mapUnpacked) ? orig : packC2mLiteralOnly(mapUnpacked);
-          usedMap = true;
-        }
-        break;
-
-      case TAG_MAP:
-        if (!usedMap && mapUnpacked) {
-          payload = bytesEqual(orig, mapUnpacked) ? orig : mapUnpacked;
-          usedMap = true;
-        }
-        break;
-
-      case TAG_KEY:
-        if (doc.key) {
-          const kb = fromBase64(doc.key);
-          payload = bytesEqual(kb, orig) ? orig : kb;
-        }
-        break;
-
-      case TAG_PACKED_REPLAY:
-        if (!usedReplay && replayUnpacked) {
-          const unpackedOrig = unpackC2mPacked(orig);
-          payload = bytesEqual(unpackedOrig, replayUnpacked)
+      seenKnownTags.add(tag);
+      const payload = resolved.packLiteral
+        ? bytesEqual(unpackC2mPacked(orig), resolved.payload)
+          ? orig
+          : packC2mLiteralOnly(resolved.payload)
+        : tag === TAG_MAP
+          ? bytesEqual(orig, resolved.payload)
             ? orig
-            : packC2mLiteralOnly(replayUnpacked);
-          usedReplay = true;
-        }
-        break;
+            : resolved.payload
+          : tag === TAG_REPLAY
+            ? bytesEqual(orig, resolved.payload)
+              ? orig
+              : resolved.payload
+            : tag === TAG_READ_ONLY
+              ? orig.length === 0
+                ? orig
+                : new Uint8Array(0)
+              : bytesEqual(orig, resolved.payload)
+                ? orig
+                : resolved.payload;
 
-      case TAG_REPLAY:
-        if (!usedReplay && replayUnpacked) {
-          payload = bytesEqual(orig, replayUnpacked) ? orig : replayUnpacked;
-          usedReplay = true;
-        }
-        break;
-
-      case TAG_READ_ONLY:
-        // RDNY must be length 0; preserve original if already empty, otherwise force empty.
-        payload = orig.length === 0 ? orig : new Uint8Array(0);
-        break;
-
-      default:
-        // unknown: preserve exactly
-        payload = orig;
-        break;
+      w.writeTag4(tag);
+      w.writeU32LE(payload.length);
+      w.writeBytes(payload);
+      continue;
     }
+
+    if (
+      tag === TAG_FILE_VERSION ||
+      tag === TAG_LOCK ||
+      tag === TAG_TITLE ||
+      tag === TAG_AUTHOR ||
+      tag === TAG_EDITOR_VERSION ||
+      tag === TAG_CLUE ||
+      tag === TAG_NOTE ||
+      tag === TAG_OPTIONS ||
+      tag === TAG_MAP ||
+      tag === TAG_PACKED_MAP ||
+      tag === TAG_KEY ||
+      tag === TAG_REPLAY ||
+      tag === TAG_PACKED_REPLAY ||
+      tag === TAG_READ_ONLY
+    ) {
+      continue;
+    }
+
+    w.writeTag4(tag);
+    w.writeU32LE(orig.length);
+    w.writeBytes(orig);
+  }
+
+  const appendKnownSection = (tag: string): void => {
+    if (seenKnownTags.has(tag)) return;
+
+    const resolved = resolveKnownSectionPayload(doc, tag);
+    if (!resolved) return;
+
+    if (resolved.usesMap) {
+      if (usedMap) return;
+      usedMap = true;
+    }
+    if (resolved.usesReplay) {
+      if (usedReplay) return;
+      usedReplay = true;
+    }
+
+    const payload = resolved.packLiteral ? packC2mLiteralOnly(resolved.payload) : resolved.payload;
 
     w.writeTag4(tag);
     w.writeU32LE(payload.length);
     w.writeBytes(payload);
+  };
+
+  appendKnownSection(TAG_FILE_VERSION);
+  appendKnownSection(TAG_LOCK);
+  appendKnownSection(TAG_TITLE);
+  appendKnownSection(TAG_AUTHOR);
+  appendKnownSection(TAG_EDITOR_VERSION);
+  appendKnownSection(TAG_CLUE);
+  appendKnownSection(TAG_NOTE);
+  appendKnownSection(TAG_OPTIONS);
+  appendKnownSection(TAG_PACKED_MAP);
+  appendKnownSection(TAG_KEY);
+  appendKnownSection(TAG_PACKED_REPLAY);
+  appendKnownSection(TAG_READ_ONLY);
+
+  if (!usedMap) {
+    appendKnownSection(TAG_MAP);
+  }
+  if (!usedReplay) {
+    appendKnownSection(TAG_REPLAY);
   }
 
   w.writeTag4(TAG_END);

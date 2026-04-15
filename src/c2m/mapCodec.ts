@@ -335,6 +335,10 @@ const TILE_NAME_BY_ID = new Map<number, string>([
 const TILE_ID_BY_NAME = new Map<string, number>();
 for (const [id, name] of TILE_NAME_BY_ID.entries()) TILE_ID_BY_NAME.set(name, id);
 
+export const KNOWN_CC2_TILE_NAMES: ReadonlyArray<string> = Object.freeze(
+  [...TILE_NAME_BY_ID.values()].filter((name) => !name.startsWith("MODIFIER_")),
+);
+
 function assertU8(v: number, label: string): void {
   if (!Number.isInteger(v) || v < 0 || v > 0xff) throw new Error(`${label} must be u8, got ${v}`);
 }
