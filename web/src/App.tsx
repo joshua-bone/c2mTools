@@ -281,7 +281,7 @@ const BLOB_PATTERN_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
   { value: "2", label: "Extra random" },
 ]);
 
-type InspectorTab = "palette" | "inspect" | "advanced";
+type InspectorTab = "palette" | "inspect";
 type LeftPanelTab = "document" | "controls";
 type BoardMenuId = "file" | "view" | "transform";
 type PaletteAssignmentTarget = "primary" | "secondary";
@@ -511,13 +511,9 @@ function formatTrackPieceLabel(piece: TrackPiece): string {
   }
 }
 
-function describeBlobPresence(present: boolean): string {
-  return present ? "Present" : "Absent";
-}
-
 function describeHoverSummary(summary: HoverCellSummary | null): string {
   if (!summary) {
-    return "Hover a cell to inspect its stack. Selection pins the active cell for modifier edits.";
+    return "";
   }
 
   const layerSummary = summary.layers
@@ -3450,8 +3446,6 @@ export default function App() {
                     spellCheck={false}
                     onChange={(event) => setFileName(event.target.value)}
                   />
-                  <span className="statusBadge">{viewMode === "board" ? "Board" : "Raw JSON"}</span>
-                  <span className="statusBadge">{jsonOk ? "Valid" : "Needs fix"}</span>
                 </div>
               </div>
             </div>
@@ -3644,7 +3638,6 @@ export default function App() {
                   <div className="sectionEyebrow">Document</div>
                   <h2 className="sectionTitle">{documentTitle}</h2>
                 </div>
-                <span className="statusBadge">{doc ? "Loaded" : "Empty"}</span>
               </div>
 
               <div className="boardControlRow boardCommandRow">
@@ -3839,11 +3832,13 @@ export default function App() {
               ) : null}
             </div>
 
-            <div className="hoverSummary">
-              {viewMode === "board"
-                ? hoverSummaryText
-                : "Invalid raw JSON edits stay local until they parse successfully again."}
-            </div>
+            {viewMode === "json" || hoverSummaryText ? (
+              <div className="hoverSummary">
+                {viewMode === "board"
+                  ? hoverSummaryText
+                  : "Invalid raw JSON edits stay local until they parse successfully again."}
+              </div>
+            ) : null}
           </section>
 
           {visualEditLockReason && doc && viewMode === "board" ? (
@@ -4106,15 +4101,10 @@ export default function App() {
         <div className="panelSplitter" aria-hidden="true" />
 
         <aside className="panel inspectorPanel">
-          <div
-            className="inspectorTabs inspectorTabsTri"
-            role="tablist"
-            aria-label="Inspector tabs"
-          >
+          <div className="inspectorTabs" role="tablist" aria-label="Inspector tabs">
             {[
               ["palette", "Palette"],
               ["inspect", "Inspect"],
-              ["advanced", "Advanced"],
             ].map(([id, label]) => (
               <button
                 key={id}
@@ -4925,59 +4915,6 @@ export default function App() {
                     <span>Clear selection / cancel paste</span>
                   </div>
                 </div>
-              </div>
-            </div>
-          ) : null}
-
-          {inspectorTab === "advanced" ? (
-            <div className="inspectorTabBody">
-              <div className="inspectorSection">
-                <div className="inspectorSectionTitle">Raw JSON</div>
-                <div className="panelSubtext">
-                  The full raw document editor is still available as its own workspace so large
-                  `sections[]` and manual chunk edits are not cramped into the inspector.
-                </div>
-                <div className="sectionActions">
-                  <button type="button" onClick={() => setViewMode("json")}>
-                    Open Raw JSON
-                  </button>
-                </div>
-              </div>
-
-              <div className="inspectorSection">
-                <div className="inspectorSectionTitle">Binary Payloads</div>
-                {doc ? (
-                  <>
-                    <div className="inspectorLayerRow">
-                      <span className="inspectorLayerLabel">Key Blob</span>
-                      <span className="inspectorLayerValue">
-                        {describeBlobPresence(doc.key !== undefined)}
-                      </span>
-                    </div>
-                    <div className="inspectorLayerRow">
-                      <span className="inspectorLayerLabel">Replay Blob</span>
-                      <span className="inspectorLayerValue">
-                        {describeBlobPresence(doc.replay !== undefined)}
-                      </span>
-                    </div>
-                    <div className="inspectorLayerRow">
-                      <span className="inspectorLayerLabel">Replay Hash</span>
-                      <span className="inspectorLayerValue">
-                        {describeBlobPresence(doc.options?.replayHash !== undefined)}
-                      </span>
-                    </div>
-                    <div className="inspectorLayerRow">
-                      <span className="inspectorLayerLabel">Options Extra</span>
-                      <span className="inspectorLayerValue">
-                        {describeBlobPresence(doc.options?.extra !== undefined)}
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="emptyPanelState">
-                    Open a document to inspect preserved binary payloads.
-                  </div>
-                )}
               </div>
             </div>
           ) : null}
