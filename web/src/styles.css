@@ -390,6 +390,10 @@ canvas {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.inspectorTabsTri {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .inspectorTab {
   min-height: 30px;
   border-radius: 7px;
@@ -559,9 +563,48 @@ canvas {
   border-top: 1px solid rgba(57, 75, 66, 0.08);
 }
 
-.boardShiftArrow {
+.boardEdgeControlGroup {
   position: absolute;
   z-index: 3;
+  display: flex;
+  gap: 6px;
+}
+
+.boardEdgeControlGroup.north,
+.boardEdgeControlGroup.south {
+  flex-direction: row;
+}
+
+.boardEdgeControlGroup.west,
+.boardEdgeControlGroup.east {
+  flex-direction: column;
+}
+
+.boardEdgeControlGroup.north {
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, calc(-100% - 6px));
+}
+
+.boardEdgeControlGroup.south {
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 6px);
+}
+
+.boardEdgeControlGroup.west {
+  left: 0;
+  top: 50%;
+  transform: translate(calc(-100% - 6px), -50%);
+}
+
+.boardEdgeControlGroup.east {
+  left: 100%;
+  top: 50%;
+  transform: translate(6px, -50%);
+}
+
+.boardEdgeButton {
   width: 28px;
   height: 28px;
   padding: 0;
@@ -570,42 +613,35 @@ canvas {
   border-radius: 999px;
   background: rgba(251, 253, 254, 0.9);
   box-shadow: 0 6px 16px rgba(44, 60, 71, 0.18);
-  transform: var(--board-shift-arrow-transform);
+  color: var(--accent-strong);
 }
 
-.boardShiftArrow:hover:not(:disabled) {
-  transform: var(--board-shift-arrow-transform);
+.boardEdgeButton:hover:not(:disabled) {
   box-shadow: 0 8px 18px rgba(44, 60, 71, 0.22);
 }
 
-.boardShiftArrow svg {
+.boardResizeEdgeButton {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.boardWrapEdgeButton svg {
   width: 13px;
   height: 13px;
   fill: var(--accent-strong);
 }
 
-.boardShiftArrow.north {
-  left: 50%;
-  top: 0;
-  --board-shift-arrow-transform: translate(-50%, calc(-100% - 6px));
+.boardWrapEdgeButton.south svg {
+  transform: rotate(180deg);
 }
 
-.boardShiftArrow.south {
-  left: 50%;
-  top: 100%;
-  --board-shift-arrow-transform: translate(-50%, 6px) rotate(180deg);
+.boardWrapEdgeButton.west svg {
+  transform: rotate(-90deg);
 }
 
-.boardShiftArrow.west {
-  left: 0;
-  top: 50%;
-  --board-shift-arrow-transform: translate(calc(-100% - 6px), -50%) rotate(-90deg);
-}
-
-.boardShiftArrow.east {
-  left: 100%;
-  top: 50%;
-  --board-shift-arrow-transform: translate(6px, -50%) rotate(90deg);
+.boardWrapEdgeButton.east svg {
+  transform: rotate(90deg);
 }
 
 .boardTransformButton {
@@ -900,6 +936,18 @@ canvas {
   gap: 8px;
 }
 
+.inspectorLayerList .inspectorLayerRow {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.inspectorLayerList .inspectorLayerValue {
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .inspectorLayerRow {
   display: flex;
   justify-content: space-between;
@@ -947,6 +995,10 @@ canvas {
   font-size: 13px;
   line-height: 1.45;
   color: #6f2e22;
+}
+
+.documentInlineError {
+  margin: 10px 0 0;
 }
 
 .mutedPanelNotice {
@@ -1119,7 +1171,8 @@ textarea {
   .activeTileStrip,
   .formGrid,
   .twoColumnFormGrid,
-  .inspectorTabsQuad {
+  .inspectorTabsQuad,
+  .inspectorTabsTri {
     grid-template-columns: 1fr;
   }
 

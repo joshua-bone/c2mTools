@@ -391,7 +391,7 @@ function makeTemplateEntries(direction: Dir, counterValue: number): PaletteTileE
       orientBrush("SWIVEL_DOOR_NE", direction),
       "Swivel Door",
       "swivel door",
-      900,
+      TERRAIN_GROUP_ORDER.get("SWIVEL_DOOR") ?? 908,
     ),
     makeBrushEntry(
       "THINWALL_CANOPY",

@@ -35,7 +35,7 @@ import { getSharedCc2CanvasCellCache } from "./cc2CanvasCache";
 import { drawCc2CellsToContext, drawCc2MapToCanvas } from "./canvasMapRenderer";
 import { resolveBoardMapRedrawPlan, resolveChangedMapCellIndices } from "./boardRenderInvalidation";
 import { TilePreview } from "./TilePreview";
-import { createEmptyC2mDoc } from "./editor/createEmptyC2mDoc";
+import { MAX_C2M_MAP_SIZE, MIN_C2M_MAP_SIZE, createEmptyC2mDoc } from "./editor/createEmptyC2mDoc";
 import {
   CARDINAL_DIRS,
   CUSTOM_STYLE_VALUES,
@@ -95,11 +95,14 @@ import {
   type C2mMetadataDraft,
 } from "./editor/metadataDraft";
 import {
+  canResizeMapEdge,
   makeMapResizeDraft,
   parseMapResizeDraft,
   resizeDraftEquals,
   resizeMap,
+  resizeMapEdge,
   type MapResizeDraft,
+  type ResizeEdge,
   type ResizeAnchor,
 } from "./editor/mapResize";
 import { createDefaultBrushTileSpec } from "./editor/renderPreview";
@@ -138,6 +141,7 @@ const DOCUMENT_PERSIST_DEBOUNCE_MS = 300;
 const MIN_BOARD_ZOOM = 0.35;
 const MAX_BOARD_ZOOM = 6;
 const ZOOM_STEP = 1.15;
+const KEYBOARD_PAN_SPEED = 520;
 const MAX_PARTIAL_REDRAW_CELLS = 1024;
 const PARTIAL_REDRAW_RATIO = 0.2;
 const ERASER_BRUSH: TileSpecJson = "FLOOR";
@@ -154,11 +158,43 @@ const TRANSFORMS: Array<{ label: string; op: LevelTransformKind }> = [
   { label: "Flip NE/SW", op: "FLIP_DIAG_NESW" },
 ];
 
-const LEVEL_SHIFT_ARROWS = [
-  { direction: "north", dx: 0, dy: -1, label: "Shift map north" },
-  { direction: "south", dx: 0, dy: 1, label: "Shift map south" },
-  { direction: "west", dx: -1, dy: 0, label: "Shift map west" },
-  { direction: "east", dx: 1, dy: 0, label: "Shift map east" },
+const LEVEL_EDGE_CONTROLS = [
+  {
+    direction: "north",
+    dx: 0,
+    dy: -1,
+    edge: "N",
+    wrapLabel: "Shift map north",
+    growLabel: "Add row at the north edge",
+    shrinkLabel: "Remove row from the north edge",
+  },
+  {
+    direction: "south",
+    dx: 0,
+    dy: 1,
+    edge: "S",
+    wrapLabel: "Shift map south",
+    growLabel: "Add row at the south edge",
+    shrinkLabel: "Remove row from the south edge",
+  },
+  {
+    direction: "west",
+    dx: -1,
+    dy: 0,
+    edge: "W",
+    wrapLabel: "Shift map west",
+    growLabel: "Add column at the west edge",
+    shrinkLabel: "Remove column from the west edge",
+  },
+  {
+    direction: "east",
+    dx: 1,
+    dy: 0,
+    edge: "E",
+    wrapLabel: "Shift map east",
+    growLabel: "Add column at the east edge",
+    shrinkLabel: "Remove column from the east edge",
+  },
 ] as const;
 
 const BOARD_TRANSFORM_BUTTONS: ReadonlyArray<
@@ -196,7 +232,7 @@ const RESIZE_ANCHORS: ReadonlyArray<ResizeAnchor> = Object.freeze([
   "SE",
 ]);
 
-type InspectorTab = "palette" | "inspect" | "metadata" | "advanced";
+type InspectorTab = "palette" | "inspect" | "advanced";
 type LeftPanelTab = "document" | "controls";
 type BoardMenuId = "file" | "view" | "transform";
 type PaletteAssignmentTarget = "primary" | "secondary";
@@ -305,6 +341,19 @@ function isBoardPanGesture(event: Pick<PointerEvent, "button" | "metaKey" | "ctr
 
 function isSupportedBoardToolButton(button: number): button is 0 | 2 {
   return button === 0 || button === 2;
+}
+
+function isKeyboardPanKey(key: string): boolean {
+  return (
+    key === "w" ||
+    key === "a" ||
+    key === "s" ||
+    key === "d" ||
+    key === "arrowup" ||
+    key === "arrowdown" ||
+    key === "arrowleft" ||
+    key === "arrowright"
+  );
 }
 
 function resolveRectScreenRect(
@@ -633,6 +682,9 @@ export default function App() {
   const boardViewportRef = useRef<HTMLDivElement>(null);
   const boardStatusStoreRef = useRef(createBoardEditorStatusStore());
   const dragPanRef = useRef<DragPanState | null>(null);
+  const keyboardPanKeysRef = useRef<Set<string>>(new Set());
+  const keyboardPanFrameRef = useRef<number | null>(null);
+  const keyboardPanLastTimeRef = useRef<number | null>(null);
   const sessionPersistTimeoutRef = useRef<number | null>(null);
   const lastRenderedMapRef = useRef<MapJson | null>(null);
   const lastRenderedTilesetRef = useRef<CC2Tileset | null>(null);
@@ -817,8 +869,41 @@ export default function App() {
   const hoverSummaryText = describeHoverSummary(boardStatus.hoverCellSummary);
   const displayFileName = fileName ?? DEFAULT_C2M_FILE_NAME;
 
+  const clearKeyboardPan = useCallback(() => {
+    keyboardPanKeysRef.current.clear();
+    if (keyboardPanFrameRef.current !== null) {
+      cancelAnimationFrame(keyboardPanFrameRef.current);
+      keyboardPanFrameRef.current = null;
+    }
+    keyboardPanLastTimeRef.current = null;
+  }, []);
+
+  const beginBoardPanGesture = useCallback(
+    (
+      target: Pick<HTMLElement, "setPointerCapture">,
+      pointerId: number,
+      clientX: number,
+      clientY: number,
+    ) => {
+      target.setPointerCapture(pointerId);
+      dragPanRef.current = {
+        pointerId,
+        startClientX: clientX,
+        startClientY: clientY,
+        originPan: boardStatusStoreRef.current.getSnapshot().boardPan,
+      };
+      boardStatusStoreRef.current.update({
+        isPanning: true,
+        hoverPoint: null,
+        hoverCellSummary: null,
+      });
+    },
+    [],
+  );
+
   const resetBoardTransientState = useCallback(
     (options: Readonly<{ clearSelection?: boolean; resetView?: boolean }> = {}) => {
+      clearKeyboardPan();
       dragPanRef.current = null;
       setDragState(null);
       setTransientMap(null);
@@ -835,7 +920,7 @@ export default function App() {
         isPanning: false,
       });
     },
-    [],
+    [clearKeyboardPan],
   );
 
   useEffect(() => {
@@ -858,6 +943,90 @@ export default function App() {
       window.removeEventListener("blur", onBlur);
     };
   }, []);
+
+  useEffect(() => {
+    if (viewMode !== "board" || !activeMap) {
+      clearKeyboardPan();
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableShortcutTarget(event.target)) return;
+      const key = event.key.toLowerCase();
+      if (!isKeyboardPanKey(key)) return;
+
+      event.preventDefault();
+      keyboardPanKeysRef.current.add(key);
+      if (keyboardPanFrameRef.current !== null) return;
+
+      keyboardPanLastTimeRef.current = null;
+      keyboardPanFrameRef.current = requestAnimationFrame(function tick(timestamp) {
+        const pressedKeys = keyboardPanKeysRef.current;
+        if (pressedKeys.size === 0) {
+          keyboardPanFrameRef.current = null;
+          keyboardPanLastTimeRef.current = null;
+          return;
+        }
+
+        const lastTimestamp = keyboardPanLastTimeRef.current ?? timestamp;
+        const deltaSeconds = Math.max(0, (timestamp - lastTimestamp) / 1000);
+        keyboardPanLastTimeRef.current = timestamp;
+
+        let velocityX = 0;
+        let velocityY = 0;
+
+        if (pressedKeys.has("a") || pressedKeys.has("arrowleft")) velocityX += 1;
+        if (pressedKeys.has("d") || pressedKeys.has("arrowright")) velocityX -= 1;
+        if (pressedKeys.has("w") || pressedKeys.has("arrowup")) velocityY += 1;
+        if (pressedKeys.has("s") || pressedKeys.has("arrowdown")) velocityY -= 1;
+
+        const magnitude = Math.hypot(velocityX, velocityY);
+        if (magnitude > 0) {
+          const distance = KEYBOARD_PAN_SPEED * deltaSeconds;
+          const stepX = (velocityX / magnitude) * distance;
+          const stepY = (velocityY / magnitude) * distance;
+          const snapshot = boardStatusStoreRef.current.getSnapshot();
+          boardStatusStoreRef.current.update({
+            boardPan: clampBoardPan({
+              boardPixelWidth,
+              boardPixelHeight,
+              boardPan: {
+                x: snapshot.boardPan.x + stepX,
+                y: snapshot.boardPan.y + stepY,
+              },
+              boardZoom: snapshot.boardZoom,
+              viewportWidth: viewportSize.width,
+              viewportHeight: viewportSize.height,
+            }),
+          });
+        }
+
+        keyboardPanFrameRef.current = requestAnimationFrame(tick);
+      });
+    };
+
+    const onKeyUp = (event: KeyboardEvent) => {
+      keyboardPanKeysRef.current.delete(event.key.toLowerCase());
+    };
+
+    window.addEventListener("blur", clearKeyboardPan);
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("keyup", onKeyUp);
+    return () => {
+      clearKeyboardPan();
+      window.removeEventListener("blur", clearKeyboardPan);
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("keyup", onKeyUp);
+    };
+  }, [
+    activeMap,
+    boardPixelHeight,
+    boardPixelWidth,
+    clearKeyboardPan,
+    viewMode,
+    viewportSize.height,
+    viewportSize.width,
+  ]);
 
   useEffect(() => {
     if (tool !== "wire") {
@@ -1273,6 +1442,20 @@ export default function App() {
       if (!map || !canMutateBoard) return;
       resetBoardTransientState();
       commitMapChange(shiftMapWrap(map, dx, dy));
+    },
+    [canMutateBoard, commitMapChange, map, resetBoardTransientState],
+  );
+
+  const resizeActiveMapEdge = useCallback(
+    (edge: ResizeEdge, delta: -1 | 1) => {
+      if (!map || !canMutateBoard || !canResizeMapEdge(map, edge, delta)) return;
+      resetBoardTransientState();
+      commitMapChange(
+        resizeMapEdge(map, {
+          edge,
+          delta,
+        }),
+      );
     },
     [canMutateBoard, commitMapChange, map, resetBoardTransientState],
   );
@@ -1806,17 +1989,7 @@ export default function App() {
 
       if (isBoardPanGesture(event.nativeEvent)) {
         event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
-        dragPanRef.current = {
-          pointerId: event.pointerId,
-          startClientX: event.clientX,
-          startClientY: event.clientY,
-          originPan: boardStatus.boardPan,
-        };
-        boardStatusStoreRef.current.update({
-          isPanning: true,
-        });
-        updateHoverAtClientPoint(event.clientX, event.clientY);
+        beginBoardPanGesture(event.currentTarget, event.pointerId, event.clientX, event.clientY);
         return;
       }
 
@@ -1827,7 +2000,13 @@ export default function App() {
         hoverPoint: point,
         hoverCellSummary: buildHoverCellSummary(activeMap, point),
       });
-      if (!point) return;
+      if (!point) {
+        if (event.button === 0) {
+          event.preventDefault();
+          beginBoardPanGesture(event.currentTarget, event.pointerId, event.clientX, event.clientY);
+        }
+        return;
+      }
 
       if (event.altKey || tool === "eyedropper") {
         event.preventDefault();
@@ -1940,6 +2119,7 @@ export default function App() {
       resolvePaintBrushForInput,
       tool,
       updateHoverAtClientPoint,
+      beginBoardPanGesture,
     ],
   );
 
@@ -2248,6 +2428,320 @@ export default function App() {
     ],
   );
 
+  const documentMetadataPanel =
+    doc && metadataDraft ? (
+      <>
+        <div className="leftPanelSubsection">
+          <div className="leftPanelSubsectionHeader">
+            <div className="sectionEyebrow">Metadata</div>
+            <div className="sectionActions">
+              <button
+                type="button"
+                className="secondaryButton"
+                onClick={() => setMetadataDraft(makeMetadataDraft(doc))}
+                disabled={!metadataDirty}
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                className="secondaryButton"
+                onClick={() => applyMetadataDraftChanges()}
+                disabled={!metadataDirty}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+
+          {visualEditLockReason ? (
+            <div className="panelSubtext mutedPanelNotice">{visualEditLockReason}</div>
+          ) : null}
+          {metadataError ? (
+            <div className="panelInlineError documentInlineError">{metadataError}</div>
+          ) : null}
+
+          <fieldset className="plainFieldset" disabled={!canMutateBoard}>
+            <div className="formGrid">
+              <label className="fieldGroup">
+                <span className="fieldCaption">Title</span>
+                <input
+                  className="textField compactField"
+                  type="text"
+                  value={metadataDraft.title}
+                  onChange={(event) => updateMetadataDraftField("title", event.target.value)}
+                />
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">Author</span>
+                <input
+                  className="textField compactField"
+                  type="text"
+                  value={metadataDraft.author}
+                  onChange={(event) => updateMetadataDraftField("author", event.target.value)}
+                />
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">Editor Version</span>
+                <input
+                  className="textField compactField"
+                  type="text"
+                  value={metadataDraft.editorVersion}
+                  onChange={(event) =>
+                    updateMetadataDraftField("editorVersion", event.target.value)
+                  }
+                />
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">Lock</span>
+                <input
+                  className="textField compactField"
+                  type="text"
+                  value={metadataDraft.lock}
+                  onChange={(event) => updateMetadataDraftField("lock", event.target.value)}
+                />
+              </label>
+            </div>
+
+            <label className="fieldGroup">
+              <span className="fieldCaption">Clue</span>
+              <textarea
+                className="textField inspectorTextArea"
+                rows={3}
+                value={metadataDraft.clue}
+                onChange={(event) => updateMetadataDraftField("clue", event.target.value)}
+              />
+            </label>
+
+            <label className="fieldGroup">
+              <span className="fieldCaption">Note</span>
+              <textarea
+                className="textField inspectorTextArea"
+                rows={4}
+                value={metadataDraft.note}
+                onChange={(event) => updateMetadataDraftField("note", event.target.value)}
+              />
+            </label>
+
+            <label className="checkboxRow">
+              <input
+                type="checkbox"
+                checked={metadataDraft.readOnlyChunk}
+                onChange={(event) =>
+                  updateMetadataDraftField("readOnlyChunk", event.target.checked)
+                }
+              />
+              <span>Emit `RDNY` read-only chunk</span>
+            </label>
+          </fieldset>
+        </div>
+
+        <div className="leftPanelSubsection">
+          <div className="leftPanelSubsectionHeader">
+            <div className="sectionEyebrow">Options</div>
+          </div>
+
+          <fieldset className="plainFieldset" disabled={!canMutateBoard}>
+            <div className="formGrid">
+              <label className="fieldGroup">
+                <span className="fieldCaption">time</span>
+                <input
+                  className="textField compactField"
+                  type="number"
+                  min={0}
+                  max={65535}
+                  value={metadataDraft.time}
+                  onChange={(event) => updateMetadataDraftField("time", event.target.value)}
+                />
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">editorWindow</span>
+                <input
+                  className="textField compactField"
+                  type="number"
+                  min={0}
+                  max={255}
+                  value={metadataDraft.editorWindow}
+                  onChange={(event) => updateMetadataDraftField("editorWindow", event.target.value)}
+                />
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">verifiedReplay</span>
+                <input
+                  className="textField compactField"
+                  type="number"
+                  min={0}
+                  max={255}
+                  value={metadataDraft.verifiedReplay}
+                  onChange={(event) =>
+                    updateMetadataDraftField("verifiedReplay", event.target.value)
+                  }
+                />
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">hideMap</span>
+                <input
+                  className="textField compactField"
+                  type="number"
+                  min={0}
+                  max={255}
+                  value={metadataDraft.hideMap}
+                  onChange={(event) => updateMetadataDraftField("hideMap", event.target.value)}
+                />
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">readOnlyOption</span>
+                <input
+                  className="textField compactField"
+                  type="number"
+                  min={0}
+                  max={255}
+                  value={metadataDraft.readOnlyOption}
+                  onChange={(event) =>
+                    updateMetadataDraftField("readOnlyOption", event.target.value)
+                  }
+                />
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">hideLogic</span>
+                <input
+                  className="textField compactField"
+                  type="number"
+                  min={0}
+                  max={255}
+                  value={metadataDraft.hideLogic}
+                  onChange={(event) => updateMetadataDraftField("hideLogic", event.target.value)}
+                />
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">cc1Boots</span>
+                <input
+                  className="textField compactField"
+                  type="number"
+                  min={0}
+                  max={255}
+                  value={metadataDraft.cc1Boots}
+                  onChange={(event) => updateMetadataDraftField("cc1Boots", event.target.value)}
+                />
+              </label>
+
+              <label className="fieldGroup">
+                <span className="fieldCaption">blobPatterns</span>
+                <input
+                  className="textField compactField"
+                  type="number"
+                  min={0}
+                  max={255}
+                  value={metadataDraft.blobPatterns}
+                  onChange={(event) => updateMetadataDraftField("blobPatterns", event.target.value)}
+                />
+              </label>
+            </div>
+          </fieldset>
+        </div>
+      </>
+    ) : (
+      <div className="leftPanelSubsection">
+        <div className="emptyPanelState">Open or create a document to edit metadata.</div>
+      </div>
+    );
+
+  const documentResizePanel =
+    map && resizeDraft ? (
+      <div className="leftPanelSubsection">
+        <div className="leftPanelSubsectionHeader">
+          <div className="sectionEyebrow">Resize Map</div>
+          <div className="sectionActions">
+            <button
+              type="button"
+              className="secondaryButton"
+              onClick={() => setResizeDraft(makeMapResizeDraft(map))}
+              disabled={!resizeDirty}
+            >
+              Reset
+            </button>
+            <button
+              type="button"
+              className="secondaryButton"
+              onClick={() => applyResizeDraftChanges()}
+              disabled={!resizeDirty || !canMutateBoard}
+            >
+              Apply Resize
+            </button>
+          </div>
+        </div>
+
+        {visualEditLockReason ? (
+          <div className="panelSubtext mutedPanelNotice">{visualEditLockReason}</div>
+        ) : null}
+        {resizeError ? (
+          <div className="panelInlineError documentInlineError">{resizeError}</div>
+        ) : null}
+
+        <fieldset className="plainFieldset" disabled={!canMutateBoard}>
+          <div className="formGrid">
+            <label className="fieldGroup">
+              <span className="fieldCaption">Width</span>
+              <input
+                className="textField compactField"
+                type="number"
+                min={MIN_C2M_MAP_SIZE}
+                max={MAX_C2M_MAP_SIZE}
+                value={resizeDraft.width}
+                onChange={(event) => updateResizeDraftField("width", event.target.value)}
+              />
+            </label>
+
+            <label className="fieldGroup">
+              <span className="fieldCaption">Height</span>
+              <input
+                className="textField compactField"
+                type="number"
+                min={MIN_C2M_MAP_SIZE}
+                max={MAX_C2M_MAP_SIZE}
+                value={resizeDraft.height}
+                onChange={(event) => updateResizeDraftField("height", event.target.value)}
+              />
+            </label>
+          </div>
+
+          <label className="fieldGroup">
+            <span className="fieldCaption">Anchor</span>
+            <select
+              className="textField compactField"
+              value={resizeDraft.anchor}
+              onChange={(event) =>
+                updateResizeDraftField("anchor", event.target.value as ResizeAnchor)
+              }
+            >
+              {RESIZE_ANCHORS.map((anchor) => (
+                <option key={anchor} value={anchor}>
+                  {anchor}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="panelSubtext">
+            New cells are filled with `FLOOR`. Resizing is constrained to `10x10` through `100x100`.
+          </div>
+        </fieldset>
+      </div>
+    ) : (
+      <div className="leftPanelSubsection">
+        <div className="emptyPanelState">Open a level to resize its map.</div>
+      </div>
+    );
+
   return (
     <div
       className="appShell"
@@ -2541,6 +3035,9 @@ export default function App() {
                   logical layer. Maps can be resized from `10x10` through `100x100`.
                 </div>
               </div>
+
+              {doc ? documentMetadataPanel : null}
+              {doc ? documentResizePanel : null}
             </section>
           ) : null}
 
@@ -2677,8 +3174,9 @@ export default function App() {
                 temporary eyedropper. Use `,` and `.` to rotate the shared palette direction,
                 railroad pieces, and directional brushes, or cycle decorative wall colors, letter
                 symbols, and logic counters when those brushes are selected. The wire tool is picked
-                from the palette with LMB only. Middle mouse or `Cmd`/`Ctrl` plus drag pans. Mouse
-                wheel zooms the board.
+                from the palette with LMB only. Middle mouse, `Cmd`/`Ctrl` plus drag, or dragging
+                empty board space pans. Arrow keys and `WASD` also move the camera. Mouse wheel
+                zooms the board.
               </div>
             </section>
           ) : null}
@@ -2786,21 +3284,51 @@ export default function App() {
                             {renderBoardTransformIcon(button.op)}
                           </button>
                         ))}
-                        {LEVEL_SHIFT_ARROWS.map((arrow) => (
-                          <button
-                            key={arrow.direction}
-                            type="button"
-                            className={`boardShiftArrow ${arrow.direction}`}
-                            aria-label={arrow.label}
-                            title={arrow.label}
-                            disabled={!canMutateBoard}
-                            onPointerDown={(event) => event.stopPropagation()}
-                            onClick={() => shiftActiveMapWrap(arrow.dx, arrow.dy)}
+                        {LEVEL_EDGE_CONTROLS.map((control) => (
+                          <div
+                            key={control.direction}
+                            className={`boardEdgeControlGroup ${control.direction}`}
                           >
-                            <svg viewBox="0 0 16 16" aria-hidden="true">
-                              <polygon points="8,3 13,12 3,12" />
-                            </svg>
-                          </button>
+                            <button
+                              type="button"
+                              className="boardEdgeButton boardResizeEdgeButton"
+                              aria-label={control.shrinkLabel}
+                              title={control.shrinkLabel}
+                              disabled={
+                                !canMutateBoard || !map || !canResizeMapEdge(map, control.edge, -1)
+                              }
+                              onPointerDown={(event) => event.stopPropagation()}
+                              onClick={() => resizeActiveMapEdge(control.edge, -1)}
+                            >
+                              -
+                            </button>
+                            <button
+                              type="button"
+                              className={`boardEdgeButton boardWrapEdgeButton ${control.direction}`}
+                              aria-label={control.wrapLabel}
+                              title={control.wrapLabel}
+                              disabled={!canMutateBoard}
+                              onPointerDown={(event) => event.stopPropagation()}
+                              onClick={() => shiftActiveMapWrap(control.dx, control.dy)}
+                            >
+                              <svg viewBox="0 0 16 16" aria-hidden="true">
+                                <polygon points="8,3 13,12 3,12" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              className="boardEdgeButton boardResizeEdgeButton"
+                              aria-label={control.growLabel}
+                              title={control.growLabel}
+                              disabled={
+                                !canMutateBoard || !map || !canResizeMapEdge(map, control.edge, 1)
+                              }
+                              onPointerDown={(event) => event.stopPropagation()}
+                              onClick={() => resizeActiveMapEdge(control.edge, 1)}
+                            >
+                              +
+                            </button>
+                          </div>
                         ))}
                       </div>
                     ) : null}
@@ -2959,14 +3487,13 @@ export default function App() {
 
         <aside className="panel inspectorPanel">
           <div
-            className="inspectorTabs inspectorTabsQuad"
+            className="inspectorTabs inspectorTabsTri"
             role="tablist"
             aria-label="Inspector tabs"
           >
             {[
               ["palette", "Palette"],
               ["inspect", "Inspect"],
-              ["metadata", "Metadata"],
               ["advanced", "Advanced"],
             ].map(([id, label]) => (
               <button
@@ -3780,336 +4307,6 @@ export default function App() {
                     <span>Clear selection / cancel paste</span>
                   </div>
                 </div>
-              </div>
-            </div>
-          ) : null}
-
-          {inspectorTab === "metadata" ? (
-            <div className="inspectorTabBody">
-              <div className="inspectorSection">
-                <div className="inspectorSectionTitle">Level Metadata</div>
-                {doc && metadataDraft ? (
-                  <>
-                    {visualEditLockReason ? (
-                      <div className="panelSubtext mutedPanelNotice">{visualEditLockReason}</div>
-                    ) : null}
-
-                    <fieldset className="plainFieldset" disabled={!canMutateBoard}>
-                      <div className="sectionActions">
-                        <button
-                          type="button"
-                          onClick={() => setMetadataDraft(makeMetadataDraft(doc))}
-                          disabled={!metadataDirty}
-                        >
-                          Reset
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyMetadataDraftChanges()}
-                          disabled={!metadataDirty}
-                        >
-                          Apply
-                        </button>
-                      </div>
-
-                      {metadataError ? (
-                        <div className="panelInlineError">{metadataError}</div>
-                      ) : null}
-
-                      <div className="formGrid">
-                        <label className="fieldGroup">
-                          <span className="fieldCaption">Title</span>
-                          <input
-                            className="textField compactField"
-                            type="text"
-                            value={metadataDraft.title}
-                            onChange={(event) =>
-                              updateMetadataDraftField("title", event.target.value)
-                            }
-                          />
-                        </label>
-
-                        <label className="fieldGroup">
-                          <span className="fieldCaption">Author</span>
-                          <input
-                            className="textField compactField"
-                            type="text"
-                            value={metadataDraft.author}
-                            onChange={(event) =>
-                              updateMetadataDraftField("author", event.target.value)
-                            }
-                          />
-                        </label>
-
-                        <label className="fieldGroup">
-                          <span className="fieldCaption">Editor Version</span>
-                          <input
-                            className="textField compactField"
-                            type="text"
-                            value={metadataDraft.editorVersion}
-                            onChange={(event) =>
-                              updateMetadataDraftField("editorVersion", event.target.value)
-                            }
-                          />
-                        </label>
-
-                        <label className="fieldGroup">
-                          <span className="fieldCaption">Lock</span>
-                          <input
-                            className="textField compactField"
-                            type="text"
-                            value={metadataDraft.lock}
-                            onChange={(event) =>
-                              updateMetadataDraftField("lock", event.target.value)
-                            }
-                          />
-                        </label>
-                      </div>
-
-                      <label className="fieldGroup">
-                        <span className="fieldCaption">Clue</span>
-                        <textarea
-                          className="textField inspectorTextArea"
-                          rows={3}
-                          value={metadataDraft.clue}
-                          onChange={(event) => updateMetadataDraftField("clue", event.target.value)}
-                        />
-                      </label>
-
-                      <label className="fieldGroup">
-                        <span className="fieldCaption">Note</span>
-                        <textarea
-                          className="textField inspectorTextArea"
-                          rows={4}
-                          value={metadataDraft.note}
-                          onChange={(event) => updateMetadataDraftField("note", event.target.value)}
-                        />
-                      </label>
-
-                      <label className="checkboxRow">
-                        <input
-                          type="checkbox"
-                          checked={metadataDraft.readOnlyChunk}
-                          onChange={(event) =>
-                            updateMetadataDraftField("readOnlyChunk", event.target.checked)
-                          }
-                        />
-                        <span>Emit `RDNY` read-only chunk</span>
-                      </label>
-                    </fieldset>
-                  </>
-                ) : (
-                  <div className="emptyPanelState">Open or create a document to edit metadata.</div>
-                )}
-              </div>
-
-              <div className="inspectorSection">
-                <div className="inspectorSectionTitle">Options</div>
-                {metadataDraft ? (
-                  <fieldset className="plainFieldset" disabled={!canMutateBoard}>
-                    <div className="formGrid">
-                      <label className="fieldGroup">
-                        <span className="fieldCaption">time</span>
-                        <input
-                          className="textField compactField"
-                          type="number"
-                          min={0}
-                          max={65535}
-                          value={metadataDraft.time}
-                          onChange={(event) => updateMetadataDraftField("time", event.target.value)}
-                        />
-                      </label>
-
-                      <label className="fieldGroup">
-                        <span className="fieldCaption">editorWindow</span>
-                        <input
-                          className="textField compactField"
-                          type="number"
-                          min={0}
-                          max={255}
-                          value={metadataDraft.editorWindow}
-                          onChange={(event) =>
-                            updateMetadataDraftField("editorWindow", event.target.value)
-                          }
-                        />
-                      </label>
-
-                      <label className="fieldGroup">
-                        <span className="fieldCaption">verifiedReplay</span>
-                        <input
-                          className="textField compactField"
-                          type="number"
-                          min={0}
-                          max={255}
-                          value={metadataDraft.verifiedReplay}
-                          onChange={(event) =>
-                            updateMetadataDraftField("verifiedReplay", event.target.value)
-                          }
-                        />
-                      </label>
-
-                      <label className="fieldGroup">
-                        <span className="fieldCaption">hideMap</span>
-                        <input
-                          className="textField compactField"
-                          type="number"
-                          min={0}
-                          max={255}
-                          value={metadataDraft.hideMap}
-                          onChange={(event) =>
-                            updateMetadataDraftField("hideMap", event.target.value)
-                          }
-                        />
-                      </label>
-
-                      <label className="fieldGroup">
-                        <span className="fieldCaption">readOnlyOption</span>
-                        <input
-                          className="textField compactField"
-                          type="number"
-                          min={0}
-                          max={255}
-                          value={metadataDraft.readOnlyOption}
-                          onChange={(event) =>
-                            updateMetadataDraftField("readOnlyOption", event.target.value)
-                          }
-                        />
-                      </label>
-
-                      <label className="fieldGroup">
-                        <span className="fieldCaption">hideLogic</span>
-                        <input
-                          className="textField compactField"
-                          type="number"
-                          min={0}
-                          max={255}
-                          value={metadataDraft.hideLogic}
-                          onChange={(event) =>
-                            updateMetadataDraftField("hideLogic", event.target.value)
-                          }
-                        />
-                      </label>
-
-                      <label className="fieldGroup">
-                        <span className="fieldCaption">cc1Boots</span>
-                        <input
-                          className="textField compactField"
-                          type="number"
-                          min={0}
-                          max={255}
-                          value={metadataDraft.cc1Boots}
-                          onChange={(event) =>
-                            updateMetadataDraftField("cc1Boots", event.target.value)
-                          }
-                        />
-                      </label>
-
-                      <label className="fieldGroup">
-                        <span className="fieldCaption">blobPatterns</span>
-                        <input
-                          className="textField compactField"
-                          type="number"
-                          min={0}
-                          max={255}
-                          value={metadataDraft.blobPatterns}
-                          onChange={(event) =>
-                            updateMetadataDraftField("blobPatterns", event.target.value)
-                          }
-                        />
-                      </label>
-                    </div>
-                  </fieldset>
-                ) : (
-                  <div className="emptyPanelState">
-                    Supported numeric `options.*` fields appear here.
-                  </div>
-                )}
-              </div>
-
-              <div className="inspectorSection">
-                <div className="inspectorSectionTitle">Resize Map</div>
-                {map && resizeDraft ? (
-                  <>
-                    {visualEditLockReason ? (
-                      <div className="panelSubtext mutedPanelNotice">{visualEditLockReason}</div>
-                    ) : null}
-
-                    <fieldset className="plainFieldset" disabled={!canMutateBoard}>
-                      <div className="sectionActions">
-                        <button
-                          type="button"
-                          onClick={() => setResizeDraft(makeMapResizeDraft(map))}
-                          disabled={!resizeDirty}
-                        >
-                          Reset
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyResizeDraftChanges()}
-                          disabled={!resizeDirty || !canMutateBoard}
-                        >
-                          Apply Resize
-                        </button>
-                      </div>
-
-                      {resizeError ? <div className="panelInlineError">{resizeError}</div> : null}
-
-                      <div className="formGrid">
-                        <label className="fieldGroup">
-                          <span className="fieldCaption">Width</span>
-                          <input
-                            className="textField compactField"
-                            type="number"
-                            min={10}
-                            max={100}
-                            value={resizeDraft.width}
-                            onChange={(event) =>
-                              updateResizeDraftField("width", event.target.value)
-                            }
-                          />
-                        </label>
-
-                        <label className="fieldGroup">
-                          <span className="fieldCaption">Height</span>
-                          <input
-                            className="textField compactField"
-                            type="number"
-                            min={10}
-                            max={100}
-                            value={resizeDraft.height}
-                            onChange={(event) =>
-                              updateResizeDraftField("height", event.target.value)
-                            }
-                          />
-                        </label>
-                      </div>
-
-                      <label className="fieldGroup">
-                        <span className="fieldCaption">Anchor</span>
-                        <select
-                          className="textField compactField"
-                          value={resizeDraft.anchor}
-                          onChange={(event) =>
-                            updateResizeDraftField("anchor", event.target.value as ResizeAnchor)
-                          }
-                        >
-                          {RESIZE_ANCHORS.map((anchor) => (
-                            <option key={anchor} value={anchor}>
-                              {anchor}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <div className="panelSubtext">
-                        New cells are filled with `FLOOR`. Resizing is constrained to `10x10`
-                        through `100x100`.
-                      </div>
-                    </fieldset>
-                  </>
-                ) : (
-                  <div className="emptyPanelState">Open a level to resize its map.</div>
-                )}
               </div>
             </div>
           ) : null}

@@ -71,6 +71,23 @@ describe("palette sections", () => {
     expect(itemKeys.indexOf("TIME_BONUS")).toBeLessThan(itemKeys.indexOf("TIME_BOMB"));
   });
 
+  it("keeps toggle floors and walls together ahead of the swivel door", () => {
+    const terrainKeys =
+      getPaletteSections({ query: "" })
+        .find((section) => section.key === "terrain")
+        ?.tiles.map((tile) => tile.key) ?? [];
+
+    expect(terrainKeys.indexOf("GREEN_TOGGLE_WALL")).toBe(
+      terrainKeys.indexOf("GREEN_TOGGLE_FLOOR") + 1,
+    );
+    expect(terrainKeys.indexOf("PURPLE_TOGGLE_WALL")).toBe(
+      terrainKeys.indexOf("PURPLE_TOGGLE_FLOOR") + 1,
+    );
+    expect(terrainKeys.indexOf("SWIVEL_DOOR")).toBeGreaterThan(
+      terrainKeys.indexOf("PURPLE_TOGGLE_WALL"),
+    );
+  });
+
   it("includes C2M-specific palette variants and excludes obsolete tiles", () => {
     const sections = getPaletteSections({ query: "" });
     const allKeys = sections.flatMap((section) => section.tiles.map((tile) => tile.key));

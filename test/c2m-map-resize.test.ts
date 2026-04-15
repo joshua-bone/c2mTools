@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest";
 import type { MapJson } from "../src/c2m/mapCodec.js";
 import { pointToIndex } from "../web/src/editor/boardGeometry.js";
 import { createEmptyC2mDoc } from "../web/src/editor/createEmptyC2mDoc.js";
-import { parseMapResizeDraft, resizeMap } from "../web/src/editor/mapResize.js";
+import {
+  canResizeMapEdge,
+  parseMapResizeDraft,
+  resizeMap,
+  resizeMapEdge,
+} from "../web/src/editor/mapResize.js";
 
 function createMap(width: number, height: number): MapJson {
   return createEmptyC2mDoc({ width, height }).map!;
@@ -65,5 +70,27 @@ describe("c2m map resize helpers", () => {
         anchor: "NW",
       }),
     ).toThrow(/between 10 and 100 inclusive/);
+  });
+
+  it("resizes outward and inward from specific map edges", () => {
+    let map = createMap(11, 10);
+    map = setTile(map, { x: 0, y: 0 }, "WALL");
+    map = setTile(map, { x: 10, y: 9 }, "EXIT");
+
+    const grownNorth = resizeMapEdge(map, { edge: "N", delta: 1 });
+    expect(grownNorth.height).toBe(11);
+    expect(grownNorth.tiles[pointToIndex({ x: 0, y: 1 }, grownNorth)]).toBe("WALL");
+    expect(grownNorth.tiles[pointToIndex({ x: 0, y: 0 }, grownNorth)]).toBe("FLOOR");
+
+    const shrunkWest = resizeMapEdge(grownNorth, { edge: "W", delta: -1 });
+    expect(shrunkWest.width).toBe(10);
+    expect(shrunkWest.tiles[pointToIndex({ x: 9, y: 10 }, shrunkWest)]).toBe("EXIT");
+  });
+
+  it("reports edge resize availability at the configured limits", () => {
+    expect(canResizeMapEdge(createMap(10, 10), "W", -1)).toBe(false);
+    expect(canResizeMapEdge(createMap(10, 10), "N", 1)).toBe(true);
+    expect(canResizeMapEdge(createMap(100, 100), "E", 1)).toBe(false);
+    expect(canResizeMapEdge(createMap(100, 100), "S", -1)).toBe(true);
   });
 });

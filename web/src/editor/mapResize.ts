@@ -3,6 +3,7 @@ import type { MapJson, TileSpecJson } from "../../../src/c2m/mapCodec.js";
 import { MAX_C2M_MAP_SIZE, MIN_C2M_MAP_SIZE } from "./createEmptyC2mDoc.js";
 
 export type ResizeAnchor = "NW" | "N" | "NE" | "W" | "C" | "E" | "SW" | "S" | "SE";
+export type ResizeEdge = "N" | "E" | "S" | "W";
 
 export type MapResizeDraft = Readonly<{
   width: string;
@@ -152,4 +153,47 @@ export function resizeMap(
     height: options.height,
     tiles: nextTiles,
   };
+}
+
+function resolveEdgeAnchor(edge: ResizeEdge): ResizeAnchor {
+  switch (edge) {
+    case "N":
+      return "S";
+    case "E":
+      return "W";
+    case "S":
+      return "N";
+    case "W":
+      return "E";
+  }
+}
+
+export function canResizeMapEdge(
+  map: Readonly<Pick<MapJson, "width" | "height">>,
+  edge: ResizeEdge,
+  delta: -1 | 1,
+): boolean {
+  const axisSize = edge === "N" || edge === "S" ? map.height : map.width;
+  const nextSize = axisSize + delta;
+  return nextSize >= MIN_C2M_MAP_SIZE && nextSize <= MAX_C2M_MAP_SIZE;
+}
+
+export function resizeMapEdge(
+  map: MapJson,
+  options: Readonly<{
+    edge: ResizeEdge;
+    delta: -1 | 1;
+    fillTile?: TileSpecJson;
+  }>,
+): MapJson {
+  if (!canResizeMapEdge(map, options.edge, options.delta)) {
+    return map;
+  }
+
+  return resizeMap(map, {
+    width: options.edge === "E" || options.edge === "W" ? map.width + options.delta : map.width,
+    height: options.edge === "N" || options.edge === "S" ? map.height + options.delta : map.height,
+    anchor: resolveEdgeAnchor(options.edge),
+    ...(options.fillTile !== undefined ? { fillTile: options.fillTile } : {}),
+  });
 }
