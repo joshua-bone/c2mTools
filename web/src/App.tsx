@@ -26,7 +26,11 @@ import {
   boardPointToCell,
   type BoardScreenRect,
 } from "./boardCanvasPresentation";
-import { buildHoverCellSummary, createBoardEditorStatusStore } from "./boardEditorStatus";
+import {
+  buildHoverCellSummary,
+  createBoardEditorStatusStore,
+  type HoverCellSummary,
+} from "./boardEditorStatus";
 import { getSharedCc2CanvasCellCache } from "./cc2CanvasCache";
 import { drawCc2CellsToContext, drawCc2MapToCanvas } from "./canvasMapRenderer";
 import { resolveBoardMapRedrawPlan, resolveChangedMapCellIndices } from "./boardRenderInvalidation";
@@ -156,7 +160,9 @@ const RESIZE_ANCHORS: ReadonlyArray<ResizeAnchor> = Object.freeze([
   "SE",
 ]);
 
-type InspectorTab = "inspect" | "metadata" | "advanced";
+type InspectorTab = "palette" | "inspect" | "metadata" | "advanced";
+type LeftPanelTab = "document" | "controls";
+type BoardMenuId = "file" | "view" | "transform";
 
 type ToolMode = EditorToolMode;
 
@@ -331,6 +337,18 @@ function describeBlobPresence(present: boolean): string {
   return present ? "Present" : "Absent";
 }
 
+function describeHoverSummary(summary: HoverCellSummary | null): string {
+  if (!summary) {
+    return "Hover a cell to inspect its stack. Selection pins the active cell for modifier edits.";
+  }
+
+  const layerSummary = summary.layers
+    .map((layer) => `${LAYER_LABELS[layer.role]}: ${layer.label}`)
+    .join(" · ");
+
+  return `${summary.point.x},${summary.point.y} · ${layerSummary}`;
+}
+
 function isValidLetterSymbol(symbol: string): boolean {
   return (
     symbol === "↑" ||
@@ -428,7 +446,9 @@ export default function App() {
   );
   const [paletteQuery, setPaletteQuery] = useState("");
   const [tool, setTool] = useState<ToolMode>("brush");
-  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("inspect");
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("palette");
+  const [leftPanelTab, setLeftPanelTab] = useState<LeftPanelTab>("document");
+  const [boardMenuOpen, setBoardMenuOpen] = useState<BoardMenuId | null>(null);
   const [selection, setSelection] = useState<GridRect | null>(null);
   const [clipboard, setClipboard] = useState<C2mClipboard | null>(null);
   const [pastePreviewActive, setPastePreviewActive] = useState(false);
@@ -561,6 +581,10 @@ export default function App() {
     map !== null &&
     resizeDraft !== null &&
     !resizeDraftEquals(resizeDraft, makeMapResizeDraft(map));
+  const documentTitle = metadataDraft?.title || doc?.title || "Untitled Level";
+  const documentAuthor = metadataDraft?.author || doc?.author || "Unknown";
+  const hoverSummaryText = describeHoverSummary(boardStatus.hoverCellSummary);
+  const displayFileName = fileName ?? DEFAULT_C2M_FILE_NAME;
 
   const resetBoardTransientState = useCallback(
     (options: Readonly<{ clearSelection?: boolean; resetView?: boolean }> = {}) => {
@@ -838,6 +862,10 @@ export default function App() {
       viewportSize.width,
     ],
   );
+
+  const toggleBoardMenu = useCallback((menu: BoardMenuId) => {
+    setBoardMenuOpen((current) => (current === menu ? null : menu));
+  }, []);
 
   const copySelection = useCallback(() => {
     if (!map || !selection) return;
@@ -1205,6 +1233,29 @@ export default function App() {
     if (dragState?.tool === "brush") return;
     if (transientMap) setTransientMap(null);
   }, [dragState, transientMap]);
+
+  useEffect(() => {
+    if (!boardMenuOpen) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".menuWrap")) return;
+      setBoardMenuOpen(null);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setBoardMenuOpen(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [boardMenuOpen]);
 
   const onUndo = useCallback(() => {
     if (!history || !canUndo) return;
@@ -1766,251 +1817,500 @@ export default function App() {
   );
 
   return (
-    <div className="container">
-      <div className="header">
-        <button onClick={onNewClick}>New</button>
-        <button onClick={onOpenClick}>Open…</button>
-        <button onClick={onSaveAsC2m} disabled={!canSave}>
-          Save C2M
-        </button>
-        <button onClick={onDownloadJson} disabled={!jsonOk}>
-          Download JSON
-        </button>
-        <button onClick={onUndo} disabled={!canUndo}>
-          Undo
-        </button>
-        <button onClick={onRedo} disabled={!canRedo}>
-          Redo
-        </button>
-
-        <div className="toolbar" style={{ marginLeft: 6 }}>
-          <button onClick={() => setViewMode("board")} disabled={viewMode === "board"}>
-            Board
-          </button>
-          <button onClick={() => setViewMode("json")} disabled={viewMode === "json"}>
-            JSON
-          </button>
+    <div
+      className="appShell"
+      onDrop={onDrop}
+      onDragOver={onDragOver}
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
+    >
+      {isDragOver ? (
+        <div className="banner updateBanner">
+          Drop a `.c2m` or `.json` file anywhere to open it.
         </div>
-
-        <div className="toolbar" style={{ marginLeft: 6 }}>
-          {TRANSFORMS.map((transform) => (
-            <button
-              key={transform.op}
-              onClick={() => applyTransform(transform.op)}
-              disabled={!doc || !jsonOk}
-              title={!jsonOk ? "JSON must be valid to enable transforms" : ""}
-            >
-              {transform.label}
-            </button>
-          ))}
+      ) : null}
+      {tilesetError ? <div className="banner subtleErrorBanner">{tilesetError}</div> : null}
+      {parseError ? <div className="banner errorBanner">{parseError}</div> : null}
+      {error ? <div className="banner errorBanner">{error}</div> : null}
+      {renderError ? <div className="banner errorBanner">{renderError}</div> : null}
+      {warnings.map((warning, index) => (
+        <div key={index} className="banner updateBanner">
+          {warning}
         </div>
+      ))}
 
-        <div className="spacer" />
-
-        <span className="badge">{fileName ?? "No file loaded"}</span>
-        <span className="badge">{tileset ? "Tileset: OK" : "Tileset: missing"}</span>
-        <span className="badge">{jsonOk ? "JSON: OK" : "JSON: INVALID"}</span>
-      </div>
-
-      <div
-        className={`dropzone ${isDragOver ? "dragover" : ""}`}
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        onDragEnter={onDragEnter}
-        onDragLeave={onDragLeave}
-      >
-        Drag &amp; drop a .c2m or .json file here, or click “Open…”.
-      </div>
-
-      <div className="editorWrap">
-        {viewMode === "json" ? (
-          <div className="jsonPane">
-            <div className="panelHeaderBar">
-              <div>
-                <strong>Advanced JSON</strong>
-                <div className="panelSubtext">
-                  Raw document editing remains available. Invalid edits do not replace the current
-                  in-memory document until they parse successfully.
+      <main className="editorLayout">
+        <aside className="panel levelPanel">
+          <section className="panelSection">
+            <div className="panelBrand">
+              <div className="panelBrandCopy">
+                <div className="panelBrandHeader">
+                  <div className="brandTitle">C2MTools Editor</div>
+                </div>
+                <div className="brandSubtitle">Level authoring for CC2 C2M files</div>
+                <div className="panelMetaStrip">
+                  <input
+                    className="brandingFileInput"
+                    type="text"
+                    aria-label="Document filename"
+                    value={displayFileName}
+                    spellCheck={false}
+                    onChange={(event) => setFileName(event.target.value)}
+                  />
+                  <span className="statusBadge">{viewMode === "board" ? "Board" : "Raw JSON"}</span>
+                  <span className="statusBadge">{jsonOk ? "Valid" : "Needs fix"}</span>
                 </div>
               </div>
             </div>
-            <textarea
-              spellCheck={false}
-              value={jsonText}
-              onChange={(event) => setJsonText(event.target.value)}
-              placeholder="JSON will appear here after you open or create a level…"
-            />
-          </div>
-        ) : (
-          <div className="workspace">
-            <aside className="sidePane palettePane">
-              <div className="panelHeaderBar">
-                <div>
-                  <strong>Palette</strong>
-                  <div className="panelSubtext">
-                    Search the shared CC2 tile catalog. Click sets the primary brush. Right-click
-                    sets the secondary brush.
-                  </div>
-                </div>
-              </div>
+          </section>
 
-              <div className="brushCards">
-                <div className="brushCard">
-                  <span className="brushLabel">Primary</span>
-                  <div className="brushPreviewRow">
-                    <TilePreview tileset={tileset} tile={primaryBrush} pixelSize={28} />
-                    <span>{primaryBrushName}</span>
-                  </div>
-                </div>
-
-                <div className="brushCard">
-                  <span className="brushLabel">Secondary</span>
-                  <div className="brushPreviewRow">
-                    <TilePreview tileset={tileset} tile={secondaryBrush} pixelSize={28} />
-                    <span>{secondaryBrushName}</span>
-                  </div>
-                </div>
-              </div>
-
-              <label className="fieldLabel">
-                <span>Search Tiles</span>
-                <input
-                  className="textField"
-                  type="search"
-                  value={paletteQuery}
-                  onChange={(event) => setPaletteQuery(event.target.value)}
-                  placeholder="Filter by tile name"
-                />
-              </label>
-
-              <div className="paletteSectionList">
-                {paletteSections.length === 0 ? (
-                  <div className="emptyPanelState">No tiles match the current search.</div>
-                ) : (
-                  paletteSections.map((section) => (
-                    <section key={section.key} className="paletteSection">
-                      <div className="paletteSectionTitle">{section.title}</div>
-                      <div className="paletteGrid">
-                        {section.tiles.map((tileName) => {
-                          const isPrimary = getTileSpecName(primaryBrush) === tileName;
-                          const isSecondary = getTileSpecName(secondaryBrush) === tileName;
-
-                          return (
-                            <button
-                              key={tileName}
-                              type="button"
-                              className={`paletteTile ${isPrimary ? "isPrimary" : ""} ${
-                                isSecondary ? "isSecondary" : ""
-                              }`}
-                              title={tileName}
-                              onClick={() => setPrimaryBrush(createDefaultBrushTileSpec(tileName))}
-                              onContextMenu={(event) => {
-                                event.preventDefault();
-                                setSecondaryBrush(createDefaultBrushTileSpec(tileName));
-                              }}
-                            >
-                              <TilePreview tileset={tileset} tile={tileName} pixelSize={28} />
-                              <span className="paletteTileLabel">
-                                {formatTileDisplayName(tileName)}
-                              </span>
-                              <span className="paletteTileMeta">{tileName}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  ))
-                )}
-              </div>
-            </aside>
-
-            <section className="boardPane">
-              <div className="panelHeaderBar">
-                <div>
-                  <strong>Board</strong>
-                  <div className="panelSubtext">
-                    Left/right use the primary and secondary brushes. Hold `Alt` for temporary
-                    eyedropper. Middle mouse or `Ctrl`/`Cmd` drag pans. Mouse wheel zooms.
-                  </div>
-                </div>
-
-                <div className="boardHeaderActions">
-                  <div className="toolbar toolbarWrap">
-                    {TOOL_SHORTCUTS.map((entry) => {
-                      const mutatesBoard =
-                        entry.id === "brush" ||
-                        entry.id === "line" ||
-                        entry.id === "fill" ||
-                        entry.id === "erase";
-
-                      return (
-                        <button
-                          key={entry.id}
-                          type="button"
-                          className={`toolButton ${tool === entry.id ? "active" : ""}`}
-                          disabled={mutatesBoard && !canMutateBoard}
-                          onClick={() => setTool(entry.id)}
-                          title={`${entry.label} (${entry.shortcut})`}
-                        >
-                          <span>{entry.label}</span>
-                          <span className="toolShortcut">{entry.shortcut}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="toolbar toolbarWrap">
-                    <button onClick={copySelection} disabled={!selection}>
-                      Copy
-                    </button>
+          <section className="panelSection leftPanelMenuSection">
+            <div className="boardMenuBar">
+              <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  className="menuButton"
+                  aria-expanded={boardMenuOpen === "file"}
+                  onClick={() => toggleBoardMenu("file")}
+                >
+                  File
+                </button>
+                {boardMenuOpen === "file" ? (
+                  <div className="dropdownMenu">
                     <button
-                      onClick={pastePreviewActive ? () => commitPastePreview() : beginPastePreview}
-                      disabled={!clipboard || (pastePreviewActive && !canMutateBoard)}
-                    >
-                      {pastePreviewActive ? "Commit Paste" : "Paste"}
-                    </button>
-                    <button
-                      onClick={() => setPastePreviewActive(false)}
-                      disabled={!pastePreviewActive}
-                    >
-                      Cancel Paste
-                    </button>
-                    <button onClick={eraseSelection} disabled={!selection || !canMutateBoard}>
-                      Erase Selection
-                    </button>
-                    <button
-                      onClick={clearSelectionState}
-                      disabled={!selection && !pastePreviewActive}
-                    >
-                      Clear Selection
-                    </button>
-                  </div>
-
-                  <div className="toolbar">
-                    <button onClick={() => setBoardZoom(boardStatus.boardZoom / ZOOM_STEP)}>
-                      Zoom -
-                    </button>
-                    <button onClick={() => setBoardZoom(boardStatus.boardZoom * ZOOM_STEP)}>
-                      Zoom +
-                    </button>
-                    <button
+                      type="button"
+                      className="dropdownMenuItem"
                       onClick={() => {
+                        setBoardMenuOpen(null);
+                        onNewClick();
+                      }}
+                    >
+                      New
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        onOpenClick();
+                      }}
+                    >
+                      Open
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!canSave}
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        onSaveAsC2m();
+                      }}
+                    >
+                      Save C2M
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!jsonOk}
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        onDownloadJson();
+                      }}
+                    >
+                      Download JSON
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  className="menuButton"
+                  aria-expanded={boardMenuOpen === "view"}
+                  onClick={() => toggleBoardMenu("view")}
+                >
+                  View
+                </button>
+                {boardMenuOpen === "view" ? (
+                  <div className="dropdownMenu">
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={viewMode === "board"}
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        setViewMode("board");
+                      }}
+                    >
+                      Board Workspace
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={viewMode === "json"}
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        setViewMode("json");
+                      }}
+                    >
+                      Raw JSON Workspace
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!activeMap}
+                      onClick={() => {
+                        setBoardMenuOpen(null);
                         boardStatusStoreRef.current.reset();
                       }}
                     >
-                      Reset View
+                      Reset Board View
                     </button>
                   </div>
-                </div>
+                ) : null}
               </div>
 
-              {visualEditLockReason && doc ? (
-                <div className="boardNotice">{visualEditLockReason}</div>
-              ) : null}
+              <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  className="menuButton"
+                  aria-expanded={boardMenuOpen === "transform"}
+                  onClick={() => toggleBoardMenu("transform")}
+                >
+                  Transform
+                </button>
+                {boardMenuOpen === "transform" ? (
+                  <div className="dropdownMenu">
+                    {TRANSFORMS.map((transform) => (
+                      <button
+                        key={transform.op}
+                        type="button"
+                        className="dropdownMenuItem"
+                        disabled={!doc || !jsonOk}
+                        onClick={() => {
+                          setBoardMenuOpen(null);
+                          applyTransform(transform.op);
+                        }}
+                      >
+                        {transform.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </section>
 
+          <div className="inspectorTabs levelPanelTabs" role="tablist" aria-label="Left panel tabs">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={leftPanelTab === "document"}
+              className={`inspectorTab ${leftPanelTab === "document" ? "active" : ""}`}
+              onClick={() => setLeftPanelTab("document")}
+            >
+              Document
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={leftPanelTab === "controls"}
+              className={`inspectorTab ${leftPanelTab === "controls" ? "active" : ""}`}
+              onClick={() => setLeftPanelTab("controls")}
+            >
+              Controls
+            </button>
+          </div>
+
+          {leftPanelTab === "document" ? (
+            <section className="panelSection leftPanelTabBody levelManagerSection">
+              <div className="sectionHeader">
+                <div className="levelManagerHeaderCopy">
+                  <div className="sectionEyebrow">Document</div>
+                  <h2 className="sectionTitle">{documentTitle}</h2>
+                </div>
+                <span className="statusBadge">{doc ? "Loaded" : "Empty"}</span>
+              </div>
+
+              <div className="levelManagerHint">
+                The C2M editor now follows the DATTools shell: document management on the left,
+                board work in the center, and palette plus inspection on the right.
+              </div>
+
+              <div className="boardControlRow boardCommandRow">
+                <button type="button" className="actionButton" onClick={onNewClick}>
+                  New
+                </button>
+                <button type="button" className="secondaryButton" onClick={onOpenClick}>
+                  Open
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!canSave}
+                  onClick={onSaveAsC2m}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!jsonOk}
+                  onClick={onDownloadJson}
+                >
+                  JSON
+                </button>
+              </div>
+
+              {doc ? (
+                <div className="stackedInfo">
+                  <div className="inspectorLayerRow">
+                    <span className="inspectorLayerLabel">Author</span>
+                    <span className="inspectorLayerValue">{documentAuthor}</span>
+                  </div>
+                  <div className="inspectorLayerRow">
+                    <span className="inspectorLayerLabel">Map Size</span>
+                    <span className="inspectorLayerValue">
+                      {map ? `${map.width}x${map.height}` : "No decoded map"}
+                    </span>
+                  </div>
+                  <div className="inspectorLayerRow">
+                    <span className="inspectorLayerLabel">Undo History</span>
+                    <span className="inspectorLayerValue">
+                      {history ? `${history.cursor}/${history.events.length}` : "0/0"}
+                    </span>
+                  </div>
+                  <div className="inspectorLayerRow">
+                    <span className="inspectorLayerLabel">Warnings</span>
+                    <span className="inspectorLayerValue">{warnings.length}</span>
+                  </div>
+                  <div className="inspectorLayerRow">
+                    <span className="inspectorLayerLabel">Raw Sections</span>
+                    <span className="inspectorLayerValue">{preservedSectionTags.length}</span>
+                  </div>
+                  <div className="inspectorLayerRow">
+                    <span className="inspectorLayerLabel">Extra Chunks</span>
+                    <span className="inspectorLayerValue">{preservedExtraChunkTags.length}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="emptyState">
+                  Create a blank level or open an existing `.c2m`/`.json` file to start editing.
+                </div>
+              )}
+
+              <div className="leftPanelSubsection">
+                <div className="leftPanelSubsectionHeader">
+                  <div className="sectionEyebrow">Editing Rules</div>
+                </div>
+                <div className="boardHelpText">
+                  Terrain paint replaces the whole cell. Non-terrain paint only replaces its own
+                  logical layer. Maps can be resized from `10x10` through `100x100`.
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {leftPanelTab === "controls" ? (
+            <section className="panelSection leftPanelTabBody controlsPanelSection">
+              <div className="sectionHeader">
+                <div>
+                  <div className="sectionEyebrow">Controls</div>
+                  <h2 className="sectionTitle">Board Tools</h2>
+                </div>
+                <span className="statusBadge">{activeToolMeta?.label ?? tool}</span>
+              </div>
+
+              <div className="boardControlRow boardToolRow">
+                {TOOL_SHORTCUTS.map((entry) => {
+                  const mutatesBoard =
+                    entry.id === "brush" ||
+                    entry.id === "line" ||
+                    entry.id === "fill" ||
+                    entry.id === "erase";
+
+                  return (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      className={`toolButton ${tool === entry.id ? "active" : ""}`}
+                      disabled={mutatesBoard && !canMutateBoard}
+                      onClick={() => setTool(entry.id)}
+                      title={`${entry.label} (${entry.shortcut})`}
+                    >
+                      <span>{entry.label}</span>
+                      <span className="toolShortcut">{entry.shortcut}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="boardControlRow boardCommandRow">
+                <button type="button" className="actionButton" onClick={onUndo} disabled={!canUndo}>
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  onClick={onRedo}
+                  disabled={!canRedo}
+                >
+                  Redo
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  onClick={copySelection}
+                  disabled={!selection}
+                >
+                  Copy
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  onClick={pastePreviewActive ? () => commitPastePreview() : beginPastePreview}
+                  disabled={!clipboard || (pastePreviewActive && !canMutateBoard)}
+                >
+                  {pastePreviewActive ? "Commit Paste" : "Paste"}
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  onClick={eraseSelection}
+                  disabled={!selection || !canMutateBoard}
+                >
+                  Erase
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  onClick={clearSelectionState}
+                  disabled={!selection && !pastePreviewActive}
+                >
+                  Clear
+                </button>
+              </div>
+
+              <div className="boardControlRow boardCommandRow">
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!activeMap}
+                  onClick={() => setBoardZoom(boardStatus.boardZoom / ZOOM_STEP)}
+                >
+                  Zoom -
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!activeMap}
+                  onClick={() => setBoardZoom(boardStatus.boardZoom * ZOOM_STEP)}
+                >
+                  Zoom +
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!activeMap}
+                  onClick={() => boardStatusStoreRef.current.reset()}
+                >
+                  Reset View
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  onClick={() => setViewMode(viewMode === "board" ? "json" : "board")}
+                >
+                  {viewMode === "board" ? "Raw JSON" : "Board"}
+                </button>
+              </div>
+
+              <div className="board3dButtonGrid">
+                {TRANSFORMS.map((transform) => (
+                  <button
+                    key={transform.op}
+                    type="button"
+                    className="secondaryButton"
+                    disabled={!doc || !jsonOk}
+                    onClick={() => applyTransform(transform.op)}
+                  >
+                    {transform.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="boardHelpText">
+                Left and right mouse buttons paint using the active palette slots. Hold `Alt` for a
+                temporary eyedropper. Middle mouse or `Cmd`/`Ctrl` plus drag pans. Mouse wheel zooms
+                the board.
+              </div>
+            </section>
+          ) : null}
+        </aside>
+
+        <div className="panelSplitter" aria-hidden="true" />
+
+        <section className="panel boardPanel">
+          <section className="panelSection">
+            <div className="sectionHeader">
+              <div>
+                <div className="sectionEyebrow">{viewMode === "board" ? "Board" : "Advanced"}</div>
+                <h2 className="sectionTitle">
+                  {viewMode === "board" ? documentTitle : "Raw JSON Workspace"}
+                </h2>
+              </div>
+              <div className="sectionActions">
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  onClick={() => setViewMode(viewMode === "board" ? "json" : "board")}
+                >
+                  {viewMode === "board" ? "Open Raw JSON" : "Return To Board"}
+                </button>
+              </div>
+            </div>
+
+            <div className="boardMeta">
+              <span className="statusBadge">
+                {activeMap ? `${activeMap.width}x${activeMap.height}` : "No map"}
+              </span>
+              <span className="statusBadge">{activeToolMeta?.label ?? tool}</span>
+              <span className="statusBadge">{Math.round(boardStatus.boardZoom * 100)}%</span>
+              <span className="statusBadge">{tileset ? "Tileset ready" : "Tileset missing"}</span>
+              {selection ? (
+                <span className="statusBadge">{`Selection ${selection.width}x${selection.height}`}</span>
+              ) : null}
+              {clipboard ? (
+                <span className="statusBadge">{`Clipboard ${clipboard.width}x${clipboard.height}`}</span>
+              ) : null}
+            </div>
+
+            <div className="hoverSummary">
+              {viewMode === "board"
+                ? hoverSummaryText
+                : "Invalid raw JSON edits stay local until they parse successfully again."}
+            </div>
+          </section>
+
+          {visualEditLockReason && doc && viewMode === "board" ? (
+            <div className="banner subtleErrorBanner panelBanner">{visualEditLockReason}</div>
+          ) : null}
+
+          {viewMode === "json" ? (
+            <div className="jsonWorkspaceBody">
+              <textarea
+                spellCheck={false}
+                value={jsonText}
+                onChange={(event) => setJsonText(event.target.value)}
+                placeholder="JSON will appear here after you open or create a level…"
+              />
+            </div>
+          ) : (
+            <>
               <div
                 ref={boardViewportRef}
-                className="boardViewport"
+                className={`boardViewport ${boardStatus.isPanning ? "panning" : ""}`}
                 onContextMenu={(event) => event.preventDefault()}
                 onPointerDown={onBoardPointerDown}
                 onPointerMove={onBoardPointerMove}
@@ -2020,9 +2320,9 @@ export default function App() {
                 onWheel={onBoardWheel}
               >
                 {!activeMap ? (
-                  <div className="emptyPanelState">
+                  <div className="emptyState largeEmptyState">
                     {doc
-                      ? "This document has no decoded map payload. Switch to raw JSON for manual inspection."
+                      ? "This document has no decoded map payload. Use the raw JSON workspace for manual inspection."
                       : "Create or open a `.c2m` file to start editing the board."}
                   </div>
                 ) : (
@@ -2058,8 +2358,8 @@ export default function App() {
                               y={rect.y}
                               width={rect.width}
                               height={rect.height}
-                              fill="rgba(110, 193, 255, 0.18)"
-                              stroke="rgba(110, 193, 255, 0.92)"
+                              fill="rgba(35, 95, 122, 0.16)"
+                              stroke="rgba(35, 95, 122, 0.78)"
                               strokeWidth={Math.max(1.2, rect.width / 10)}
                             />
                           );
@@ -2079,8 +2379,8 @@ export default function App() {
                                   y={rect.y}
                                   width={rect.width}
                                   height={rect.height}
-                                  fill="rgba(255, 216, 107, 0.12)"
-                                  stroke="rgba(255, 216, 107, 0.96)"
+                                  fill="rgba(216, 165, 77, 0.12)"
+                                  stroke="rgba(216, 165, 77, 0.9)"
                                   strokeWidth={Math.max(
                                     1.5,
                                     rect.width / Math.max(10, selectionPreviewRect.width * 6),
@@ -2104,8 +2404,8 @@ export default function App() {
                                   y={rect.y}
                                   width={rect.width}
                                   height={rect.height}
-                                  fill="rgba(121, 227, 168, 0.12)"
-                                  stroke="rgba(121, 227, 168, 0.98)"
+                                  fill="rgba(73, 138, 97, 0.12)"
+                                  stroke="rgba(73, 138, 97, 0.9)"
                                   strokeWidth={Math.max(
                                     1.5,
                                     rect.width / Math.max(10, pastePreviewRect.width * 6),
@@ -2133,240 +2433,275 @@ export default function App() {
                 )}
               </div>
 
-              <div className="boardFooter">
-                <span className="badge">
-                  Map: {activeMap ? `${activeMap.width}x${activeMap.height}` : "No map"}
-                </span>
-                <span className="badge">Tool: {activeToolMeta?.label ?? tool}</span>
-                <span className="badge">Zoom: {Math.round(boardStatus.boardZoom * 100)}%</span>
-                <span className="badge">
-                  Hover:{" "}
-                  {boardStatus.hoverPoint
-                    ? `${boardStatus.hoverPoint.x},${boardStatus.hoverPoint.y}`
-                    : "none"}
-                </span>
-                {selection ? (
-                  <span className="badge">
-                    Selection: {selection.width}x{selection.height}
+              <section className="panelSection boardFooterSection">
+                <div className="boardMeta">
+                  <span className="statusBadge">
+                    Hover{" "}
+                    {boardStatus.hoverPoint
+                      ? `${boardStatus.hoverPoint.x},${boardStatus.hoverPoint.y}`
+                      : "none"}
                   </span>
-                ) : null}
-                {clipboard ? (
-                  <span className="badge">
-                    Clipboard: {clipboard.width}x{clipboard.height}
-                  </span>
-                ) : null}
-                {pastePreviewRect ? (
-                  <span className="badge">
-                    Paste Preview: {pastePreviewRect.width}x{pastePreviewRect.height}
-                  </span>
-                ) : null}
-                {transientDirtyCells.length > 0 ? (
-                  <span className="badge">Preview Cells: {transientDirtyCells.length}</span>
-                ) : null}
-                <span className="badge">{boardStatus.isPanning ? "Panning" : "Idle"}</span>
-              </div>
-            </section>
+                  <span className="statusBadge">{boardStatus.isPanning ? "Panning" : "Idle"}</span>
+                  {pastePreviewRect ? (
+                    <span className="statusBadge">{`Paste ${pastePreviewRect.width}x${pastePreviewRect.height}`}</span>
+                  ) : null}
+                  {transientDirtyCells.length > 0 ? (
+                    <span className="statusBadge">{`Preview ${transientDirtyCells.length}`}</span>
+                  ) : null}
+                </div>
+              </section>
+            </>
+          )}
+        </section>
 
-            <aside className="sidePane inspectorPane">
-              <div className="panelHeaderBar">
-                <div>
-                  <strong>Inspector</strong>
-                  <div className="panelSubtext">
-                    Selection pins the active cell for modifier editing. Metadata and preserved raw
-                    state live in adjacent tabs.
+        <div className="panelSplitter" aria-hidden="true" />
+
+        <aside className="panel inspectorPanel">
+          <div
+            className="inspectorTabs inspectorTabsQuad"
+            role="tablist"
+            aria-label="Inspector tabs"
+          >
+            {[
+              ["palette", "Palette"],
+              ["inspect", "Inspect"],
+              ["metadata", "Metadata"],
+              ["advanced", "Advanced"],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={inspectorTab === id}
+                className={`inspectorTab ${inspectorTab === id ? "active" : ""}`}
+                onClick={() => setInspectorTab(id as InspectorTab)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {inspectorTab === "palette" ? (
+            <section className="panelSection inspectorBody paletteSection compactPaletteSection">
+              <div className="activeTileStrip">
+                <div className="activeTileCompactCard">
+                  <div className="activeTileSlotLabel primary">LMB</div>
+                  <TilePreview
+                    tileset={tileset}
+                    tile={primaryBrush}
+                    className="activeTileCompactCanvas"
+                    pixelSize={40}
+                  />
+                  <div className="activeTileCompactBody">
+                    <div className="activeTileCompactName">{primaryBrushName}</div>
+                  </div>
+                </div>
+
+                <div className="activeTileCompactCard">
+                  <div className="activeTileSlotLabel secondary">RMB</div>
+                  <TilePreview
+                    tileset={tileset}
+                    tile={secondaryBrush}
+                    className="activeTileCompactCanvas"
+                    pixelSize={40}
+                  />
+                  <div className="activeTileCompactBody">
+                    <div className="activeTileCompactName">{secondaryBrushName}</div>
                   </div>
                 </div>
               </div>
 
-              <div className="inspectorTabs" role="tablist" aria-label="Inspector tabs">
-                {[
-                  ["inspect", "Inspect"],
-                  ["metadata", "Metadata"],
-                  ["advanced", "Advanced"],
-                ].map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    role="tab"
-                    aria-selected={inspectorTab === id}
-                    className={`inspectorTab ${inspectorTab === id ? "active" : ""}`}
-                    onClick={() => setInspectorTab(id as InspectorTab)}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <input
+                className="textField"
+                type="search"
+                value={paletteQuery}
+                onChange={(event) => setPaletteQuery(event.target.value)}
+                placeholder="Filter by tile name"
+              />
+
+              <div className="paletteGrid">
+                {paletteSections.length === 0 ? (
+                  <div className="emptyState">No tiles match the current search.</div>
+                ) : (
+                  paletteSections.map((section) => (
+                    <div
+                      key={section.key}
+                      className="paletteTileSection"
+                      role="group"
+                      aria-label={section.title}
+                    >
+                      <div className="paletteTileSectionTitle">{section.title}</div>
+                      <div className="paletteTileGrid">
+                        {section.tiles.map((tileName) => {
+                          const displayTileName = formatTileDisplayName(tileName);
+                          const isPrimary = getTileSpecName(primaryBrush) === tileName;
+                          const isSecondary = getTileSpecName(secondaryBrush) === tileName;
+
+                          return (
+                            <button
+                              key={tileName}
+                              type="button"
+                              className={`paletteGridItem ${isPrimary ? "selectedPrimary" : ""} ${isSecondary ? "selectedSecondary" : ""} ${isPrimary && isSecondary ? "selectedBoth" : ""}`}
+                              title={`${displayTileName} (${tileName})`}
+                              aria-label={`${displayTileName} (${tileName})`}
+                              onClick={() => setPrimaryBrush(createDefaultBrushTileSpec(tileName))}
+                              onContextMenu={(event) => {
+                                event.preventDefault();
+                                setSecondaryBrush(createDefaultBrushTileSpec(tileName));
+                              }}
+                            >
+                              <TilePreview
+                                tileset={tileset}
+                                tile={tileName}
+                                className="paletteGridCanvas"
+                              />
+                              {isPrimary ? (
+                                <span className="paletteGridMarker primary">L</span>
+                              ) : null}
+                              {isSecondary ? (
+                                <span className="paletteGridMarker secondary">R</span>
+                              ) : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          {inspectorTab === "inspect" ? (
+            <div className="inspectorTabBody">
+              <div className="inspectorSection">
+                <div className="inspectorSectionTitle">Active Cell</div>
+                {inspectableCell ? (
+                  <>
+                    <div className="inspectorMeta">
+                      Cell {inspectableCell.point.x},{inspectableCell.point.y}
+                    </div>
+                    <div className="inspectorMeta">Index {inspectableCell.index}</div>
+                    <div className="inspectorMeta">
+                      Source:{" "}
+                      {selection
+                        ? selection.width === 1 && selection.height === 1
+                          ? "selection"
+                          : `selection origin (${selection.width}x${selection.height})`
+                        : "hover"}
+                    </div>
+                    <div className="inspectorLayerList">
+                      {inspectableCell.layers.map((layer) => (
+                        <div key={layer.role} className="inspectorLayerRow">
+                          <span className="inspectorLayerLabel">{LAYER_LABELS[layer.role]}</span>
+                          <span className="inspectorLayerValue">{layer.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="emptyPanelState">
+                    Hover a cell to inspect it, or use the select tool to pin one for editing.
+                  </div>
+                )}
               </div>
 
-              {inspectorTab === "inspect" ? (
-                <div className="inspectorTabBody">
-                  <div className="inspectorSection">
-                    <div className="inspectorSectionTitle">Active Cell</div>
-                    {inspectableCell ? (
-                      <>
-                        <div className="inspectorMeta">
-                          Cell {inspectableCell.point.x},{inspectableCell.point.y}
-                        </div>
-                        <div className="inspectorMeta">Index {inspectableCell.index}</div>
-                        <div className="inspectorMeta">
-                          Source:{" "}
-                          {selection
-                            ? selection.width === 1 && selection.height === 1
-                              ? "selection"
-                              : `selection origin (${selection.width}x${selection.height})`
-                            : "hover"}
-                        </div>
-                        <div className="inspectorLayerList">
-                          {inspectableCell.layers.map((layer) => (
-                            <div key={layer.role} className="inspectorLayerRow">
-                              <span className="inspectorLayerLabel">
-                                {LAYER_LABELS[layer.role]}
-                              </span>
-                              <span className="inspectorLayerValue">{layer.label}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="emptyPanelState">
-                        Hover a cell to inspect it, or use the select tool to pin one for editing.
-                      </div>
-                    )}
-                  </div>
+              {cellEditError ? <div className="panelInlineError">{cellEditError}</div> : null}
 
-                  {cellEditError ? <div className="panelInlineError">{cellEditError}</div> : null}
+              <div className="inspectorSection">
+                <div className="inspectorSectionTitle">Modifier Editor</div>
+                {visualEditLockReason ? (
+                  <div className="panelSubtext mutedPanelNotice">{visualEditLockReason}</div>
+                ) : null}
+                {inspectableCell ? (
+                  editableInspectorLayers.length > 0 ? (
+                    <fieldset className="plainFieldset" disabled={!canMutateBoard}>
+                      <div className="inspectorEditorList">
+                        {editableInspectorLayers.map((layer) => {
+                          const defaultTile = resolveDefaultInspectorTile(layer.tile.tile);
+                          const wiresModifier = getTileModifier(layer.tile, "WIRES") ??
+                            resolveDefaultModifier(layer.tile.tile, "WIRES") ?? {
+                              kind: "WIRES" as const,
+                              wires: [],
+                              tunnels: [],
+                            };
+                          const cloneModifier = getTileModifier(layer.tile, "CLONE_ARROWS") ??
+                            resolveDefaultModifier(layer.tile.tile, "CLONE_ARROWS") ?? {
+                              kind: "CLONE_ARROWS" as const,
+                              arrows: CARDINAL_DIRS,
+                            };
+                          const customStyleModifier = getTileModifier(layer.tile, "CUSTOM_STYLE") ??
+                            resolveDefaultModifier(layer.tile.tile, "CUSTOM_STYLE") ?? {
+                              kind: "CUSTOM_STYLE" as const,
+                              style: "GREEN" as const,
+                            };
+                          const letterModifier = getTileModifier(layer.tile, "LETTER_SYMBOL") ??
+                            resolveDefaultModifier(layer.tile.tile, "LETTER_SYMBOL") ?? {
+                              kind: "LETTER_SYMBOL" as const,
+                              symbol: "A",
+                            };
+                          const logicModifier = getTileModifier(layer.tile, "LOGIC") ??
+                            resolveDefaultModifier(layer.tile.tile, "LOGIC") ?? {
+                              kind: "LOGIC" as const,
+                              gate: "AND" as const,
+                              facing: "E" as const,
+                            };
+                          const tracksModifier = getTileModifier(layer.tile, "TRACKS") ??
+                            resolveDefaultModifier(layer.tile.tile, "TRACKS") ?? {
+                              kind: "TRACKS" as const,
+                              pieces: ["HORIZONTAL", "VERTICAL"] as const,
+                              active: "H" as const,
+                              entered: "W" as const,
+                            };
 
-                  <div className="inspectorSection">
-                    <div className="inspectorSectionTitle">Modifier Editor</div>
-                    {visualEditLockReason ? (
-                      <div className="panelSubtext mutedPanelNotice">{visualEditLockReason}</div>
-                    ) : null}
-                    {inspectableCell ? (
-                      editableInspectorLayers.length > 0 ? (
-                        <fieldset className="plainFieldset" disabled={!canMutateBoard}>
-                          <div className="inspectorEditorList">
-                            {editableInspectorLayers.map((layer) => {
-                              const defaultTile = resolveDefaultInspectorTile(layer.tile.tile);
-                              const wiresModifier = getTileModifier(layer.tile, "WIRES") ??
-                                resolveDefaultModifier(layer.tile.tile, "WIRES") ?? {
-                                  kind: "WIRES" as const,
-                                  wires: [],
-                                  tunnels: [],
-                                };
-                              const cloneModifier = getTileModifier(layer.tile, "CLONE_ARROWS") ??
-                                resolveDefaultModifier(layer.tile.tile, "CLONE_ARROWS") ?? {
-                                  kind: "CLONE_ARROWS" as const,
-                                  arrows: CARDINAL_DIRS,
-                                };
-                              const customStyleModifier = getTileModifier(
-                                layer.tile,
-                                "CUSTOM_STYLE",
-                              ) ??
-                                resolveDefaultModifier(layer.tile.tile, "CUSTOM_STYLE") ?? {
-                                  kind: "CUSTOM_STYLE" as const,
-                                  style: "GREEN" as const,
-                                };
-                              const letterModifier = getTileModifier(layer.tile, "LETTER_SYMBOL") ??
-                                resolveDefaultModifier(layer.tile.tile, "LETTER_SYMBOL") ?? {
-                                  kind: "LETTER_SYMBOL" as const,
-                                  symbol: "A",
-                                };
-                              const logicModifier = getTileModifier(layer.tile, "LOGIC") ??
-                                resolveDefaultModifier(layer.tile.tile, "LOGIC") ?? {
-                                  kind: "LOGIC" as const,
-                                  gate: "AND" as const,
-                                  facing: "E" as const,
-                                };
-                              const tracksModifier = getTileModifier(layer.tile, "TRACKS") ??
-                                resolveDefaultModifier(layer.tile.tile, "TRACKS") ?? {
-                                  kind: "TRACKS" as const,
-                                  pieces: ["HORIZONTAL", "VERTICAL"] as const,
-                                  active: "H" as const,
-                                  entered: "W" as const,
-                                };
-
-                              return (
-                                <div key={layer.role} className="inspectorEditorCard">
-                                  <div className="inspectorEditorHeader">
-                                    <div>
-                                      <div className="inspectorSectionTitle">
-                                        {LAYER_LABELS[layer.role]}
-                                      </div>
-                                      <div className="inspectorMeta">{layer.label}</div>
-                                    </div>
+                          return (
+                            <div key={layer.role} className="inspectorEditorCard">
+                              <div className="inspectorEditorHeader">
+                                <div>
+                                  <div className="inspectorSectionTitle">
+                                    {LAYER_LABELS[layer.role]}
                                   </div>
+                                  <div className="inspectorMeta">{layer.label}</div>
+                                </div>
+                              </div>
 
-                                  {tileSupportsDirection(layer.tile) ? (
-                                    <label className="fieldGroup compactFieldGroup">
-                                      <span className="fieldCaption">Facing</span>
-                                      <select
-                                        className="textField compactField"
-                                        value={layer.tile.dir ?? defaultTile.dir ?? "N"}
-                                        onChange={(event) =>
-                                          updateInspectableCellLayer(layer.role, (tile) => ({
-                                            ...stripLower(tile),
-                                            dir: event.target.value as Dir,
-                                          }))
-                                        }
-                                      >
-                                        {CARDINAL_DIRS.map((dir) => (
-                                          <option key={dir} value={dir}>
-                                            {formatDirectionLabel(dir)}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </label>
-                                  ) : null}
+                              {tileSupportsDirection(layer.tile) ? (
+                                <label className="fieldGroup compactFieldGroup">
+                                  <span className="fieldCaption">Facing</span>
+                                  <select
+                                    className="textField compactField"
+                                    value={layer.tile.dir ?? defaultTile.dir ?? "N"}
+                                    onChange={(event) =>
+                                      updateInspectableCellLayer(layer.role, (tile) => ({
+                                        ...stripLower(tile),
+                                        dir: event.target.value as Dir,
+                                      }))
+                                    }
+                                  >
+                                    {CARDINAL_DIRS.map((dir) => (
+                                      <option key={dir} value={dir}>
+                                        {formatDirectionLabel(dir)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              ) : null}
 
-                                  {tileSupportsThinWallCanopy(layer.tile) ? (
-                                    <div className="fieldGroup compactFieldGroup">
-                                      <span className="fieldCaption">Thin Walls</span>
-                                      <div className="checkboxGrid">
-                                        {CARDINAL_DIRS.map((dir) => {
-                                          const thinWallState = layer.tile.thinWallCanopy ??
-                                            defaultTile.thinWallCanopy ?? {
-                                              walls: [],
-                                              canopy: false,
-                                            };
-                                          return (
-                                            <label key={dir} className="checkPill">
-                                              <input
-                                                type="checkbox"
-                                                checked={thinWallState.walls.includes(dir)}
-                                                onChange={(event) =>
-                                                  updateInspectableCellLayer(layer.role, (tile) => {
-                                                    const current = tile.thinWallCanopy ??
-                                                      defaultTile.thinWallCanopy ?? {
-                                                        walls: [],
-                                                        canopy: false,
-                                                      };
-                                                    return {
-                                                      ...stripLower(tile),
-                                                      thinWallCanopy: {
-                                                        walls: toggleOrderedValue(
-                                                          current.walls,
-                                                          dir,
-                                                          event.target.checked,
-                                                          CARDINAL_DIRS,
-                                                        ),
-                                                        canopy: current.canopy,
-                                                      },
-                                                    };
-                                                  })
-                                                }
-                                              />
-                                              <span>{dir}</span>
-                                            </label>
-                                          );
-                                        })}
-                                        <label className="checkPill">
+                              {tileSupportsThinWallCanopy(layer.tile) ? (
+                                <div className="fieldGroup compactFieldGroup">
+                                  <span className="fieldCaption">Thin Walls</span>
+                                  <div className="checkboxGrid">
+                                    {CARDINAL_DIRS.map((dir) => {
+                                      const thinWallState = layer.tile.thinWallCanopy ??
+                                        defaultTile.thinWallCanopy ?? {
+                                          walls: [],
+                                          canopy: false,
+                                        };
+                                      return (
+                                        <label key={dir} className="checkPill">
                                           <input
                                             type="checkbox"
-                                            checked={
-                                              (
-                                                layer.tile.thinWallCanopy ??
-                                                defaultTile.thinWallCanopy
-                                              )?.canopy ?? false
-                                            }
+                                            checked={thinWallState.walls.includes(dir)}
                                             onChange={(event) =>
                                               updateInspectableCellLayer(layer.role, (tile) => {
                                                 const current = tile.thinWallCanopy ??
@@ -2377,953 +2712,956 @@ export default function App() {
                                                 return {
                                                   ...stripLower(tile),
                                                   thinWallCanopy: {
-                                                    walls: [...current.walls],
-                                                    canopy: event.target.checked,
+                                                    walls: toggleOrderedValue(
+                                                      current.walls,
+                                                      dir,
+                                                      event.target.checked,
+                                                      CARDINAL_DIRS,
+                                                    ),
+                                                    canopy: current.canopy,
                                                   },
                                                 };
                                               })
                                             }
                                           />
-                                          <span>Canopy</span>
+                                          <span>{dir}</span>
                                         </label>
-                                      </div>
-                                    </div>
-                                  ) : null}
-
-                                  {tileSupportsDirectionalArrows(layer.tile) ? (
-                                    <div className="fieldGroup compactFieldGroup">
-                                      <span className="fieldCaption">Directional Arrows</span>
-                                      <div className="checkboxGrid">
-                                        {CARDINAL_DIRS.map((dir) => {
-                                          const arrowState = layer.tile.directionalArrows ??
-                                            defaultTile.directionalArrows ?? {
-                                              arrows: [],
+                                      );
+                                    })}
+                                    <label className="checkPill">
+                                      <input
+                                        type="checkbox"
+                                        checked={
+                                          (layer.tile.thinWallCanopy ?? defaultTile.thinWallCanopy)
+                                            ?.canopy ?? false
+                                        }
+                                        onChange={(event) =>
+                                          updateInspectableCellLayer(layer.role, (tile) => {
+                                            const current = tile.thinWallCanopy ??
+                                              defaultTile.thinWallCanopy ?? {
+                                                walls: [],
+                                                canopy: false,
+                                              };
+                                            return {
+                                              ...stripLower(tile),
+                                              thinWallCanopy: {
+                                                walls: [...current.walls],
+                                                canopy: event.target.checked,
+                                              },
                                             };
-                                          return (
-                                            <label key={dir} className="checkPill">
-                                              <input
-                                                type="checkbox"
-                                                checked={arrowState.arrows.includes(dir)}
-                                                onChange={(event) =>
-                                                  updateInspectableCellLayer(layer.role, (tile) => {
-                                                    const current = tile.directionalArrows ??
-                                                      defaultTile.directionalArrows ?? {
-                                                        arrows: [],
-                                                      };
-                                                    return {
-                                                      ...stripLower(tile),
-                                                      directionalArrows: {
-                                                        arrows: toggleOrderedValue(
-                                                          current.arrows,
-                                                          dir,
-                                                          event.target.checked,
-                                                          CARDINAL_DIRS,
-                                                        ),
-                                                      },
-                                                    };
-                                                  })
-                                                }
-                                              />
-                                              <span>{dir}</span>
-                                            </label>
-                                          );
-                                        })}
-                                      </div>
+                                          })
+                                        }
+                                      />
+                                      <span>Canopy</span>
+                                    </label>
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {tileSupportsDirectionalArrows(layer.tile) ? (
+                                <div className="fieldGroup compactFieldGroup">
+                                  <span className="fieldCaption">Directional Arrows</span>
+                                  <div className="checkboxGrid">
+                                    {CARDINAL_DIRS.map((dir) => {
+                                      const arrowState = layer.tile.directionalArrows ??
+                                        defaultTile.directionalArrows ?? {
+                                          arrows: [],
+                                        };
+                                      return (
+                                        <label key={dir} className="checkPill">
+                                          <input
+                                            type="checkbox"
+                                            checked={arrowState.arrows.includes(dir)}
+                                            onChange={(event) =>
+                                              updateInspectableCellLayer(layer.role, (tile) => {
+                                                const current = tile.directionalArrows ??
+                                                  defaultTile.directionalArrows ?? {
+                                                    arrows: [],
+                                                  };
+                                                return {
+                                                  ...stripLower(tile),
+                                                  directionalArrows: {
+                                                    arrows: toggleOrderedValue(
+                                                      current.arrows,
+                                                      dir,
+                                                      event.target.checked,
+                                                      CARDINAL_DIRS,
+                                                    ),
+                                                  },
+                                                };
+                                              })
+                                            }
+                                          />
+                                          <span>{dir}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {tileSupportsModifierKind(layer.tile, "WIRES") ? (
+                                <>
+                                  <div className="fieldGroup compactFieldGroup">
+                                    <span className="fieldCaption">Wires</span>
+                                    <div className="checkboxGrid">
+                                      {CARDINAL_DIRS.map((dir) => (
+                                        <label key={`wire-${dir}`} className="checkPill">
+                                          <input
+                                            type="checkbox"
+                                            checked={wiresModifier.wires.includes(dir)}
+                                            onChange={(event) =>
+                                              updateInspectableCellLayer(layer.role, (tile) => {
+                                                const nextWires = toggleOrderedValue(
+                                                  wiresModifier.wires,
+                                                  dir,
+                                                  event.target.checked,
+                                                  CARDINAL_DIRS,
+                                                );
+                                                return setTileModifier(
+                                                  tile,
+                                                  "WIRES",
+                                                  nextWires.length > 0 ||
+                                                    wiresModifier.tunnels.length > 0
+                                                    ? {
+                                                        kind: "WIRES",
+                                                        wires: nextWires,
+                                                        tunnels: [...wiresModifier.tunnels],
+                                                      }
+                                                    : null,
+                                                );
+                                              })
+                                            }
+                                          />
+                                          <span>{dir}</span>
+                                        </label>
+                                      ))}
                                     </div>
-                                  ) : null}
+                                  </div>
 
-                                  {tileSupportsModifierKind(layer.tile, "WIRES") ? (
-                                    <>
-                                      <div className="fieldGroup compactFieldGroup">
-                                        <span className="fieldCaption">Wires</span>
-                                        <div className="checkboxGrid">
-                                          {CARDINAL_DIRS.map((dir) => (
-                                            <label key={`wire-${dir}`} className="checkPill">
-                                              <input
-                                                type="checkbox"
-                                                checked={wiresModifier.wires.includes(dir)}
-                                                onChange={(event) =>
-                                                  updateInspectableCellLayer(layer.role, (tile) => {
-                                                    const nextWires = toggleOrderedValue(
-                                                      wiresModifier.wires,
-                                                      dir,
-                                                      event.target.checked,
-                                                      CARDINAL_DIRS,
-                                                    );
-                                                    return setTileModifier(
-                                                      tile,
-                                                      "WIRES",
-                                                      nextWires.length > 0 ||
-                                                        wiresModifier.tunnels.length > 0
-                                                        ? {
-                                                            kind: "WIRES",
-                                                            wires: nextWires,
-                                                            tunnels: [...wiresModifier.tunnels],
-                                                          }
-                                                        : null,
-                                                    );
-                                                  })
-                                                }
-                                              />
-                                              <span>{dir}</span>
-                                            </label>
-                                          ))}
-                                        </div>
-                                      </div>
+                                  <div className="fieldGroup compactFieldGroup">
+                                    <span className="fieldCaption">Wire Tunnels</span>
+                                    <div className="checkboxGrid">
+                                      {CARDINAL_DIRS.map((dir) => (
+                                        <label key={`tunnel-${dir}`} className="checkPill">
+                                          <input
+                                            type="checkbox"
+                                            checked={wiresModifier.tunnels.includes(dir)}
+                                            onChange={(event) =>
+                                              updateInspectableCellLayer(layer.role, (tile) => {
+                                                const nextTunnels = toggleOrderedValue(
+                                                  wiresModifier.tunnels,
+                                                  dir,
+                                                  event.target.checked,
+                                                  CARDINAL_DIRS,
+                                                );
+                                                return setTileModifier(
+                                                  tile,
+                                                  "WIRES",
+                                                  wiresModifier.wires.length > 0 ||
+                                                    nextTunnels.length > 0
+                                                    ? {
+                                                        kind: "WIRES",
+                                                        wires: [...wiresModifier.wires],
+                                                        tunnels: nextTunnels,
+                                                      }
+                                                    : null,
+                                                );
+                                              })
+                                            }
+                                          />
+                                          <span>{dir}</span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </>
+                              ) : null}
 
-                                      <div className="fieldGroup compactFieldGroup">
-                                        <span className="fieldCaption">Wire Tunnels</span>
-                                        <div className="checkboxGrid">
-                                          {CARDINAL_DIRS.map((dir) => (
-                                            <label key={`tunnel-${dir}`} className="checkPill">
-                                              <input
-                                                type="checkbox"
-                                                checked={wiresModifier.tunnels.includes(dir)}
-                                                onChange={(event) =>
-                                                  updateInspectableCellLayer(layer.role, (tile) => {
-                                                    const nextTunnels = toggleOrderedValue(
-                                                      wiresModifier.tunnels,
-                                                      dir,
-                                                      event.target.checked,
-                                                      CARDINAL_DIRS,
-                                                    );
-                                                    return setTileModifier(
-                                                      tile,
-                                                      "WIRES",
-                                                      wiresModifier.wires.length > 0 ||
-                                                        nextTunnels.length > 0
-                                                        ? {
-                                                            kind: "WIRES",
-                                                            wires: [...wiresModifier.wires],
-                                                            tunnels: nextTunnels,
-                                                          }
-                                                        : null,
-                                                    );
-                                                  })
-                                                }
-                                              />
-                                              <span>{dir}</span>
-                                            </label>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    </>
-                                  ) : null}
+                              {tileSupportsModifierKind(layer.tile, "CLONE_ARROWS") ? (
+                                <div className="fieldGroup compactFieldGroup">
+                                  <span className="fieldCaption">Clone Arrows</span>
+                                  <div className="checkboxGrid">
+                                    {CARDINAL_DIRS.map((dir) => (
+                                      <label key={`clone-${dir}`} className="checkPill">
+                                        <input
+                                          type="checkbox"
+                                          checked={cloneModifier.arrows.includes(dir)}
+                                          onChange={(event) =>
+                                            updateInspectableCellLayer(layer.role, (tile) => {
+                                              const nextArrows = toggleOrderedValue(
+                                                cloneModifier.arrows,
+                                                dir,
+                                                event.target.checked,
+                                                CARDINAL_DIRS,
+                                              );
+                                              return setTileModifier(
+                                                tile,
+                                                "CLONE_ARROWS",
+                                                nextArrows.length > 0
+                                                  ? {
+                                                      kind: "CLONE_ARROWS",
+                                                      arrows: nextArrows,
+                                                    }
+                                                  : null,
+                                              );
+                                            })
+                                          }
+                                        />
+                                        <span>{dir}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
 
-                                  {tileSupportsModifierKind(layer.tile, "CLONE_ARROWS") ? (
-                                    <div className="fieldGroup compactFieldGroup">
-                                      <span className="fieldCaption">Clone Arrows</span>
-                                      <div className="checkboxGrid">
-                                        {CARDINAL_DIRS.map((dir) => (
-                                          <label key={`clone-${dir}`} className="checkPill">
-                                            <input
-                                              type="checkbox"
-                                              checked={cloneModifier.arrows.includes(dir)}
-                                              onChange={(event) =>
-                                                updateInspectableCellLayer(layer.role, (tile) => {
-                                                  const nextArrows = toggleOrderedValue(
-                                                    cloneModifier.arrows,
-                                                    dir,
-                                                    event.target.checked,
-                                                    CARDINAL_DIRS,
-                                                  );
-                                                  return setTileModifier(
-                                                    tile,
-                                                    "CLONE_ARROWS",
-                                                    nextArrows.length > 0
-                                                      ? {
-                                                          kind: "CLONE_ARROWS",
-                                                          arrows: nextArrows,
-                                                        }
-                                                      : null,
-                                                  );
-                                                })
+                              {tileSupportsModifierKind(layer.tile, "CUSTOM_STYLE") ? (
+                                <label className="fieldGroup compactFieldGroup">
+                                  <span className="fieldCaption">Custom Style</span>
+                                  <select
+                                    className="textField compactField"
+                                    value={customStyleModifier.style}
+                                    onChange={(event) =>
+                                      updateInspectableCellLayer(layer.role, (tile) =>
+                                        setTileModifier(tile, "CUSTOM_STYLE", {
+                                          kind: "CUSTOM_STYLE",
+                                          style: event.target
+                                            .value as (typeof CUSTOM_STYLE_VALUES)[number],
+                                        }),
+                                      )
+                                    }
+                                  >
+                                    {CUSTOM_STYLE_VALUES.map((style) => (
+                                      <option key={style} value={style}>
+                                        {style}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              ) : null}
+
+                              {tileSupportsModifierKind(layer.tile, "LETTER_SYMBOL") ? (
+                                <label className="fieldGroup compactFieldGroup">
+                                  <span className="fieldCaption">Letter Symbol</span>
+                                  <input
+                                    className="textField compactField"
+                                    type="text"
+                                    maxLength={1}
+                                    value={letterModifier.symbol}
+                                    onChange={(event) => {
+                                      const nextSymbol = event.target.value;
+                                      if (
+                                        nextSymbol.length > 0 &&
+                                        !isValidLetterSymbol(nextSymbol)
+                                      ) {
+                                        setCellEditError(
+                                          "Letter tiles accept arrows or ASCII characters from space through underscore.",
+                                        );
+                                        return;
+                                      }
+
+                                      updateInspectableCellLayer(layer.role, (tile) =>
+                                        setTileModifier(
+                                          tile,
+                                          "LETTER_SYMBOL",
+                                          nextSymbol.length > 0
+                                            ? {
+                                                kind: "LETTER_SYMBOL",
+                                                symbol: nextSymbol,
                                               }
-                                            />
-                                            <span>{dir}</span>
-                                          </label>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  ) : null}
+                                            : null,
+                                        ),
+                                      );
+                                    }}
+                                  />
+                                </label>
+                              ) : null}
 
-                                  {tileSupportsModifierKind(layer.tile, "CUSTOM_STYLE") ? (
+                              {tileSupportsModifierKind(layer.tile, "LOGIC") ? (
+                                <>
+                                  <label className="fieldGroup compactFieldGroup">
+                                    <span className="fieldCaption">Logic Gate</span>
+                                    <select
+                                      className="textField compactField"
+                                      value={logicModifier.gate}
+                                      onChange={(event) =>
+                                        updateInspectableCellLayer(layer.role, (tile) =>
+                                          setTileModifier(tile, "LOGIC", {
+                                            kind: "LOGIC",
+                                            gate: event.target
+                                              .value as (typeof LOGIC_GATES)[number],
+                                            ...(event.target.value === "COUNTER"
+                                              ? { counterValue: 0 }
+                                              : {
+                                                  facing:
+                                                    logicModifier.kind === "LOGIC" &&
+                                                    logicModifier.gate !== "COUNTER"
+                                                      ? (logicModifier.facing ?? "N")
+                                                      : "N",
+                                                }),
+                                          }),
+                                        )
+                                      }
+                                    >
+                                      {LOGIC_GATES.map((gate) => (
+                                        <option key={gate} value={gate}>
+                                          {gate}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+
+                                  {logicModifier.gate === "COUNTER" ? (
                                     <label className="fieldGroup compactFieldGroup">
-                                      <span className="fieldCaption">Custom Style</span>
+                                      <span className="fieldCaption">Counter Value</span>
                                       <select
                                         className="textField compactField"
-                                        value={customStyleModifier.style}
+                                        value={logicModifier.counterValue ?? 0}
                                         onChange={(event) =>
                                           updateInspectableCellLayer(layer.role, (tile) =>
-                                            setTileModifier(tile, "CUSTOM_STYLE", {
-                                              kind: "CUSTOM_STYLE",
-                                              style: event.target
-                                                .value as (typeof CUSTOM_STYLE_VALUES)[number],
+                                            setTileModifier(tile, "LOGIC", {
+                                              kind: "LOGIC",
+                                              gate: "COUNTER",
+                                              counterValue: Number(event.target.value),
                                             }),
                                           )
                                         }
                                       >
-                                        {CUSTOM_STYLE_VALUES.map((style) => (
-                                          <option key={style} value={style}>
-                                            {style}
+                                        {Array.from({ length: 10 }, (_, value) => (
+                                          <option key={value} value={value}>
+                                            {value}
                                           </option>
                                         ))}
                                       </select>
                                     </label>
-                                  ) : null}
-
-                                  {tileSupportsModifierKind(layer.tile, "LETTER_SYMBOL") ? (
+                                  ) : (
                                     <label className="fieldGroup compactFieldGroup">
-                                      <span className="fieldCaption">Letter Symbol</span>
-                                      <input
+                                      <span className="fieldCaption">Logic Facing</span>
+                                      <select
                                         className="textField compactField"
-                                        type="text"
-                                        maxLength={1}
-                                        value={letterModifier.symbol}
-                                        onChange={(event) => {
-                                          const nextSymbol = event.target.value;
-                                          if (
-                                            nextSymbol.length > 0 &&
-                                            !isValidLetterSymbol(nextSymbol)
-                                          ) {
-                                            setCellEditError(
-                                              "Letter tiles accept arrows or ASCII characters from space through underscore.",
-                                            );
-                                            return;
-                                          }
-
+                                        value={logicModifier.facing ?? "N"}
+                                        onChange={(event) =>
                                           updateInspectableCellLayer(layer.role, (tile) =>
-                                            setTileModifier(
-                                              tile,
-                                              "LETTER_SYMBOL",
-                                              nextSymbol.length > 0
-                                                ? {
-                                                    kind: "LETTER_SYMBOL",
-                                                    symbol: nextSymbol,
-                                                  }
-                                                : null,
-                                            ),
-                                          );
-                                        }}
-                                      />
+                                            setTileModifier(tile, "LOGIC", {
+                                              kind: "LOGIC",
+                                              gate: logicModifier.gate,
+                                              facing: event.target.value as Dir,
+                                            }),
+                                          )
+                                        }
+                                      >
+                                        {CARDINAL_DIRS.map((dir) => (
+                                          <option key={dir} value={dir}>
+                                            {dir}
+                                          </option>
+                                        ))}
+                                      </select>
                                     </label>
-                                  ) : null}
+                                  )}
+                                </>
+                              ) : null}
 
-                                  {tileSupportsModifierKind(layer.tile, "LOGIC") ? (
-                                    <>
-                                      <label className="fieldGroup compactFieldGroup">
-                                        <span className="fieldCaption">Logic Gate</span>
-                                        <select
-                                          className="textField compactField"
-                                          value={logicModifier.gate}
-                                          onChange={(event) =>
-                                            updateInspectableCellLayer(layer.role, (tile) =>
-                                              setTileModifier(tile, "LOGIC", {
-                                                kind: "LOGIC",
-                                                gate: event.target
-                                                  .value as (typeof LOGIC_GATES)[number],
-                                                ...(event.target.value === "COUNTER"
-                                                  ? { counterValue: 0 }
-                                                  : {
-                                                      facing:
-                                                        logicModifier.kind === "LOGIC" &&
-                                                        logicModifier.gate !== "COUNTER"
-                                                          ? (logicModifier.facing ?? "N")
-                                                          : "N",
-                                                    }),
-                                              }),
-                                            )
-                                          }
-                                        >
-                                          {LOGIC_GATES.map((gate) => (
-                                            <option key={gate} value={gate}>
-                                              {gate}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </label>
-
-                                      {logicModifier.gate === "COUNTER" ? (
-                                        <label className="fieldGroup compactFieldGroup">
-                                          <span className="fieldCaption">Counter Value</span>
-                                          <select
-                                            className="textField compactField"
-                                            value={logicModifier.counterValue ?? 0}
+                              {tileSupportsModifierKind(layer.tile, "TRACKS") ? (
+                                <>
+                                  <div className="fieldGroup compactFieldGroup">
+                                    <span className="fieldCaption">Track Pieces</span>
+                                    <div className="checkboxGrid">
+                                      {TRACK_PIECES.map((piece) => (
+                                        <label key={piece} className="checkPill">
+                                          <input
+                                            type="checkbox"
+                                            checked={tracksModifier.pieces.includes(piece)}
                                             onChange={(event) =>
-                                              updateInspectableCellLayer(layer.role, (tile) =>
-                                                setTileModifier(tile, "LOGIC", {
-                                                  kind: "LOGIC",
-                                                  gate: "COUNTER",
-                                                  counterValue: Number(event.target.value),
-                                                }),
-                                              )
+                                              updateInspectableCellLayer(layer.role, (tile) => {
+                                                const nextPieces = toggleOrderedValue(
+                                                  tracksModifier.pieces,
+                                                  piece,
+                                                  event.target.checked,
+                                                  TRACK_PIECES,
+                                                );
+                                                return setTileModifier(
+                                                  tile,
+                                                  "TRACKS",
+                                                  nextPieces.length > 0
+                                                    ? {
+                                                        kind: "TRACKS",
+                                                        pieces: nextPieces,
+                                                        active: tracksModifier.active,
+                                                        entered: tracksModifier.entered,
+                                                      }
+                                                    : null,
+                                                );
+                                              })
                                             }
-                                          >
-                                            {Array.from({ length: 10 }, (_, value) => (
-                                              <option key={value} value={value}>
-                                                {value}
-                                              </option>
-                                            ))}
-                                          </select>
+                                          />
+                                          <span>{formatTrackPieceLabel(piece)}</span>
                                         </label>
-                                      ) : (
-                                        <label className="fieldGroup compactFieldGroup">
-                                          <span className="fieldCaption">Logic Facing</span>
-                                          <select
-                                            className="textField compactField"
-                                            value={logicModifier.facing ?? "N"}
-                                            onChange={(event) =>
-                                              updateInspectableCellLayer(layer.role, (tile) =>
-                                                setTileModifier(tile, "LOGIC", {
-                                                  kind: "LOGIC",
-                                                  gate: logicModifier.gate,
-                                                  facing: event.target.value as Dir,
-                                                }),
-                                              )
-                                            }
-                                          >
-                                            {CARDINAL_DIRS.map((dir) => (
-                                              <option key={dir} value={dir}>
-                                                {dir}
-                                              </option>
-                                            ))}
-                                          </select>
-                                        </label>
-                                      )}
-                                    </>
-                                  ) : null}
+                                      ))}
+                                    </div>
+                                  </div>
 
-                                  {tileSupportsModifierKind(layer.tile, "TRACKS") ? (
-                                    <>
-                                      <div className="fieldGroup compactFieldGroup">
-                                        <span className="fieldCaption">Track Pieces</span>
-                                        <div className="checkboxGrid">
-                                          {TRACK_PIECES.map((piece) => (
-                                            <label key={piece} className="checkPill">
-                                              <input
-                                                type="checkbox"
-                                                checked={tracksModifier.pieces.includes(piece)}
-                                                onChange={(event) =>
-                                                  updateInspectableCellLayer(layer.role, (tile) => {
-                                                    const nextPieces = toggleOrderedValue(
-                                                      tracksModifier.pieces,
-                                                      piece,
-                                                      event.target.checked,
-                                                      TRACK_PIECES,
-                                                    );
-                                                    return setTileModifier(
-                                                      tile,
-                                                      "TRACKS",
-                                                      nextPieces.length > 0
-                                                        ? {
-                                                            kind: "TRACKS",
-                                                            pieces: nextPieces,
-                                                            active: tracksModifier.active,
-                                                            entered: tracksModifier.entered,
-                                                          }
-                                                        : null,
-                                                    );
-                                                  })
-                                                }
-                                              />
-                                              <span>{formatTrackPieceLabel(piece)}</span>
-                                            </label>
-                                          ))}
-                                        </div>
-                                      </div>
+                                  <div className="formGrid twoColumnFormGrid">
+                                    <label className="fieldGroup compactFieldGroup">
+                                      <span className="fieldCaption">Active Exit</span>
+                                      <select
+                                        className="textField compactField"
+                                        value={tracksModifier.active}
+                                        onChange={(event) =>
+                                          updateInspectableCellLayer(layer.role, (tile) =>
+                                            setTileModifier(tile, "TRACKS", {
+                                              kind: "TRACKS",
+                                              pieces: [...tracksModifier.pieces],
+                                              active: event.target
+                                                .value as (typeof TRACK_ACTIVE_VALUES)[number],
+                                              entered: tracksModifier.entered,
+                                            }),
+                                          )
+                                        }
+                                      >
+                                        {TRACK_ACTIVE_VALUES.map((active) => (
+                                          <option key={active} value={active}>
+                                            {active}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
 
-                                      <div className="formGrid twoColumnFormGrid">
-                                        <label className="fieldGroup compactFieldGroup">
-                                          <span className="fieldCaption">Active Exit</span>
-                                          <select
-                                            className="textField compactField"
-                                            value={tracksModifier.active}
-                                            onChange={(event) =>
-                                              updateInspectableCellLayer(layer.role, (tile) =>
-                                                setTileModifier(tile, "TRACKS", {
-                                                  kind: "TRACKS",
-                                                  pieces: [...tracksModifier.pieces],
-                                                  active: event.target
-                                                    .value as (typeof TRACK_ACTIVE_VALUES)[number],
-                                                  entered: tracksModifier.entered,
-                                                }),
-                                              )
-                                            }
-                                          >
-                                            {TRACK_ACTIVE_VALUES.map((active) => (
-                                              <option key={active} value={active}>
-                                                {active}
-                                              </option>
-                                            ))}
-                                          </select>
-                                        </label>
-
-                                        <label className="fieldGroup compactFieldGroup">
-                                          <span className="fieldCaption">Entered From</span>
-                                          <select
-                                            className="textField compactField"
-                                            value={tracksModifier.entered}
-                                            onChange={(event) =>
-                                              updateInspectableCellLayer(layer.role, (tile) =>
-                                                setTileModifier(tile, "TRACKS", {
-                                                  kind: "TRACKS",
-                                                  pieces: [...tracksModifier.pieces],
-                                                  active: tracksModifier.active,
-                                                  entered: event.target.value as Dir,
-                                                }),
-                                              )
-                                            }
-                                          >
-                                            {CARDINAL_DIRS.map((dir) => (
-                                              <option key={dir} value={dir}>
-                                                {dir}
-                                              </option>
-                                            ))}
-                                          </select>
-                                        </label>
-                                      </div>
-                                    </>
-                                  ) : null}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </fieldset>
-                      ) : (
-                        <div className="emptyPanelState">
-                          This cell has no modifier-heavy layers. Try floor wires, tracks, logic,
-                          clone machines, custom tiles, letter tiles, or directional blocks.
-                        </div>
-                      )
-                    ) : (
-                      <div className="emptyPanelState">
-                        Pick a cell before using the advanced cell editor.
+                                    <label className="fieldGroup compactFieldGroup">
+                                      <span className="fieldCaption">Entered From</span>
+                                      <select
+                                        className="textField compactField"
+                                        value={tracksModifier.entered}
+                                        onChange={(event) =>
+                                          updateInspectableCellLayer(layer.role, (tile) =>
+                                            setTileModifier(tile, "TRACKS", {
+                                              kind: "TRACKS",
+                                              pieces: [...tracksModifier.pieces],
+                                              active: tracksModifier.active,
+                                              entered: event.target.value as Dir,
+                                            }),
+                                          )
+                                        }
+                                      >
+                                        {CARDINAL_DIRS.map((dir) => (
+                                          <option key={dir} value={dir}>
+                                            {dir}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+                                  </div>
+                                </>
+                              ) : null}
+                            </div>
+                          );
+                        })}
                       </div>
-                    )}
+                    </fieldset>
+                  ) : (
+                    <div className="emptyPanelState">
+                      This cell has no modifier-heavy layers. Try floor wires, tracks, logic, clone
+                      machines, custom tiles, letter tiles, or directional blocks.
+                    </div>
+                  )
+                ) : (
+                  <div className="emptyPanelState">
+                    Pick a cell before using the advanced cell editor.
                   </div>
+                )}
+              </div>
 
-                  <div className="inspectorSection">
-                    <div className="inspectorSectionTitle">Editing State</div>
-                    <div className="inspectorLayerRow">
-                      <span className="inspectorLayerLabel">Tool</span>
-                      <span className="inspectorLayerValue">
-                        {activeToolMeta?.label ?? tool} ({activeToolMeta?.shortcut ?? "?"})
-                      </span>
-                    </div>
-                    <div className="inspectorLayerRow">
-                      <span className="inspectorLayerLabel">Selection</span>
-                      <span className="inspectorLayerValue">
-                        {selection ? `${selection.width}x${selection.height}` : "none"}
-                      </span>
-                    </div>
-                    <div className="inspectorLayerRow">
-                      <span className="inspectorLayerLabel">Clipboard</span>
-                      <span className="inspectorLayerValue">
-                        {clipboard ? `${clipboard.width}x${clipboard.height}` : "empty"}
-                      </span>
-                    </div>
-                    <div className="inspectorLayerRow">
-                      <span className="inspectorLayerLabel">Paste Preview</span>
-                      <span className="inspectorLayerValue">
-                        {pastePreviewActive ? "active" : "off"}
-                      </span>
-                    </div>
+              <div className="inspectorSection">
+                <div className="inspectorSectionTitle">Editing State</div>
+                <div className="inspectorLayerRow">
+                  <span className="inspectorLayerLabel">Tool</span>
+                  <span className="inspectorLayerValue">
+                    {activeToolMeta?.label ?? tool} ({activeToolMeta?.shortcut ?? "?"})
+                  </span>
+                </div>
+                <div className="inspectorLayerRow">
+                  <span className="inspectorLayerLabel">Selection</span>
+                  <span className="inspectorLayerValue">
+                    {selection ? `${selection.width}x${selection.height}` : "none"}
+                  </span>
+                </div>
+                <div className="inspectorLayerRow">
+                  <span className="inspectorLayerLabel">Clipboard</span>
+                  <span className="inspectorLayerValue">
+                    {clipboard ? `${clipboard.width}x${clipboard.height}` : "empty"}
+                  </span>
+                </div>
+                <div className="inspectorLayerRow">
+                  <span className="inspectorLayerLabel">Paste Preview</span>
+                  <span className="inspectorLayerValue">
+                    {pastePreviewActive ? "active" : "off"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="inspectorSection">
+                <div className="inspectorSectionTitle">Brush Assignment</div>
+                <div className="inspectorLayerRow">
+                  <span className="inspectorLayerLabel">Primary</span>
+                  <span className="inspectorLayerValue">{primaryBrushName}</span>
+                </div>
+                <div className="inspectorLayerRow">
+                  <span className="inspectorLayerLabel">Secondary</span>
+                  <span className="inspectorLayerValue">{secondaryBrushName}</span>
+                </div>
+              </div>
+
+              <div className="inspectorSection">
+                <div className="inspectorSectionTitle">Shortcuts</div>
+                <div className="shortcutList">
+                  <div className="shortcutRow">
+                    <span className="shortcutKey">Cmd/Ctrl+Z</span>
+                    <span>Undo</span>
                   </div>
-
-                  <div className="inspectorSection">
-                    <div className="inspectorSectionTitle">Brush Assignment</div>
-                    <div className="inspectorLayerRow">
-                      <span className="inspectorLayerLabel">Primary</span>
-                      <span className="inspectorLayerValue">{primaryBrushName}</span>
-                    </div>
-                    <div className="inspectorLayerRow">
-                      <span className="inspectorLayerLabel">Secondary</span>
-                      <span className="inspectorLayerValue">{secondaryBrushName}</span>
-                    </div>
+                  <div className="shortcutRow">
+                    <span className="shortcutKey">Cmd/Ctrl+Shift+Z</span>
+                    <span>Redo</span>
                   </div>
-
-                  <div className="inspectorSection">
-                    <div className="inspectorSectionTitle">Shortcuts</div>
-                    <div className="shortcutList">
-                      <div className="shortcutRow">
-                        <span className="shortcutKey">Cmd/Ctrl+Z</span>
-                        <span>Undo</span>
-                      </div>
-                      <div className="shortcutRow">
-                        <span className="shortcutKey">Cmd/Ctrl+Shift+Z</span>
-                        <span>Redo</span>
-                      </div>
-                      <div className="shortcutRow">
-                        <span className="shortcutKey">B L F V E I</span>
-                        <span>Tool switch</span>
-                      </div>
-                      <div className="shortcutRow">
-                        <span className="shortcutKey">Cmd/Ctrl+C</span>
-                        <span>Copy selection</span>
-                      </div>
-                      <div className="shortcutRow">
-                        <span className="shortcutKey">Cmd/Ctrl+V</span>
-                        <span>Start paste preview</span>
-                      </div>
-                      <div className="shortcutRow">
-                        <span className="shortcutKey">Enter</span>
-                        <span>Commit paste preview</span>
-                      </div>
-                      <div className="shortcutRow">
-                        <span className="shortcutKey">Delete</span>
-                        <span>Erase selection</span>
-                      </div>
-                      <div className="shortcutRow">
-                        <span className="shortcutKey">Esc</span>
-                        <span>Clear selection / cancel paste</span>
-                      </div>
-                    </div>
+                  <div className="shortcutRow">
+                    <span className="shortcutKey">B L F V E I</span>
+                    <span>Tool switch</span>
+                  </div>
+                  <div className="shortcutRow">
+                    <span className="shortcutKey">Cmd/Ctrl+C</span>
+                    <span>Copy selection</span>
+                  </div>
+                  <div className="shortcutRow">
+                    <span className="shortcutKey">Cmd/Ctrl+V</span>
+                    <span>Start paste preview</span>
+                  </div>
+                  <div className="shortcutRow">
+                    <span className="shortcutKey">Enter</span>
+                    <span>Commit paste preview</span>
+                  </div>
+                  <div className="shortcutRow">
+                    <span className="shortcutKey">Delete</span>
+                    <span>Erase selection</span>
+                  </div>
+                  <div className="shortcutRow">
+                    <span className="shortcutKey">Esc</span>
+                    <span>Clear selection / cancel paste</span>
                   </div>
                 </div>
-              ) : null}
+              </div>
+            </div>
+          ) : null}
 
-              {inspectorTab === "metadata" ? (
-                <div className="inspectorTabBody">
-                  <div className="inspectorSection">
-                    <div className="inspectorSectionTitle">Level Metadata</div>
-                    {doc && metadataDraft ? (
-                      <>
-                        {visualEditLockReason ? (
-                          <div className="panelSubtext mutedPanelNotice">
-                            {visualEditLockReason}
-                          </div>
-                        ) : null}
+          {inspectorTab === "metadata" ? (
+            <div className="inspectorTabBody">
+              <div className="inspectorSection">
+                <div className="inspectorSectionTitle">Level Metadata</div>
+                {doc && metadataDraft ? (
+                  <>
+                    {visualEditLockReason ? (
+                      <div className="panelSubtext mutedPanelNotice">{visualEditLockReason}</div>
+                    ) : null}
 
-                        <fieldset className="plainFieldset" disabled={!canMutateBoard}>
-                          <div className="sectionActions">
-                            <button
-                              type="button"
-                              onClick={() => setMetadataDraft(makeMetadataDraft(doc))}
-                              disabled={!metadataDirty}
-                            >
-                              Reset
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => applyMetadataDraftChanges()}
-                              disabled={!metadataDirty}
-                            >
-                              Apply
-                            </button>
-                          </div>
-
-                          {metadataError ? (
-                            <div className="panelInlineError">{metadataError}</div>
-                          ) : null}
-
-                          <div className="formGrid">
-                            <label className="fieldGroup">
-                              <span className="fieldCaption">Title</span>
-                              <input
-                                className="textField compactField"
-                                type="text"
-                                value={metadataDraft.title}
-                                onChange={(event) =>
-                                  updateMetadataDraftField("title", event.target.value)
-                                }
-                              />
-                            </label>
-
-                            <label className="fieldGroup">
-                              <span className="fieldCaption">Author</span>
-                              <input
-                                className="textField compactField"
-                                type="text"
-                                value={metadataDraft.author}
-                                onChange={(event) =>
-                                  updateMetadataDraftField("author", event.target.value)
-                                }
-                              />
-                            </label>
-
-                            <label className="fieldGroup">
-                              <span className="fieldCaption">Editor Version</span>
-                              <input
-                                className="textField compactField"
-                                type="text"
-                                value={metadataDraft.editorVersion}
-                                onChange={(event) =>
-                                  updateMetadataDraftField("editorVersion", event.target.value)
-                                }
-                              />
-                            </label>
-
-                            <label className="fieldGroup">
-                              <span className="fieldCaption">Lock</span>
-                              <input
-                                className="textField compactField"
-                                type="text"
-                                value={metadataDraft.lock}
-                                onChange={(event) =>
-                                  updateMetadataDraftField("lock", event.target.value)
-                                }
-                              />
-                            </label>
-                          </div>
-
-                          <label className="fieldGroup">
-                            <span className="fieldCaption">Clue</span>
-                            <textarea
-                              className="textField inspectorTextArea"
-                              rows={3}
-                              value={metadataDraft.clue}
-                              onChange={(event) =>
-                                updateMetadataDraftField("clue", event.target.value)
-                              }
-                            />
-                          </label>
-
-                          <label className="fieldGroup">
-                            <span className="fieldCaption">Note</span>
-                            <textarea
-                              className="textField inspectorTextArea"
-                              rows={4}
-                              value={metadataDraft.note}
-                              onChange={(event) =>
-                                updateMetadataDraftField("note", event.target.value)
-                              }
-                            />
-                          </label>
-
-                          <label className="checkboxRow">
-                            <input
-                              type="checkbox"
-                              checked={metadataDraft.readOnlyChunk}
-                              onChange={(event) =>
-                                updateMetadataDraftField("readOnlyChunk", event.target.checked)
-                              }
-                            />
-                            <span>Emit `RDNY` read-only chunk</span>
-                          </label>
-                        </fieldset>
-                      </>
-                    ) : (
-                      <div className="emptyPanelState">
-                        Open or create a document to edit metadata.
+                    <fieldset className="plainFieldset" disabled={!canMutateBoard}>
+                      <div className="sectionActions">
+                        <button
+                          type="button"
+                          onClick={() => setMetadataDraft(makeMetadataDraft(doc))}
+                          disabled={!metadataDirty}
+                        >
+                          Reset
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyMetadataDraftChanges()}
+                          disabled={!metadataDirty}
+                        >
+                          Apply
+                        </button>
                       </div>
-                    )}
-                  </div>
 
-                  <div className="inspectorSection">
-                    <div className="inspectorSectionTitle">Options</div>
-                    {metadataDraft ? (
-                      <fieldset className="plainFieldset" disabled={!canMutateBoard}>
-                        <div className="formGrid">
-                          <label className="fieldGroup">
-                            <span className="fieldCaption">time</span>
-                            <input
-                              className="textField compactField"
-                              type="number"
-                              min={0}
-                              max={65535}
-                              value={metadataDraft.time}
-                              onChange={(event) =>
-                                updateMetadataDraftField("time", event.target.value)
-                              }
-                            />
-                          </label>
+                      {metadataError ? (
+                        <div className="panelInlineError">{metadataError}</div>
+                      ) : null}
 
-                          <label className="fieldGroup">
-                            <span className="fieldCaption">editorWindow</span>
-                            <input
-                              className="textField compactField"
-                              type="number"
-                              min={0}
-                              max={255}
-                              value={metadataDraft.editorWindow}
-                              onChange={(event) =>
-                                updateMetadataDraftField("editorWindow", event.target.value)
-                              }
-                            />
-                          </label>
-
-                          <label className="fieldGroup">
-                            <span className="fieldCaption">verifiedReplay</span>
-                            <input
-                              className="textField compactField"
-                              type="number"
-                              min={0}
-                              max={255}
-                              value={metadataDraft.verifiedReplay}
-                              onChange={(event) =>
-                                updateMetadataDraftField("verifiedReplay", event.target.value)
-                              }
-                            />
-                          </label>
-
-                          <label className="fieldGroup">
-                            <span className="fieldCaption">hideMap</span>
-                            <input
-                              className="textField compactField"
-                              type="number"
-                              min={0}
-                              max={255}
-                              value={metadataDraft.hideMap}
-                              onChange={(event) =>
-                                updateMetadataDraftField("hideMap", event.target.value)
-                              }
-                            />
-                          </label>
-
-                          <label className="fieldGroup">
-                            <span className="fieldCaption">readOnlyOption</span>
-                            <input
-                              className="textField compactField"
-                              type="number"
-                              min={0}
-                              max={255}
-                              value={metadataDraft.readOnlyOption}
-                              onChange={(event) =>
-                                updateMetadataDraftField("readOnlyOption", event.target.value)
-                              }
-                            />
-                          </label>
-
-                          <label className="fieldGroup">
-                            <span className="fieldCaption">hideLogic</span>
-                            <input
-                              className="textField compactField"
-                              type="number"
-                              min={0}
-                              max={255}
-                              value={metadataDraft.hideLogic}
-                              onChange={(event) =>
-                                updateMetadataDraftField("hideLogic", event.target.value)
-                              }
-                            />
-                          </label>
-
-                          <label className="fieldGroup">
-                            <span className="fieldCaption">cc1Boots</span>
-                            <input
-                              className="textField compactField"
-                              type="number"
-                              min={0}
-                              max={255}
-                              value={metadataDraft.cc1Boots}
-                              onChange={(event) =>
-                                updateMetadataDraftField("cc1Boots", event.target.value)
-                              }
-                            />
-                          </label>
-
-                          <label className="fieldGroup">
-                            <span className="fieldCaption">blobPatterns</span>
-                            <input
-                              className="textField compactField"
-                              type="number"
-                              min={0}
-                              max={255}
-                              value={metadataDraft.blobPatterns}
-                              onChange={(event) =>
-                                updateMetadataDraftField("blobPatterns", event.target.value)
-                              }
-                            />
-                          </label>
-                        </div>
-                      </fieldset>
-                    ) : (
-                      <div className="emptyPanelState">
-                        Supported numeric `options.*` fields appear here.
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="inspectorSection">
-                    <div className="inspectorSectionTitle">Resize Map</div>
-                    {map && resizeDraft ? (
-                      <>
-                        {visualEditLockReason ? (
-                          <div className="panelSubtext mutedPanelNotice">
-                            {visualEditLockReason}
-                          </div>
-                        ) : null}
-
-                        <fieldset className="plainFieldset" disabled={!canMutateBoard}>
-                          <div className="sectionActions">
-                            <button
-                              type="button"
-                              onClick={() => setResizeDraft(makeMapResizeDraft(map))}
-                              disabled={!resizeDirty}
-                            >
-                              Reset
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => applyResizeDraftChanges()}
-                              disabled={!resizeDirty || !canMutateBoard}
-                            >
-                              Apply Resize
-                            </button>
-                          </div>
-
-                          {resizeError ? (
-                            <div className="panelInlineError">{resizeError}</div>
-                          ) : null}
-
-                          <div className="formGrid">
-                            <label className="fieldGroup">
-                              <span className="fieldCaption">Width</span>
-                              <input
-                                className="textField compactField"
-                                type="number"
-                                min={10}
-                                max={100}
-                                value={resizeDraft.width}
-                                onChange={(event) =>
-                                  updateResizeDraftField("width", event.target.value)
-                                }
-                              />
-                            </label>
-
-                            <label className="fieldGroup">
-                              <span className="fieldCaption">Height</span>
-                              <input
-                                className="textField compactField"
-                                type="number"
-                                min={10}
-                                max={100}
-                                value={resizeDraft.height}
-                                onChange={(event) =>
-                                  updateResizeDraftField("height", event.target.value)
-                                }
-                              />
-                            </label>
-                          </div>
-
-                          <label className="fieldGroup">
-                            <span className="fieldCaption">Anchor</span>
-                            <select
-                              className="textField compactField"
-                              value={resizeDraft.anchor}
-                              onChange={(event) =>
-                                updateResizeDraftField("anchor", event.target.value as ResizeAnchor)
-                              }
-                            >
-                              {RESIZE_ANCHORS.map((anchor) => (
-                                <option key={anchor} value={anchor}>
-                                  {anchor}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-
-                          <div className="panelSubtext">
-                            New cells are filled with `FLOOR`. Resizing is constrained to `10x10`
-                            through `100x100`.
-                          </div>
-                        </fieldset>
-                      </>
-                    ) : (
-                      <div className="emptyPanelState">Open a level to resize its map.</div>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-
-              {inspectorTab === "advanced" ? (
-                <div className="inspectorTabBody">
-                  <div className="inspectorSection">
-                    <div className="inspectorSectionTitle">Raw JSON</div>
-                    <div className="panelSubtext">
-                      The full raw document editor is still available as its own workspace so large
-                      `sections[]` and manual chunk edits are not cramped into the inspector.
-                    </div>
-                    <div className="sectionActions">
-                      <button type="button" onClick={() => setViewMode("json")}>
-                        Open Raw JSON
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="inspectorSection">
-                    <div className="inspectorSectionTitle">Preserved Payloads</div>
-                    {doc ? (
-                      <>
-                        <div className="inspectorLayerRow">
-                          <span className="inspectorLayerLabel">Raw Sections</span>
-                          <span className="inspectorLayerValue">{preservedSectionTags.length}</span>
-                        </div>
-                        <div className="inspectorLayerRow">
-                          <span className="inspectorLayerLabel">Extra Chunks</span>
-                          <span className="inspectorLayerValue">
-                            {preservedExtraChunkTags.length}
-                          </span>
-                        </div>
-                        <div className="inspectorLayerRow">
-                          <span className="inspectorLayerLabel">Key Blob</span>
-                          <span className="inspectorLayerValue">
-                            {describeBlobPresence(doc.key !== undefined)}
-                          </span>
-                        </div>
-                        <div className="inspectorLayerRow">
-                          <span className="inspectorLayerLabel">Replay Blob</span>
-                          <span className="inspectorLayerValue">
-                            {describeBlobPresence(doc.replay !== undefined)}
-                          </span>
-                        </div>
-                        <div className="inspectorLayerRow">
-                          <span className="inspectorLayerLabel">Replay Hash</span>
-                          <span className="inspectorLayerValue">
-                            {describeBlobPresence(doc.options?.replayHash !== undefined)}
-                          </span>
-                        </div>
-                        <div className="inspectorLayerRow">
-                          <span className="inspectorLayerLabel">Options Extra</span>
-                          <span className="inspectorLayerValue">
-                            {describeBlobPresence(doc.options?.extra !== undefined)}
-                          </span>
-                        </div>
-
+                      <div className="formGrid">
                         <label className="fieldGroup">
-                          <span className="fieldCaption">Section Tags</span>
-                          <textarea
-                            className="textField inspectorTextArea codeArea"
-                            readOnly
-                            rows={4}
-                            value={preservedSectionTags.join(" ")}
+                          <span className="fieldCaption">Title</span>
+                          <input
+                            className="textField compactField"
+                            type="text"
+                            value={metadataDraft.title}
+                            onChange={(event) =>
+                              updateMetadataDraftField("title", event.target.value)
+                            }
                           />
                         </label>
 
                         <label className="fieldGroup">
-                          <span className="fieldCaption">Extra Chunk Tags</span>
-                          <textarea
-                            className="textField inspectorTextArea codeArea"
-                            readOnly
-                            rows={3}
-                            value={preservedExtraChunkTags.join(" ")}
+                          <span className="fieldCaption">Author</span>
+                          <input
+                            className="textField compactField"
+                            type="text"
+                            value={metadataDraft.author}
+                            onChange={(event) =>
+                              updateMetadataDraftField("author", event.target.value)
+                            }
                           />
                         </label>
-                      </>
-                    ) : (
-                      <div className="emptyPanelState">
-                        Open a document to inspect preserved sections, blobs, and extra chunks.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-            </aside>
-          </div>
-        )}
-      </div>
 
-      <div className="messages">
-        {tilesetError ? <div className="msg warn">{tilesetError}</div> : null}
-        {parseError ? <div className="msg error">{parseError}</div> : null}
-        {error ? <div className="msg error">{error}</div> : null}
-        {renderError ? <div className="msg error">{renderError}</div> : null}
-        {warnings.map((warning, index) => (
-          <div key={index} className="msg warn">
-            {warning}
-          </div>
-        ))}
-      </div>
+                        <label className="fieldGroup">
+                          <span className="fieldCaption">Editor Version</span>
+                          <input
+                            className="textField compactField"
+                            type="text"
+                            value={metadataDraft.editorVersion}
+                            onChange={(event) =>
+                              updateMetadataDraftField("editorVersion", event.target.value)
+                            }
+                          />
+                        </label>
+
+                        <label className="fieldGroup">
+                          <span className="fieldCaption">Lock</span>
+                          <input
+                            className="textField compactField"
+                            type="text"
+                            value={metadataDraft.lock}
+                            onChange={(event) =>
+                              updateMetadataDraftField("lock", event.target.value)
+                            }
+                          />
+                        </label>
+                      </div>
+
+                      <label className="fieldGroup">
+                        <span className="fieldCaption">Clue</span>
+                        <textarea
+                          className="textField inspectorTextArea"
+                          rows={3}
+                          value={metadataDraft.clue}
+                          onChange={(event) => updateMetadataDraftField("clue", event.target.value)}
+                        />
+                      </label>
+
+                      <label className="fieldGroup">
+                        <span className="fieldCaption">Note</span>
+                        <textarea
+                          className="textField inspectorTextArea"
+                          rows={4}
+                          value={metadataDraft.note}
+                          onChange={(event) => updateMetadataDraftField("note", event.target.value)}
+                        />
+                      </label>
+
+                      <label className="checkboxRow">
+                        <input
+                          type="checkbox"
+                          checked={metadataDraft.readOnlyChunk}
+                          onChange={(event) =>
+                            updateMetadataDraftField("readOnlyChunk", event.target.checked)
+                          }
+                        />
+                        <span>Emit `RDNY` read-only chunk</span>
+                      </label>
+                    </fieldset>
+                  </>
+                ) : (
+                  <div className="emptyPanelState">Open or create a document to edit metadata.</div>
+                )}
+              </div>
+
+              <div className="inspectorSection">
+                <div className="inspectorSectionTitle">Options</div>
+                {metadataDraft ? (
+                  <fieldset className="plainFieldset" disabled={!canMutateBoard}>
+                    <div className="formGrid">
+                      <label className="fieldGroup">
+                        <span className="fieldCaption">time</span>
+                        <input
+                          className="textField compactField"
+                          type="number"
+                          min={0}
+                          max={65535}
+                          value={metadataDraft.time}
+                          onChange={(event) => updateMetadataDraftField("time", event.target.value)}
+                        />
+                      </label>
+
+                      <label className="fieldGroup">
+                        <span className="fieldCaption">editorWindow</span>
+                        <input
+                          className="textField compactField"
+                          type="number"
+                          min={0}
+                          max={255}
+                          value={metadataDraft.editorWindow}
+                          onChange={(event) =>
+                            updateMetadataDraftField("editorWindow", event.target.value)
+                          }
+                        />
+                      </label>
+
+                      <label className="fieldGroup">
+                        <span className="fieldCaption">verifiedReplay</span>
+                        <input
+                          className="textField compactField"
+                          type="number"
+                          min={0}
+                          max={255}
+                          value={metadataDraft.verifiedReplay}
+                          onChange={(event) =>
+                            updateMetadataDraftField("verifiedReplay", event.target.value)
+                          }
+                        />
+                      </label>
+
+                      <label className="fieldGroup">
+                        <span className="fieldCaption">hideMap</span>
+                        <input
+                          className="textField compactField"
+                          type="number"
+                          min={0}
+                          max={255}
+                          value={metadataDraft.hideMap}
+                          onChange={(event) =>
+                            updateMetadataDraftField("hideMap", event.target.value)
+                          }
+                        />
+                      </label>
+
+                      <label className="fieldGroup">
+                        <span className="fieldCaption">readOnlyOption</span>
+                        <input
+                          className="textField compactField"
+                          type="number"
+                          min={0}
+                          max={255}
+                          value={metadataDraft.readOnlyOption}
+                          onChange={(event) =>
+                            updateMetadataDraftField("readOnlyOption", event.target.value)
+                          }
+                        />
+                      </label>
+
+                      <label className="fieldGroup">
+                        <span className="fieldCaption">hideLogic</span>
+                        <input
+                          className="textField compactField"
+                          type="number"
+                          min={0}
+                          max={255}
+                          value={metadataDraft.hideLogic}
+                          onChange={(event) =>
+                            updateMetadataDraftField("hideLogic", event.target.value)
+                          }
+                        />
+                      </label>
+
+                      <label className="fieldGroup">
+                        <span className="fieldCaption">cc1Boots</span>
+                        <input
+                          className="textField compactField"
+                          type="number"
+                          min={0}
+                          max={255}
+                          value={metadataDraft.cc1Boots}
+                          onChange={(event) =>
+                            updateMetadataDraftField("cc1Boots", event.target.value)
+                          }
+                        />
+                      </label>
+
+                      <label className="fieldGroup">
+                        <span className="fieldCaption">blobPatterns</span>
+                        <input
+                          className="textField compactField"
+                          type="number"
+                          min={0}
+                          max={255}
+                          value={metadataDraft.blobPatterns}
+                          onChange={(event) =>
+                            updateMetadataDraftField("blobPatterns", event.target.value)
+                          }
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+                ) : (
+                  <div className="emptyPanelState">
+                    Supported numeric `options.*` fields appear here.
+                  </div>
+                )}
+              </div>
+
+              <div className="inspectorSection">
+                <div className="inspectorSectionTitle">Resize Map</div>
+                {map && resizeDraft ? (
+                  <>
+                    {visualEditLockReason ? (
+                      <div className="panelSubtext mutedPanelNotice">{visualEditLockReason}</div>
+                    ) : null}
+
+                    <fieldset className="plainFieldset" disabled={!canMutateBoard}>
+                      <div className="sectionActions">
+                        <button
+                          type="button"
+                          onClick={() => setResizeDraft(makeMapResizeDraft(map))}
+                          disabled={!resizeDirty}
+                        >
+                          Reset
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyResizeDraftChanges()}
+                          disabled={!resizeDirty || !canMutateBoard}
+                        >
+                          Apply Resize
+                        </button>
+                      </div>
+
+                      {resizeError ? <div className="panelInlineError">{resizeError}</div> : null}
+
+                      <div className="formGrid">
+                        <label className="fieldGroup">
+                          <span className="fieldCaption">Width</span>
+                          <input
+                            className="textField compactField"
+                            type="number"
+                            min={10}
+                            max={100}
+                            value={resizeDraft.width}
+                            onChange={(event) =>
+                              updateResizeDraftField("width", event.target.value)
+                            }
+                          />
+                        </label>
+
+                        <label className="fieldGroup">
+                          <span className="fieldCaption">Height</span>
+                          <input
+                            className="textField compactField"
+                            type="number"
+                            min={10}
+                            max={100}
+                            value={resizeDraft.height}
+                            onChange={(event) =>
+                              updateResizeDraftField("height", event.target.value)
+                            }
+                          />
+                        </label>
+                      </div>
+
+                      <label className="fieldGroup">
+                        <span className="fieldCaption">Anchor</span>
+                        <select
+                          className="textField compactField"
+                          value={resizeDraft.anchor}
+                          onChange={(event) =>
+                            updateResizeDraftField("anchor", event.target.value as ResizeAnchor)
+                          }
+                        >
+                          {RESIZE_ANCHORS.map((anchor) => (
+                            <option key={anchor} value={anchor}>
+                              {anchor}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <div className="panelSubtext">
+                        New cells are filled with `FLOOR`. Resizing is constrained to `10x10`
+                        through `100x100`.
+                      </div>
+                    </fieldset>
+                  </>
+                ) : (
+                  <div className="emptyPanelState">Open a level to resize its map.</div>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {inspectorTab === "advanced" ? (
+            <div className="inspectorTabBody">
+              <div className="inspectorSection">
+                <div className="inspectorSectionTitle">Raw JSON</div>
+                <div className="panelSubtext">
+                  The full raw document editor is still available as its own workspace so large
+                  `sections[]` and manual chunk edits are not cramped into the inspector.
+                </div>
+                <div className="sectionActions">
+                  <button type="button" onClick={() => setViewMode("json")}>
+                    Open Raw JSON
+                  </button>
+                </div>
+              </div>
+
+              <div className="inspectorSection">
+                <div className="inspectorSectionTitle">Preserved Payloads</div>
+                {doc ? (
+                  <>
+                    <div className="inspectorLayerRow">
+                      <span className="inspectorLayerLabel">Raw Sections</span>
+                      <span className="inspectorLayerValue">{preservedSectionTags.length}</span>
+                    </div>
+                    <div className="inspectorLayerRow">
+                      <span className="inspectorLayerLabel">Extra Chunks</span>
+                      <span className="inspectorLayerValue">{preservedExtraChunkTags.length}</span>
+                    </div>
+                    <div className="inspectorLayerRow">
+                      <span className="inspectorLayerLabel">Key Blob</span>
+                      <span className="inspectorLayerValue">
+                        {describeBlobPresence(doc.key !== undefined)}
+                      </span>
+                    </div>
+                    <div className="inspectorLayerRow">
+                      <span className="inspectorLayerLabel">Replay Blob</span>
+                      <span className="inspectorLayerValue">
+                        {describeBlobPresence(doc.replay !== undefined)}
+                      </span>
+                    </div>
+                    <div className="inspectorLayerRow">
+                      <span className="inspectorLayerLabel">Replay Hash</span>
+                      <span className="inspectorLayerValue">
+                        {describeBlobPresence(doc.options?.replayHash !== undefined)}
+                      </span>
+                    </div>
+                    <div className="inspectorLayerRow">
+                      <span className="inspectorLayerLabel">Options Extra</span>
+                      <span className="inspectorLayerValue">
+                        {describeBlobPresence(doc.options?.extra !== undefined)}
+                      </span>
+                    </div>
+
+                    <label className="fieldGroup">
+                      <span className="fieldCaption">Section Tags</span>
+                      <textarea
+                        className="textField inspectorTextArea codeArea"
+                        readOnly
+                        rows={4}
+                        value={preservedSectionTags.join(" ")}
+                      />
+                    </label>
+
+                    <label className="fieldGroup">
+                      <span className="fieldCaption">Extra Chunk Tags</span>
+                      <textarea
+                        className="textField inspectorTextArea codeArea"
+                        readOnly
+                        rows={3}
+                        value={preservedExtraChunkTags.join(" ")}
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <div className="emptyPanelState">
+                    Open a document to inspect preserved sections, blobs, and extra chunks.
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </aside>
+      </main>
     </div>
   );
 }
