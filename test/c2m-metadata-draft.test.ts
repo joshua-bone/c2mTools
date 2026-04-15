@@ -12,6 +12,19 @@ function blob(...bytes: number[]) {
 }
 
 describe("c2m metadata draft helpers", () => {
+  it("surfaces editor defaults for dropdown-backed advanced options", () => {
+    const draft = makeMetadataDraft(createEmptyC2mDoc({ width: 10, height: 10 }));
+
+    expect(draft.fileVersion).toBe("7");
+    expect(draft.editorWindow).toBe("0");
+    expect(draft.verifiedReplay).toBe("0");
+    expect(draft.hideMap).toBe("0");
+    expect(draft.readOnlyOption).toBe("0");
+    expect(draft.hideLogic).toBe("0");
+    expect(draft.cc1Boots).toBe("0");
+    expect(draft.blobPatterns).toBe("2");
+  });
+
   it("adds metadata to decoded docs with preserved sections while keeping extra payloads intact", () => {
     const decoded = decodeC2mToJsonV1(
       encodeC2mFromJsonV1(

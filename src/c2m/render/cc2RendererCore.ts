@@ -49,13 +49,11 @@ function renderWireable(
   isSwitch: boolean,
 ): RgbaImage {
   const own = ts.draw(ownX, ownY);
-  const { wires, hasModifier } = wiresMask(tile);
+  const { wires } = wiresMask(tile);
 
   const baseXY = isSwitch ? { x: 14, y: 21 } : { x: 0, y: 2 };
   if (wires === 0) {
-    return hasModifier
-      ? ts.merge(ts.draw(12, 26), own)
-      : ts.merge(own, ts.draw(baseXY.x, baseXY.y));
+    return ts.merge(own, ts.draw(baseXY.x, baseXY.y));
   }
 
   let base = ts.draw(13, 26);
@@ -81,10 +79,9 @@ function renderWireBackdrop(
   baseX: number,
   baseY: number,
 ): RgbaImage {
-  const { wires, hasModifier } = wiresMask(tile);
+  const { wires } = wiresMask(tile);
   if (wires === 0) {
-    const own = ts.draw(baseX, baseY);
-    return hasModifier ? ts.merge(ts.draw(12, 26), own) : own;
+    return ts.draw(baseX, baseY);
   }
 
   let base = ts.draw(13, 26);
@@ -107,12 +104,12 @@ function renderSuperWireable(
   overlayY: number,
   tile: TileSpecObjJson,
 ): RgbaImage {
-  const { wires, tunnels, hasModifier } = wiresMask(tile);
+  const { wires, tunnels } = wiresMask(tile);
   const modifierLow = wires & 0x0f;
   const modifierHigh = tunnels & 0x0f;
 
   if (modifierLow === 0 && modifierHigh === 0) {
-    return hasModifier ? ts.merge(ts.draw(12, 26), ts.draw(ownX, ownY)) : ts.draw(ownX, ownY);
+    return ts.draw(ownX, ownY);
   }
 
   let base = ts.merge(ts.draw(overlayX, overlayY), ts.draw(13, 26));

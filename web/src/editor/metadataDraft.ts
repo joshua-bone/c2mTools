@@ -54,6 +54,10 @@ function numericValue(value: number | undefined): string {
   return value === undefined ? "" : String(value);
 }
 
+function numericValueWithDefault(value: number | undefined, defaultValue: number): string {
+  return value === undefined ? String(defaultValue) : String(value);
+}
+
 function blankToUndefined(value: string): string | undefined {
   return value.length === 0 ? undefined : value;
 }
@@ -88,7 +92,7 @@ export function makeMetadataDraft(doc: C2mJsonV1): C2mMetadataDraft {
   const options = doc.options ?? {};
 
   return {
-    fileVersion: fileVersionValue(doc.fileVersion),
+    fileVersion: fileVersionValue(doc.fileVersion) || "7",
     title: stringValue(doc.title),
     author: stringValue(doc.author),
     editorVersion: stringValue(doc.editorVersion),
@@ -97,13 +101,13 @@ export function makeMetadataDraft(doc: C2mJsonV1): C2mMetadataDraft {
     lock: stringValue(doc.lock),
     readOnlyChunk: doc.readOnlyChunk === true,
     time: numericValue(options.time),
-    editorWindow: numericValue(options.editorWindow),
-    verifiedReplay: numericValue(options.verifiedReplay),
-    hideMap: numericValue(options.hideMap),
-    readOnlyOption: numericValue(options.readOnlyOption),
-    hideLogic: numericValue(options.hideLogic),
-    cc1Boots: numericValue(options.cc1Boots),
-    blobPatterns: numericValue(options.blobPatterns),
+    editorWindow: numericValueWithDefault(options.editorWindow, 0),
+    verifiedReplay: numericValueWithDefault(options.verifiedReplay, 0),
+    hideMap: numericValueWithDefault(options.hideMap, 0),
+    readOnlyOption: numericValueWithDefault(options.readOnlyOption, 0),
+    hideLogic: numericValueWithDefault(options.hideLogic, 0),
+    cc1Boots: numericValueWithDefault(options.cc1Boots, 0),
+    blobPatterns: numericValueWithDefault(options.blobPatterns, 2),
   };
 }
 

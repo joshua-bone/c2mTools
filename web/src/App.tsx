@@ -33,6 +33,7 @@ import {
   type HoverCellSummary,
 } from "./boardEditorStatus";
 import { getSharedCc2CanvasCellCache } from "./cc2CanvasCache";
+import { drawRgbaImageToContext } from "./canvasDrawing";
 import { drawCc2CellsToContext, drawCc2MapToCanvas } from "./canvasMapRenderer";
 import { resolveBoardMapRedrawPlan, resolveChangedMapCellIndices } from "./boardRenderInvalidation";
 import { TilePreview } from "./TilePreview";
@@ -228,7 +229,6 @@ type SelectChoice = Readonly<{
 }>;
 
 const FILE_VERSION_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
-  { value: "", label: "Unset" },
   { value: "3", label: "3" },
   { value: "4", label: "4" },
   { value: "5", label: "5" },
@@ -237,38 +237,32 @@ const FILE_VERSION_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
 ]);
 
 const EDITOR_WINDOW_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
-  { value: "", label: "Unset" },
   { value: "0", label: "10x10 view" },
   { value: "1", label: "9x9 view" },
   { value: "2", label: "Split view" },
 ]);
 
 const BINARY_FLAG_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
-  { value: "", label: "Unset" },
   { value: "0", label: "Off" },
   { value: "1", label: "On" },
 ]);
 
 const VERIFIED_REPLAY_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
-  { value: "", label: "Unset" },
   { value: "0", label: "Not verified" },
   { value: "1", label: "Verified replay works" },
 ]);
 
 const HIDE_MAP_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
-  { value: "", label: "Unset" },
   { value: "0", label: "Show map in editor" },
   { value: "1", label: "Hide map in editor" },
 ]);
 
 const READ_ONLY_OPTION_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
-  { value: "", label: "Unset" },
   { value: "0", label: "Editable" },
   { value: "1", label: "Read-only" },
 ]);
 
 const BLOB_PATTERN_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
-  { value: "", label: "Unset" },
   { value: "0", label: "Deterministic" },
   { value: "1", label: "4 patterns" },
   { value: "2", label: "Extra random" },
@@ -408,6 +402,13 @@ function ensureChoiceValue(
   }
 
   return [...choices, { value: currentValue, label: `${customLabelPrefix}: ${currentValue}` }];
+}
+
+function pointWithinMap(
+  point: GridPoint | null,
+  map: Readonly<Pick<MapJson, "width" | "height">>,
+): point is GridPoint {
+  return !!point && point.x >= 0 && point.y >= 0 && point.x < map.width && point.y < map.height;
 }
 
 function resolveRectScreenRect(
@@ -742,6 +743,9 @@ export default function App() {
   const sessionPersistTimeoutRef = useRef<number | null>(null);
   const lastRenderedMapRef = useRef<MapJson | null>(null);
   const lastRenderedTilesetRef = useRef<CC2Tileset | null>(null);
+  const lastWireSpoolOverlayPointRef = useRef<GridPoint | null>(null);
+  const wireSpoolOverlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const wireSpoolOverlayTilesetRef = useRef<CC2Tileset | null>(null);
   const [initialAppState] = useState(() => createInitialAppState());
   const syncedJsonTextRef = useRef(initialAppState.jsonText);
   const latestSessionSnapshotRef = useRef<PersistedEditorSession | null>(
@@ -924,6 +928,7 @@ export default function App() {
     : (doc?.title ?? "Untitled Level");
   const hoverSummaryText = describeHoverSummary(boardStatus.hoverCellSummary);
   const displayFileName = fileName ?? DEFAULT_C2M_FILE_NAME;
+  const currentWireSpoolOverlayPoint = tool === "wire" ? pendingWirePoint : null;
   const fileVersionChoices = useMemo(
     () =>
       ensureChoiceValue(FILE_VERSION_CHOICES, metadataDraft?.fileVersion ?? "", "Custom version"),
@@ -1673,6 +1678,9 @@ export default function App() {
     if (!doc) {
       lastRenderedMapRef.current = null;
       lastRenderedTilesetRef.current = null;
+      lastWireSpoolOverlayPointRef.current = null;
+      wireSpoolOverlayCanvasRef.current = null;
+      wireSpoolOverlayTilesetRef.current = null;
       setRenderError(null);
       return;
     }
@@ -1680,12 +1688,18 @@ export default function App() {
     if (!activeMap) {
       lastRenderedMapRef.current = null;
       lastRenderedTilesetRef.current = null;
+      lastWireSpoolOverlayPointRef.current = null;
+      wireSpoolOverlayCanvasRef.current = null;
+      wireSpoolOverlayTilesetRef.current = null;
       setRenderError(null);
       return;
     }
 
     if (!tileset) {
       lastRenderedTilesetRef.current = null;
+      lastWireSpoolOverlayPointRef.current = null;
+      wireSpoolOverlayCanvasRef.current = null;
+      wireSpoolOverlayTilesetRef.current = null;
       setRenderError(tilesetError ?? "Tileset not loaded.");
       return;
     }
@@ -1695,6 +1709,7 @@ export default function App() {
 
     try {
       const previousMap = lastRenderedMapRef.current;
+      const previousWireSpoolOverlayPoint = lastWireSpoolOverlayPointRef.current;
       const sizeChanged =
         canvas.width !== activeMap.width * BOARD_TILE_PIXEL_SIZE ||
         canvas.height !== activeMap.height * BOARD_TILE_PIXEL_SIZE;
@@ -1706,24 +1721,58 @@ export default function App() {
           Math.max(32, Math.ceil(activeMap.tiles.length * PARTIAL_REDRAW_RATIO)),
         ),
       });
+      const overlayIndices = new Set<number>();
+      if (pointWithinMap(previousWireSpoolOverlayPoint, activeMap)) {
+        overlayIndices.add(pointToIndex(previousWireSpoolOverlayPoint, activeMap));
+      }
+      if (pointWithinMap(currentWireSpoolOverlayPoint, activeMap)) {
+        overlayIndices.add(pointToIndex(currentWireSpoolOverlayPoint, activeMap));
+      }
+      const ctx =
+        redrawPlan.kind === "full"
+          ? drawCc2MapToCanvas(canvas, activeMap, cache)
+          : canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas 2D context unavailable");
 
-      if (redrawPlan.kind === "full") {
-        drawCc2MapToCanvas(canvas, activeMap, cache);
-      } else if (redrawPlan.indices.length > 0) {
-        const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("Canvas 2D context unavailable");
-        drawCc2CellsToContext(ctx, activeMap, redrawPlan.indices, cache);
+      if (redrawPlan.kind === "partial") {
+        const indices = new Set(redrawPlan.indices);
+        for (const index of overlayIndices) {
+          indices.add(index);
+        }
+        if (indices.size > 0) {
+          drawCc2CellsToContext(ctx, activeMap, [...indices], cache);
+        }
+      }
+
+      if (pointWithinMap(currentWireSpoolOverlayPoint, activeMap)) {
+        let spoolCanvas = wireSpoolOverlayCanvasRef.current;
+        if (!spoolCanvas || wireSpoolOverlayTilesetRef.current !== tileset) {
+          spoolCanvas = document.createElement("canvas");
+          spoolCanvas.width = BOARD_TILE_PIXEL_SIZE;
+          spoolCanvas.height = BOARD_TILE_PIXEL_SIZE;
+          const spoolCtx = spoolCanvas.getContext("2d");
+          if (!spoolCtx) throw new Error("Canvas 2D context unavailable");
+          drawRgbaImageToContext(spoolCtx, tileset.draw(12, 26), 0, 0);
+          wireSpoolOverlayCanvasRef.current = spoolCanvas;
+          wireSpoolOverlayTilesetRef.current = tileset;
+        }
+        ctx.drawImage(
+          spoolCanvas,
+          currentWireSpoolOverlayPoint.x * BOARD_TILE_PIXEL_SIZE,
+          currentWireSpoolOverlayPoint.y * BOARD_TILE_PIXEL_SIZE,
+        );
       }
 
       setRenderError(null);
       lastRenderedMapRef.current = activeMap;
       lastRenderedTilesetRef.current = tileset;
+      lastWireSpoolOverlayPointRef.current = currentWireSpoolOverlayPoint;
     } catch (err: unknown) {
       setRenderError(
         `Board rendering failed. The document is still loaded and raw JSON remains available.\n${asErrorMessage(err)}`,
       );
     }
-  }, [activeMap, doc, tileset, tilesetError, viewMode]);
+  }, [activeMap, currentWireSpoolOverlayPoint, doc, tileset, tilesetError, viewMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
