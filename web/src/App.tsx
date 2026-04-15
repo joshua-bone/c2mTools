@@ -916,10 +916,6 @@ export default function App() {
     tool === "wire" ? "Wire" : (TOOL_SHORTCUTS.find((entry) => entry.id === tool)?.label ?? tool);
   const preservedSectionTags = doc?.sections?.map((section) => section.tag) ?? [];
   const preservedExtraChunkTags = doc?.extraChunks?.map((section) => section.tag) ?? [];
-  const metadataDirty =
-    doc !== null &&
-    metadataDraft !== null &&
-    !metadataDraftEquals(metadataDraft, makeMetadataDraft(doc));
   const resizeDirty =
     map !== null &&
     resizeDraft !== null &&
@@ -1245,17 +1241,9 @@ export default function App() {
     [doc, jsonOk, replaceDocumentChangeLive],
   );
 
-  const updateMetadataDraftField = useCallback(
-    <K extends keyof C2mMetadataDraft>(field: K, value: C2mMetadataDraft[K]) => {
-      setMetadataDraft((current) => (current ? { ...current, [field]: value } : current));
-      setMetadataError(null);
-    },
-    [],
-  );
-
-  const applyMetadataDraftChanges = useCallback(
-    (nextDraft = metadataDraft) => {
-      if (!doc || !nextDraft) return;
+  const commitMetadataDraftChanges = useCallback(
+    (nextDraft: C2mMetadataDraft) => {
+      if (!doc) return;
       if (!jsonOk) {
         setMetadataError(
           "Raw JSON is invalid. Metadata changes are paused until the JSON parses again.",
@@ -1270,14 +1258,25 @@ export default function App() {
       }
 
       try {
-        resetBoardTransientState();
         commitDocumentChange(applyMetadataDraft(doc, nextDraft));
         setMetadataError(null);
       } catch (err: unknown) {
         setMetadataError(asErrorMessage(err));
       }
     },
-    [commitDocumentChange, doc, jsonOk, metadataDraft, resetBoardTransientState],
+    [commitDocumentChange, doc, jsonOk],
+  );
+
+  const updateMetadataDraftField = useCallback(
+    <K extends keyof C2mMetadataDraft>(field: K, value: C2mMetadataDraft[K]) => {
+      if (!doc) return;
+
+      const currentDraft = metadataDraft ?? makeMetadataDraft(doc);
+      const nextDraft = { ...currentDraft, [field]: value };
+      setMetadataDraft(nextDraft);
+      commitMetadataDraftChanges(nextDraft);
+    },
+    [commitMetadataDraftChanges, doc, metadataDraft],
   );
 
   const updateResizeDraftField = useCallback(
@@ -2718,24 +2717,6 @@ export default function App() {
         <div className="leftPanelSubsection">
           <div className="leftPanelSubsectionHeader">
             <div className="sectionEyebrow">Metadata</div>
-            <div className="sectionActions">
-              <button
-                type="button"
-                className="secondaryButton"
-                onClick={() => setMetadataDraft(makeMetadataDraft(doc))}
-                disabled={!metadataDirty}
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                className="secondaryButton"
-                onClick={() => applyMetadataDraftChanges()}
-                disabled={!metadataDirty}
-              >
-                Apply
-              </button>
-            </div>
           </div>
 
           {visualEditLockReason ? (
@@ -2764,28 +2745,6 @@ export default function App() {
                   type="text"
                   value={metadataDraft.author}
                   onChange={(event) => updateMetadataDraftField("author", event.target.value)}
-                />
-              </label>
-
-              <label className="fieldGroup">
-                <span className="fieldCaption">Editor Version</span>
-                <input
-                  className="textField compactField"
-                  type="text"
-                  value={metadataDraft.editorVersion}
-                  onChange={(event) =>
-                    updateMetadataDraftField("editorVersion", event.target.value)
-                  }
-                />
-              </label>
-
-              <label className="fieldGroup">
-                <span className="fieldCaption">Lock</span>
-                <input
-                  className="textField compactField"
-                  type="text"
-                  value={metadataDraft.lock}
-                  onChange={(event) => updateMetadataDraftField("lock", event.target.value)}
                 />
               </label>
             </div>
@@ -2979,6 +2938,28 @@ export default function App() {
                       </option>
                     ))}
                   </select>
+                </label>
+
+                <label className="fieldGroup">
+                  <span className="fieldCaption">Editor Version</span>
+                  <input
+                    className="textField compactField"
+                    type="text"
+                    value={metadataDraft.editorVersion}
+                    onChange={(event) =>
+                      updateMetadataDraftField("editorVersion", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="fieldGroup">
+                  <span className="fieldCaption">Lock</span>
+                  <input
+                    className="textField compactField"
+                    type="text"
+                    value={metadataDraft.lock}
+                    onChange={(event) => updateMetadataDraftField("lock", event.target.value)}
+                  />
                 </label>
               </div>
             </fieldset>
