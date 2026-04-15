@@ -2776,7 +2776,7 @@ export default function App() {
           </div>
 
           <fieldset className="plainFieldset" disabled={!canMutateBoard}>
-            <div className="formGrid">
+            <div className="formGrid documentOptionsGrid">
               <label className="fieldGroup">
                 <span className="fieldCaption">Time</span>
                 <input
@@ -3453,38 +3453,38 @@ export default function App() {
         <section className="panel boardPanel">
           <section className="panelSection">
             <div className="sectionHeader">
-              <div className="boardHeaderBlock">
+              <div>
                 <div className="sectionEyebrow">{viewMode === "board" ? "Board" : "Advanced"}</div>
                 <h2 className="sectionTitle">
                   {viewMode === "board" ? documentTitle : "Raw JSON Workspace"}
                 </h2>
-                {viewMode === "board" ? (
-                  <div className="boardControlRow boardToolRow boardHeaderToolRow">
-                    {TOOL_SHORTCUTS.map((entry) => {
-                      const mutatesBoard =
-                        entry.id === "brush" ||
-                        entry.id === "line" ||
-                        entry.id === "fill" ||
-                        entry.id === "erase" ||
-                        entry.id === "wire";
-
-                      return (
-                        <button
-                          key={entry.id}
-                          type="button"
-                          className={`toolButton ${tool === entry.id ? "active" : ""}`}
-                          disabled={mutatesBoard && !canMutateBoard}
-                          onClick={() => setTool(entry.id)}
-                          title={`${entry.label} (${entry.shortcut})`}
-                        >
-                          <span>{entry.label}</span>
-                          <span className="toolShortcut">{entry.shortcut}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
               </div>
+              {viewMode === "board" ? (
+                <div className="sectionActions boardToolRow">
+                  {TOOL_SHORTCUTS.map((entry) => {
+                    const mutatesBoard =
+                      entry.id === "brush" ||
+                      entry.id === "line" ||
+                      entry.id === "fill" ||
+                      entry.id === "erase" ||
+                      entry.id === "wire";
+
+                    return (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        className={`toolButton ${tool === entry.id ? "active" : ""}`}
+                        disabled={mutatesBoard && !canMutateBoard}
+                        onClick={() => setTool(entry.id)}
+                        title={`${entry.label} (${entry.shortcut})`}
+                      >
+                        <span>{entry.label}</span>
+                        <span className="toolShortcut">{entry.shortcut}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
 
             <div className="boardMeta">
@@ -3493,7 +3493,6 @@ export default function App() {
               </span>
               <span className="statusBadge">{activeToolLabel}</span>
               <span className="statusBadge">{Math.round(boardStatus.boardZoom * 100)}%</span>
-              <span className="statusBadge">{tileset ? "Tileset ready" : "Tileset missing"}</span>
               {selection ? (
                 <span className="statusBadge">{`Selection ${selection.width}x${selection.height}`}</span>
               ) : null}

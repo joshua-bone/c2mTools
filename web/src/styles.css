@@ -233,14 +233,6 @@ canvas {
   margin-bottom: 8px;
 }
 
-.boardHeaderBlock {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  min-width: 0;
-}
-
 .sectionEyebrow {
   color: var(--muted);
   font-size: 10px;
@@ -479,10 +471,6 @@ canvas {
   min-height: 28px;
   padding: 5px 9px;
   font-size: 11px;
-}
-
-.boardHeaderToolRow {
-  margin-top: 2px;
 }
 
 .toolButton {
@@ -1061,6 +1049,7 @@ canvas {
   flex-direction: column;
   gap: 6px;
   margin-top: 12px;
+  min-width: 0;
 }
 
 .compactFieldGroup {
@@ -1108,9 +1097,9 @@ textarea {
 }
 
 select.textField.compactField {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.2;
-  padding: 9px 32px 9px 10px;
+  padding: 9px 28px 9px 10px;
 }
 
 .inspectorTextArea {
@@ -1128,6 +1117,10 @@ select.textField.compactField {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.documentOptionsGrid {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .checkboxRow {
