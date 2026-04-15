@@ -3844,7 +3844,6 @@ export default function App() {
                     tile={primaryBrush}
                     className="activeTileCompactCanvas"
                     pixelSize={32}
-                    showDirectionArrow
                   />
                   <div className="activeTileCompactBody">
                     <div className="activeTileCompactName">{primaryBrushName}</div>
@@ -3862,7 +3861,6 @@ export default function App() {
                     tile={secondaryBrush}
                     className="activeTileCompactCanvas"
                     pixelSize={32}
-                    showDirectionArrow
                   />
                   <div className="activeTileCompactBody">
                     <div className="activeTileCompactName">{secondaryBrushName}</div>
@@ -3926,7 +3924,6 @@ export default function App() {
                                 tileset={tileset}
                                 className="paletteGridCanvas"
                                 pixelSize={32}
-                                showDirectionArrow
                                 {...(entry.kind === "brush"
                                   ? { tile: entry.tile }
                                   : { spriteSheetCell: entry.previewSpriteCell })}

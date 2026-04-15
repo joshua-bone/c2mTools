@@ -238,7 +238,7 @@ function renderRailroadTrack(ts: CC2Tileset, tile: TileSpecObjJson): RgbaImage {
 
 function renderLogicGate(ts: CC2Tileset, tile: TileSpecObjJson): RgbaImage {
   // Best-effort reproduction of your friend's LogicGate.get_gfx.
-  let base = renderWireBackdrop(ts, tile, 0, 2);
+  let base = ts.draw(13, 26);
 
   const m = getModifier(tile, "LOGIC");
   let value = 0;
