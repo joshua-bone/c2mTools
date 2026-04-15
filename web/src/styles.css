@@ -1187,6 +1187,130 @@ select.textField.compactField {
   font-family: "SFMono-Regular", "Menlo", "Monaco", monospace;
 }
 
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(23, 33, 40, 0.4);
+  backdrop-filter: blur(6px);
+}
+
+.modalCard {
+  width: min(1080px, 100%);
+  max-height: min(760px, calc(100dvh - 40px));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(251, 253, 254, 0.99), rgba(243, 247, 249, 0.99));
+  box-shadow: 0 24px 64px rgba(21, 34, 42, 0.22);
+}
+
+.recentLevelsModal {
+  padding: 14px;
+  gap: 12px;
+}
+
+.recentLevelsCarousel {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(228px, 264px);
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 2px 6px;
+  scroll-snap-type: x proximity;
+}
+
+.recentLevelCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(57, 75, 66, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.88);
+  scroll-snap-align: start;
+}
+
+.recentLevelPreviewButton {
+  width: 100%;
+  padding: 0;
+  border: 1px solid rgba(57, 75, 66, 0.12);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(228, 235, 239, 0.72);
+  box-shadow: none;
+}
+
+.recentLevelPreviewButton:hover:not(:disabled) {
+  transform: none;
+}
+
+.recentLevelImage,
+.recentLevelImagePlaceholder {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.recentLevelImage {
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background:
+    linear-gradient(180deg, rgba(239, 244, 247, 0.8), rgba(231, 238, 242, 0.92)),
+    rgba(223, 231, 235, 0.85);
+}
+
+.recentLevelImagePlaceholder {
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(135deg, rgba(35, 95, 122, 0.14), rgba(35, 95, 122, 0.04)),
+    rgba(223, 231, 235, 0.85);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.recentLevelBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.recentLevelTitle {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.recentLevelMeta {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recentLevelActions {
+  justify-content: stretch;
+}
+
+.recentLevelActions .actionButton,
+.recentLevelActions .secondaryButton {
+  flex: 1 1 0;
+}
+
 @media (max-width: 1380px) {
   .editorLayout {
     grid-template-columns: 220px 10px minmax(0, 1fr) 10px 300px;
@@ -1231,5 +1355,13 @@ select.textField.compactField {
 
   .inspectorTabs {
     grid-template-columns: 1fr;
+  }
+
+  .modalBackdrop {
+    padding: 12px;
+  }
+
+  .recentLevelsCarousel {
+    grid-auto-columns: minmax(220px, 82vw);
   }
 }

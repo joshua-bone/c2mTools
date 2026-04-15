@@ -138,6 +138,19 @@ import {
   type PersistedAppPreferences,
   type PersistedEditorSession,
 } from "./persistedAppState";
+import { renderRecentLevelThumbnail } from "./recentLevelThumbnail";
+import {
+  RECENT_LEVELS_STORAGE_KEY,
+  createPersistedRecentLevelEntry,
+  createRecentLevelId,
+  decodePersistedRecentLevelEntry,
+  findMatchingRecentLevelId,
+  parsePersistedRecentLevels,
+  removeRecentLevelEntry,
+  serializePersistedRecentLevels,
+  upsertRecentLevelEntry,
+  type PersistedRecentLevelEntry,
+} from "./recentLevelStorage";
 
 const TILESET_URL = `${import.meta.env.BASE_URL}cc2/spritesheet.png`;
 const DOCUMENT_PERSIST_DEBOUNCE_MS = 300;
@@ -280,6 +293,8 @@ type InitialAppState = Readonly<{
   fileName: string | null;
   jsonText: string;
   preferences: PersistedAppPreferences;
+  recentLevels: ReadonlyArray<PersistedRecentLevelEntry>;
+  activeRecentLevelId: string | null;
 }>;
 
 type ViewportSize = Readonly<{
@@ -369,6 +384,19 @@ function removeLocalStorage(key: string): void {
     window.localStorage.removeItem(key);
   } catch {
     // Ignore storage removal errors.
+  }
+}
+
+function formatRecentLevelUpdatedAt(updatedAt: number): string {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(updatedAt);
+  } catch {
+    return new Date(updatedAt).toLocaleString();
   }
 }
 
@@ -710,10 +738,13 @@ function createInitialAppState(): InitialAppState {
       fileName: null,
       jsonText: "",
       preferences: parsePersistedAppPreferences(null),
+      recentLevels: [],
+      activeRecentLevelId: null,
     };
   }
 
   const preferences = parsePersistedAppPreferences(readLocalStorage(APP_PREFERENCES_STORAGE_KEY));
+  const recentLevels = parsePersistedRecentLevels(readLocalStorage(RECENT_LEVELS_STORAGE_KEY));
   const session = parsePersistedEditorSession(readLocalStorage(EDITOR_SESSION_STORAGE_KEY));
 
   if (!session) {
@@ -722,14 +753,24 @@ function createInitialAppState(): InitialAppState {
       fileName: null,
       jsonText: "",
       preferences,
+      recentLevels,
+      activeRecentLevelId: null,
     };
   }
+
+  const activeRecentLevelId = findMatchingRecentLevelId(
+    recentLevels,
+    session.doc,
+    session.fileName,
+  );
 
   return {
     history: createEditorHistory(session.doc),
     fileName: session.fileName,
     jsonText: stringifyC2mJsonV1(session.doc),
     preferences,
+    recentLevels,
+    activeRecentLevelId,
   };
 }
 
@@ -738,10 +779,12 @@ export default function App() {
   const boardViewportRef = useRef<HTMLDivElement>(null);
   const boardStatusStoreRef = useRef(createBoardEditorStatusStore());
   const dragPanRef = useRef<DragPanState | null>(null);
+  const recentCarouselRef = useRef<HTMLDivElement>(null);
   const keyboardPanKeysRef = useRef<Set<string>>(new Set());
   const keyboardPanFrameRef = useRef<number | null>(null);
   const keyboardPanLastTimeRef = useRef<number | null>(null);
   const sessionPersistTimeoutRef = useRef<number | null>(null);
+  const recentPersistTimeoutRef = useRef<number | null>(null);
   const lastRenderedMapRef = useRef<MapJson | null>(null);
   const lastRenderedTilesetRef = useRef<CC2Tileset | null>(null);
   const lastWireSpoolOverlayPointRef = useRef<GridPoint | null>(null);
@@ -749,6 +792,13 @@ export default function App() {
   const wireSpoolOverlayTilesetRef = useRef<CC2Tileset | null>(null);
   const [initialAppState] = useState(() => createInitialAppState());
   const syncedJsonTextRef = useRef(initialAppState.jsonText);
+  const recentLevelsRef = useRef<ReadonlyArray<PersistedRecentLevelEntry>>(
+    initialAppState.recentLevels,
+  );
+  const activeRecentLevelIdRef = useRef<string | null>(initialAppState.activeRecentLevelId);
+  const latestAutosaveDocRef = useRef<C2mJsonV1 | null>(initialAppState.history?.doc ?? null);
+  const latestAutosaveFileNameRef = useRef<string | null>(initialAppState.fileName);
+  const latestAutosaveTilesetRef = useRef<CC2Tileset | null>(null);
   const latestSessionSnapshotRef = useRef<PersistedEditorSession | null>(
     initialAppState.history && initialAppState.fileName
       ? {
@@ -762,6 +812,13 @@ export default function App() {
   const [history, setHistory] = useState<C2mEditorHistory | null>(initialAppState.history);
   const [fileName, setFileName] = useState<string | null>(initialAppState.fileName);
   const [jsonText, setJsonText] = useState<string>(initialAppState.jsonText);
+  const [recentLevels, setRecentLevels] = useState<ReadonlyArray<PersistedRecentLevelEntry>>(
+    initialAppState.recentLevels,
+  );
+  const [activeRecentLevelId, setActiveRecentLevelId] = useState<string | null>(
+    initialAppState.activeRecentLevelId,
+  );
+  const [recentModalOpen, setRecentModalOpen] = useState(false);
   const [viewportSize, setViewportSize] = useState<ViewportSize>({
     width: 0,
     height: 0,
@@ -1160,6 +1217,7 @@ export default function App() {
       options: Readonly<{
         fileName?: string | null;
         warnings?: ReadonlyArray<string>;
+        recentLevelId?: string | null;
       }> = {},
     ) => {
       const nextJsonText = stringifyC2mJsonV1(nextDoc);
@@ -1167,6 +1225,7 @@ export default function App() {
       setHistory(createEditorHistory(nextDoc));
       setJsonText(nextJsonText);
       setFileName(options.fileName ?? DEFAULT_C2M_FILE_NAME);
+      setActiveRecentLevelId(options.recentLevelId ?? null);
       setWarnings([...(options.warnings ?? [])]);
       setError(null);
       setParseError(null);
@@ -1359,17 +1418,20 @@ export default function App() {
       setRenderError(null);
 
       try {
+        const recentLevelId = createRecentLevelId();
         if (openedFile.kind === "c2m") {
           const warnList: string[] = [];
           const decoded = decodeC2mToJsonV1(openedFile.bytes, (message) => warnList.push(message));
           loadDocument(decoded, {
             fileName: openedFile.name,
             warnings: warnList,
+            recentLevelId,
           });
         } else {
           const parsedDoc = parseC2mJsonV1(JSON.parse(openedFile.text) as unknown);
           loadDocument(parsedDoc, {
             fileName: openedFile.name,
+            recentLevelId,
           });
         }
 
@@ -1670,6 +1732,68 @@ export default function App() {
     };
   }, []);
 
+  const persistRecentLevelsToStorage = useCallback(
+    (
+      entries: ReadonlyArray<PersistedRecentLevelEntry>,
+    ): ReadonlyArray<PersistedRecentLevelEntry> => {
+      let candidate = [...entries];
+      while (candidate.length > 0) {
+        if (
+          writeLocalStorage(RECENT_LEVELS_STORAGE_KEY, serializePersistedRecentLevels(candidate))
+        ) {
+          recentLevelsRef.current = candidate;
+          setRecentLevels(candidate);
+          return candidate;
+        }
+        candidate = candidate.slice(0, -1);
+      }
+
+      const fallback = recentLevelsRef.current;
+      if (
+        fallback.length > 0 &&
+        writeLocalStorage(RECENT_LEVELS_STORAGE_KEY, serializePersistedRecentLevels(fallback))
+      ) {
+        setRecentLevels(fallback);
+        return fallback;
+      }
+
+      removeLocalStorage(RECENT_LEVELS_STORAGE_KEY);
+      recentLevelsRef.current = [];
+      setRecentLevels([]);
+      return [];
+    },
+    [],
+  );
+
+  const flushAutosavedRecentLevel = useCallback(() => {
+    const nextDoc = latestAutosaveDocRef.current;
+    if (!nextDoc) return;
+
+    let nextRecentLevelId = activeRecentLevelIdRef.current;
+    if (!nextRecentLevelId) {
+      nextRecentLevelId = createRecentLevelId();
+      activeRecentLevelIdRef.current = nextRecentLevelId;
+      setActiveRecentLevelId(nextRecentLevelId);
+    }
+
+    const persistedEntries = persistRecentLevelsToStorage(
+      upsertRecentLevelEntry(
+        recentLevelsRef.current,
+        createPersistedRecentLevelEntry({
+          id: nextRecentLevelId,
+          doc: nextDoc,
+          fileName: latestAutosaveFileNameRef.current ?? DEFAULT_C2M_FILE_NAME,
+          thumbnailDataUrl: renderRecentLevelThumbnail(nextDoc, latestAutosaveTilesetRef.current),
+        }),
+      ),
+    );
+
+    if (!persistedEntries.some((entry) => entry.id === nextRecentLevelId)) {
+      activeRecentLevelIdRef.current = null;
+      setActiveRecentLevelId(null);
+    }
+  }, [persistRecentLevelsToStorage]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -1818,6 +1942,20 @@ export default function App() {
   }, [viewMode]);
 
   useEffect(() => {
+    recentLevelsRef.current = recentLevels;
+  }, [recentLevels]);
+
+  useEffect(() => {
+    activeRecentLevelIdRef.current = activeRecentLevelId;
+  }, [activeRecentLevelId]);
+
+  useEffect(() => {
+    latestAutosaveDocRef.current = doc;
+    latestAutosaveFileNameRef.current = fileName;
+    latestAutosaveTilesetRef.current = tileset;
+  }, [doc, fileName, tileset]);
+
+  useEffect(() => {
     latestSessionSnapshotRef.current =
       doc && fileName
         ? {
@@ -1831,6 +1969,7 @@ export default function App() {
     if (typeof window === "undefined") return;
 
     const flushPersistedSession = () => {
+      flushAutosavedRecentLevel();
       const snapshot = latestSessionSnapshotRef.current;
       if (!snapshot) {
         removeLocalStorage(EDITOR_SESSION_STORAGE_KEY);
@@ -1844,7 +1983,28 @@ export default function App() {
     return () => {
       window.removeEventListener("pagehide", flushPersistedSession);
     };
-  }, []);
+  }, [flushAutosavedRecentLevel]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (recentPersistTimeoutRef.current !== null) {
+      window.clearTimeout(recentPersistTimeoutRef.current);
+    }
+
+    if (!doc) return;
+
+    recentPersistTimeoutRef.current = window.setTimeout(() => {
+      flushAutosavedRecentLevel();
+      recentPersistTimeoutRef.current = null;
+    }, DOCUMENT_PERSIST_DEBOUNCE_MS);
+
+    return () => {
+      if (recentPersistTimeoutRef.current !== null) {
+        window.clearTimeout(recentPersistTimeoutRef.current);
+      }
+    };
+  }, [doc, fileName, flushAutosavedRecentLevel, tileset]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2013,6 +2173,21 @@ export default function App() {
     };
   }, [boardMenuOpen]);
 
+  useEffect(() => {
+    if (!recentModalOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setRecentModalOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [recentModalOpen]);
+
   const onUndo = useCallback(() => {
     if (!history || !canUndo) return;
     resetBoardTransientState();
@@ -2121,6 +2296,7 @@ export default function App() {
   const onNewClick = useCallback(() => {
     loadDocument(createEmptyC2mDoc(), {
       fileName: DEFAULT_C2M_FILE_NAME,
+      recentLevelId: createRecentLevelId(),
     });
     resetBoardTransientState({
       clearSelection: true,
@@ -2141,6 +2317,54 @@ export default function App() {
       }
     })();
   }, [loadOpenedDocument]);
+
+  const onOpenRecentClick = useCallback(() => {
+    setRecentModalOpen(true);
+  }, []);
+
+  const openRecentLevel = useCallback(
+    (entry: PersistedRecentLevelEntry) => {
+      try {
+        const restored = decodePersistedRecentLevelEntry(entry);
+        loadDocument(restored.doc, {
+          fileName: restored.fileName,
+          warnings: restored.warnings,
+          recentLevelId: entry.id,
+        });
+        resetBoardTransientState({
+          clearSelection: true,
+          resetView: true,
+        });
+        setRecentModalOpen(false);
+        setViewMode("board");
+        setError(null);
+      } catch (err: unknown) {
+        setError(asErrorMessage(err));
+      }
+    },
+    [loadDocument, resetBoardTransientState],
+  );
+
+  const deleteRecentLevel = useCallback(
+    (id: string) => {
+      if (recentPersistTimeoutRef.current !== null && activeRecentLevelIdRef.current === id) {
+        window.clearTimeout(recentPersistTimeoutRef.current);
+        recentPersistTimeoutRef.current = null;
+      }
+
+      persistRecentLevelsToStorage(removeRecentLevelEntry(recentLevelsRef.current, id));
+    },
+    [persistRecentLevelsToStorage],
+  );
+
+  const scrollRecentCarousel = useCallback((direction: -1 | 1) => {
+    const element = recentCarouselRef.current;
+    if (!element) return;
+    element.scrollBy({
+      left: direction * Math.max(240, Math.round(element.clientWidth * 0.8)),
+      behavior: "smooth",
+    });
+  }, []);
 
   const onSaveAsC2m = useCallback(() => {
     if (!doc || !jsonOk) return;
@@ -3098,6 +3322,116 @@ export default function App() {
         </div>
       ))}
 
+      {recentModalOpen ? (
+        <div
+          className="modalBackdrop"
+          onPointerDown={() => setRecentModalOpen(false)}
+          role="presentation"
+        >
+          <section
+            className="modalCard recentLevelsModal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="open-recent-title"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <div className="sectionHeader">
+              <div>
+                <div className="sectionEyebrow">File</div>
+                <h2 id="open-recent-title" className="sectionTitle">
+                  Open Recent
+                </h2>
+              </div>
+              <div className="sectionActions">
+                {recentLevels.length > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      className="secondaryButton"
+                      onClick={() => scrollRecentCarousel(-1)}
+                    >
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      className="secondaryButton"
+                      onClick={() => scrollRecentCarousel(1)}
+                    >
+                      Next
+                    </button>
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  onClick={() => setRecentModalOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {recentLevels.length === 0 ? (
+              <div className="emptyState largeEmptyState">
+                Recent levels will appear here after you create, open, or edit a map.
+              </div>
+            ) : (
+              <div ref={recentCarouselRef} className="recentLevelsCarousel">
+                {recentLevels.map((entry) => (
+                  <article key={entry.id} className="recentLevelCard">
+                    <button
+                      type="button"
+                      className="recentLevelPreviewButton"
+                      onClick={() => openRecentLevel(entry)}
+                    >
+                      {entry.thumbnailDataUrl ? (
+                        <img
+                          className="recentLevelImage"
+                          src={entry.thumbnailDataUrl}
+                          alt={`${entry.title} preview`}
+                        />
+                      ) : (
+                        <div className="recentLevelImagePlaceholder">
+                          <span>
+                            {entry.width && entry.height
+                              ? `${entry.width}x${entry.height}`
+                              : "No map"}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                    <div className="recentLevelBody">
+                      <div className="recentLevelTitle">{entry.title}</div>
+                      <div className="recentLevelMeta">{entry.fileName}</div>
+                      <div className="recentLevelMeta">
+                        {entry.width && entry.height ? `${entry.width}x${entry.height}` : "No map"}{" "}
+                        · {formatRecentLevelUpdatedAt(entry.updatedAt)}
+                      </div>
+                    </div>
+                    <div className="boardControlRow boardCommandRow recentLevelActions">
+                      <button
+                        type="button"
+                        className="actionButton"
+                        onClick={() => openRecentLevel(entry)}
+                      >
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        className="secondaryButton"
+                        onClick={() => deleteRecentLevel(entry.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      ) : null}
+
       <main className="editorLayout">
         <aside className="panel levelPanel">
           <section className="panelSection">
@@ -3155,6 +3489,16 @@ export default function App() {
                       }}
                     >
                       Open
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        onOpenRecentClick();
+                      }}
+                    >
+                      Open Recent
                     </button>
                     <button
                       type="button"
