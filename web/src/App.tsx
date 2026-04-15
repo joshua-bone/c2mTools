@@ -80,6 +80,7 @@ import {
   pasteMapRegion,
   resolveClipboardPreviewRect,
   resolveEyedropperBrushAtPoint,
+  shiftMapWrap,
   type C2mClipboard,
 } from "./editor/levelEditing";
 import {
@@ -97,6 +98,7 @@ import {
   type ResizeAnchor,
 } from "./editor/mapResize";
 import { createDefaultBrushTileSpec } from "./editor/renderPreview";
+import { rotateBrushSpec, tileSpecKey, type BrushCycleDirection } from "./editor/brushTransforms";
 import {
   TOOL_SHORTCUTS,
   isEditableShortcutTarget,
@@ -140,6 +142,28 @@ const TRANSFORMS: Array<{ label: string; op: LevelTransformKind }> = [
   { label: "Flip NE/SW", op: "FLIP_DIAG_NESW" },
 ];
 
+const LEVEL_SHIFT_ARROWS = [
+  { direction: "north", dx: 0, dy: -1, label: "Shift map north" },
+  { direction: "south", dx: 0, dy: 1, label: "Shift map south" },
+  { direction: "west", dx: -1, dy: 0, label: "Shift map west" },
+  { direction: "east", dx: 1, dy: 0, label: "Shift map east" },
+] as const;
+
+const BOARD_TRANSFORM_BUTTONS: ReadonlyArray<
+  Readonly<{
+    op: LevelTransformKind;
+    position: "corner-nw" | "corner-ne" | "top-center" | "left-center" | "corner-sw" | "corner-se";
+    label: string;
+  }>
+> = [
+  { op: "ROTATE_270", position: "corner-nw", label: "Rotate 270 degrees" },
+  { op: "ROTATE_90", position: "corner-ne", label: "Rotate 90 degrees" },
+  { op: "FLIP_H", position: "top-center", label: "Flip horizontally" },
+  { op: "FLIP_V", position: "left-center", label: "Flip vertically" },
+  { op: "FLIP_DIAG_NESW", position: "corner-sw", label: "Flip along the NE-SW diagonal" },
+  { op: "FLIP_DIAG_NWSE", position: "corner-se", label: "Flip along the NW-SE diagonal" },
+] as const;
+
 const LAYER_LABELS = {
   terrain: "Terrain",
   item: "Item",
@@ -163,6 +187,7 @@ const RESIZE_ANCHORS: ReadonlyArray<ResizeAnchor> = Object.freeze([
 type InspectorTab = "palette" | "inspect" | "metadata" | "advanced";
 type LeftPanelTab = "document" | "controls";
 type BoardMenuId = "file" | "view" | "transform";
+type PaletteAssignmentTarget = "primary" | "secondary";
 
 type ToolMode = EditorToolMode;
 
@@ -349,6 +374,178 @@ function describeHoverSummary(summary: HoverCellSummary | null): string {
   return `${summary.point.x},${summary.point.y} · ${layerSummary}`;
 }
 
+function renderRotateTransformIcon(mirrored: boolean) {
+  const markerId = mirrored ? "rotate-transform-head-mirrored" : "rotate-transform-head";
+
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <defs>
+        <marker
+          id={markerId}
+          viewBox="0 0 6 6"
+          refX="5.05"
+          refY="3"
+          markerWidth="6"
+          markerHeight="6"
+          markerUnits="userSpaceOnUse"
+          orient="auto-start-reverse"
+        >
+          <path
+            d="M0.9 1 5.1 3 2.9 5.95"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </marker>
+      </defs>
+      <g transform={mirrored ? "translate(20 0) scale(-1 1)" : undefined}>
+        <path
+          d="M10 3.25a6.75 6.75 0 1 0 5.74 10.3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          markerStart={`url(#${markerId})`}
+        />
+      </g>
+    </svg>
+  );
+}
+
+function renderBoardTransformIcon(op: LevelTransformKind) {
+  switch (op) {
+    case "ROTATE_90":
+      return renderRotateTransformIcon(true);
+    case "ROTATE_270":
+      return renderRotateTransformIcon(false);
+    case "FLIP_H":
+      return (
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <line
+            x1="10"
+            y1="3"
+            x2="10"
+            y2="17"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <polyline
+            points="3.5 7 7 10 3.5 13"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <polyline
+            points="16.5 7 13 10 16.5 13"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "FLIP_V":
+      return (
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <line
+            x1="3"
+            y1="10"
+            x2="17"
+            y2="10"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <polyline
+            points="7 3.5 10 7 13 3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <polyline
+            points="7 16.5 10 13 13 16.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "FLIP_DIAG_NESW":
+      return (
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <line
+            x1="4"
+            y1="16"
+            x2="16"
+            y2="4"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <polyline
+            points="4.5 10.5 4.5 4.5 10.5 4.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <polyline
+            points="9.5 15.5 15.5 15.5 15.5 9.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "FLIP_DIAG_NWSE":
+      return (
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <line
+            x1="4"
+            y1="4"
+            x2="16"
+            y2="16"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <polyline
+            points="9.5 4.5 15.5 4.5 15.5 10.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <polyline
+            points="4.5 9.5 4.5 15.5 10.5 15.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "ROTATE_180":
+      return renderRotateTransformIcon(false);
+  }
+}
+
 function isValidLetterSymbol(symbol: string): boolean {
   return (
     symbol === "↑" ||
@@ -449,6 +646,8 @@ export default function App() {
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("palette");
   const [leftPanelTab, setLeftPanelTab] = useState<LeftPanelTab>("document");
   const [boardMenuOpen, setBoardMenuOpen] = useState<BoardMenuId | null>(null);
+  const [lastPaletteAssignmentTarget, setLastPaletteAssignmentTarget] =
+    useState<PaletteAssignmentTarget>("primary");
   const [selection, setSelection] = useState<GridRect | null>(null);
   const [clipboard, setClipboard] = useState<C2mClipboard | null>(null);
   const [pastePreviewActive, setPastePreviewActive] = useState(false);
@@ -570,6 +769,8 @@ export default function App() {
     describeTileSpec(primaryBrush) ?? formatTileDisplayName(getTileSpecName(primaryBrush));
   const secondaryBrushName =
     describeTileSpec(secondaryBrush) ?? formatTileDisplayName(getTileSpecName(secondaryBrush));
+  const primaryBrushKey = tileSpecKey(primaryBrush);
+  const secondaryBrushKey = tileSpecKey(secondaryBrush);
   const activeToolMeta = TOOL_SHORTCUTS.find((entry) => entry.id === tool) ?? TOOL_SHORTCUTS[0];
   const preservedSectionTags = doc?.sections?.map((section) => section.tag) ?? [];
   const preservedExtraChunkTags = doc?.extraChunks?.map((section) => section.tag) ?? [];
@@ -867,6 +1068,26 @@ export default function App() {
     setBoardMenuOpen((current) => (current === menu ? null : menu));
   }, []);
 
+  const assignPaletteBrush = useCallback((brush: TileSpecJson, target: PaletteAssignmentTarget) => {
+    setLastPaletteAssignmentTarget(target);
+    if (target === "secondary") {
+      setSecondaryBrush(brush);
+      return;
+    }
+    setPrimaryBrush(brush);
+  }, []);
+
+  const rotateSelectedPaletteBrush = useCallback(
+    (direction: BrushCycleDirection) => {
+      const target = lastPaletteAssignmentTarget;
+      const currentBrush = target === "secondary" ? secondaryBrush : primaryBrush;
+      const nextBrush = rotateBrushSpec(currentBrush, direction);
+      if (!nextBrush) return;
+      assignPaletteBrush(nextBrush, target);
+    },
+    [assignPaletteBrush, lastPaletteAssignmentTarget, primaryBrush, secondaryBrush],
+  );
+
   const copySelection = useCallback(() => {
     if (!map || !selection) return;
     setClipboard(copyMapRegion(map, selection));
@@ -918,13 +1139,9 @@ export default function App() {
       const brush = resolveEyedropperBrushAtPoint(activeMap, point);
       if (!brush) return;
 
-      if (target === "secondary") {
-        setSecondaryBrush(brush);
-      } else {
-        setPrimaryBrush(brush);
-      }
+      assignPaletteBrush(brush, target);
     },
-    [activeMap],
+    [activeMap, assignPaletteBrush],
   );
 
   const resolvePaintBrushForInput = useCallback(
@@ -933,6 +1150,15 @@ export default function App() {
       return button === 2 ? secondaryBrush : primaryBrush;
     },
     [primaryBrush, secondaryBrush, tool],
+  );
+
+  const shiftActiveMapWrap = useCallback(
+    (dx: number, dy: number) => {
+      if (!map || !canMutateBoard) return;
+      resetBoardTransientState();
+      commitMapChange(shiftMapWrap(map, dx, dy));
+    },
+    [canMutateBoard, commitMapChange, map, resetBoardTransientState],
   );
 
   useEffect(() => {
@@ -1275,6 +1501,20 @@ export default function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableShortcutTarget(event.target)) return;
 
+      if (!event.altKey && !event.ctrlKey && !event.metaKey) {
+        if (event.key === "," || event.key === "<") {
+          event.preventDefault();
+          rotateSelectedPaletteBrush("counterclockwise");
+          return;
+        }
+
+        if (event.key === "." || event.key === ">") {
+          event.preventDefault();
+          rotateSelectedPaletteBrush("clockwise");
+          return;
+        }
+      }
+
       const command = resolveEditorShortcut(event, {
         hasSelection: selection !== null,
         hasClipboard: clipboard !== null,
@@ -1343,6 +1583,7 @@ export default function App() {
     onUndo,
     pastePreviewActive,
     resetBoardTransientState,
+    rotateSelectedPaletteBrush,
     selection,
     viewMode,
   ]);
@@ -2242,8 +2483,9 @@ export default function App() {
 
               <div className="boardHelpText">
                 Left and right mouse buttons paint using the active palette slots. Hold `Alt` for a
-                temporary eyedropper. Middle mouse or `Cmd`/`Ctrl` plus drag pans. Mouse wheel zooms
-                the board.
+                temporary eyedropper. Use `,` and `.` to rotate mobs, rail pieces, and directional
+                brushes or cycle decorative wall colors and letter symbols. Middle mouse or
+                `Cmd`/`Ctrl` plus drag pans. Mouse wheel zooms the board.
               </div>
             </section>
           ) : null}
@@ -2327,6 +2569,49 @@ export default function App() {
                   </div>
                 ) : (
                   <>
+                    {boardRect ? (
+                      <div
+                        className="boardChromeFrame"
+                        style={{
+                          left: boardRect.x,
+                          top: boardRect.y,
+                          width: boardRect.width,
+                          height: boardRect.height,
+                        }}
+                      >
+                        {BOARD_TRANSFORM_BUTTONS.map((button) => (
+                          <button
+                            key={button.op}
+                            type="button"
+                            className={`boardTransformButton ${button.position}`}
+                            aria-label={button.label}
+                            title={button.label}
+                            disabled={!doc || !jsonOk}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={() => applyTransform(button.op)}
+                          >
+                            {renderBoardTransformIcon(button.op)}
+                          </button>
+                        ))}
+                        {LEVEL_SHIFT_ARROWS.map((arrow) => (
+                          <button
+                            key={arrow.direction}
+                            type="button"
+                            className={`boardShiftArrow ${arrow.direction}`}
+                            aria-label={arrow.label}
+                            title={arrow.label}
+                            disabled={!canMutateBoard}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={() => shiftActiveMapWrap(arrow.dx, arrow.dy)}
+                          >
+                            <svg viewBox="0 0 16 16" aria-hidden="true">
+                              <polygon points="8,3 13,12 3,12" />
+                            </svg>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+
                     <canvas
                       ref={boardCanvasRef}
                       className="boardCanvas"
@@ -2484,31 +2769,41 @@ export default function App() {
           {inspectorTab === "palette" ? (
             <section className="panelSection inspectorBody paletteSection compactPaletteSection">
               <div className="activeTileStrip">
-                <div className="activeTileCompactCard">
+                <button
+                  type="button"
+                  className={`activeTileCompactCard touchTargetButton ${lastPaletteAssignmentTarget === "primary" ? "targeted" : ""}`}
+                  onClick={() => setLastPaletteAssignmentTarget("primary")}
+                >
                   <div className="activeTileSlotLabel primary">LMB</div>
                   <TilePreview
                     tileset={tileset}
                     tile={primaryBrush}
                     className="activeTileCompactCanvas"
                     pixelSize={40}
+                    showDirectionArrow
                   />
                   <div className="activeTileCompactBody">
                     <div className="activeTileCompactName">{primaryBrushName}</div>
                   </div>
-                </div>
+                </button>
 
-                <div className="activeTileCompactCard">
+                <button
+                  type="button"
+                  className={`activeTileCompactCard touchTargetButton ${lastPaletteAssignmentTarget === "secondary" ? "targeted" : ""}`}
+                  onClick={() => setLastPaletteAssignmentTarget("secondary")}
+                >
                   <div className="activeTileSlotLabel secondary">RMB</div>
                   <TilePreview
                     tileset={tileset}
                     tile={secondaryBrush}
                     className="activeTileCompactCanvas"
                     pixelSize={40}
+                    showDirectionArrow
                   />
                   <div className="activeTileCompactBody">
                     <div className="activeTileCompactName">{secondaryBrushName}</div>
                   </div>
-                </div>
+                </button>
               </div>
 
               <input
@@ -2532,28 +2827,29 @@ export default function App() {
                     >
                       <div className="paletteTileSectionTitle">{section.title}</div>
                       <div className="paletteTileGrid">
-                        {section.tiles.map((tileName) => {
-                          const displayTileName = formatTileDisplayName(tileName);
-                          const isPrimary = getTileSpecName(primaryBrush) === tileName;
-                          const isSecondary = getTileSpecName(secondaryBrush) === tileName;
+                        {section.tiles.map((entry) => {
+                          const entryKey = tileSpecKey(entry.tile);
+                          const isPrimary = primaryBrushKey === entryKey;
+                          const isSecondary = secondaryBrushKey === entryKey;
 
                           return (
                             <button
-                              key={tileName}
+                              key={entry.key}
                               type="button"
                               className={`paletteGridItem ${isPrimary ? "selectedPrimary" : ""} ${isSecondary ? "selectedSecondary" : ""} ${isPrimary && isSecondary ? "selectedBoth" : ""}`}
-                              title={`${displayTileName} (${tileName})`}
-                              aria-label={`${displayTileName} (${tileName})`}
-                              onClick={() => setPrimaryBrush(createDefaultBrushTileSpec(tileName))}
+                              title={entry.label}
+                              aria-label={entry.label}
+                              onClick={() => assignPaletteBrush(entry.tile, "primary")}
                               onContextMenu={(event) => {
                                 event.preventDefault();
-                                setSecondaryBrush(createDefaultBrushTileSpec(tileName));
+                                assignPaletteBrush(entry.tile, "secondary");
                               }}
                             >
                               <TilePreview
                                 tileset={tileset}
-                                tile={tileName}
+                                tile={entry.tile}
                                 className="paletteGridCanvas"
+                                showDirectionArrow
                               />
                               {isPrimary ? (
                                 <span className="paletteGridMarker primary">L</span>
@@ -3224,6 +3520,10 @@ export default function App() {
                   <div className="shortcutRow">
                     <span className="shortcutKey">B L F V E I</span>
                     <span>Tool switch</span>
+                  </div>
+                  <div className="shortcutRow">
+                    <span className="shortcutKey">, .</span>
+                    <span>Rotate or cycle active brush</span>
                   </div>
                   <div className="shortcutRow">
                     <span className="shortcutKey">Cmd/Ctrl+C</span>

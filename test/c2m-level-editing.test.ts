@@ -15,6 +15,7 @@ import {
   pasteMapRegion,
   resolveClipboardPreviewRect,
   resolveEyedropperBrushAtPoint,
+  shiftMapWrap,
 } from "../web/src/editor/levelEditing.js";
 import type { MapJson, TileSpecJson } from "../src/c2m/mapCodec.js";
 
@@ -184,5 +185,74 @@ describe("c2m level editing", () => {
 
     expect(resolveEyedropperBrushAtPoint(map, { x: 3, y: 3 })).toEqual("NOT_ALLOWED_MARKER");
     expect(resolveEyedropperBrushAtPoint(map, { x: 40, y: 40 })).toBeNull();
+  });
+
+  it("combines railroad track pieces when painting track variants onto existing railroad terrain", () => {
+    const map = withTile(
+      createMap(),
+      { x: 4, y: 4 },
+      {
+        tile: "ANT",
+        dir: "N",
+        lower: {
+          tile: "BLUE_KEY",
+          lower: {
+            tile: "RAILROAD_TRACK",
+            modifiers: [
+              {
+                kind: "TRACKS",
+                pieces: ["VERTICAL"],
+                active: "V",
+                entered: "N",
+              },
+            ],
+          },
+        },
+      },
+    );
+    const index = pointToIndex({ x: 4, y: 4 }, map);
+
+    const nextMap = paintMapCells(map, [index], {
+      tile: "RAILROAD_TRACK",
+      modifiers: [
+        {
+          kind: "TRACKS",
+          pieces: ["TURN_NE"],
+          active: "NE",
+          entered: "N",
+        },
+      ],
+    });
+
+    expect(nextMap.tiles[index]).toEqual({
+      tile: "ANT",
+      dir: "N",
+      lower: {
+        tile: "BLUE_KEY",
+        lower: {
+          tile: "RAILROAD_TRACK",
+          modifiers: [
+            {
+              kind: "TRACKS",
+              pieces: ["TURN_NE", "VERTICAL"],
+              active: "NE",
+              entered: "N",
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  it("wrap-shifts maps without changing their dimensions", () => {
+    let map = withTile(createMap(10, 10), { x: 0, y: 0 }, "WATER");
+    map = withTile(map, { x: 9, y: 9 }, "FIRE");
+
+    const shifted = shiftMapWrap(map, 1, 1);
+
+    expect(shifted.width).toBe(10);
+    expect(shifted.height).toBe(10);
+    expect(shifted.tiles[pointToIndex({ x: 1, y: 1 }, shifted)]).toBe("WATER");
+    expect(shifted.tiles[pointToIndex({ x: 0, y: 0 }, shifted)]).toBe("FIRE");
   });
 });

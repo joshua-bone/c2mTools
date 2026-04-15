@@ -519,6 +519,15 @@ canvas {
   cursor: grabbing;
 }
 
+.boardChromeFrame {
+  position: absolute;
+  pointer-events: none;
+}
+
+.boardChromeFrame > * {
+  pointer-events: auto;
+}
+
 .boardCanvas,
 .boardHoverCell,
 .boardOverlaySvg {
@@ -548,6 +557,116 @@ canvas {
 
 .boardFooterSection {
   border-top: 1px solid rgba(57, 75, 66, 0.08);
+}
+
+.boardShiftArrow {
+  position: absolute;
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(251, 253, 254, 0.9);
+  box-shadow: 0 6px 16px rgba(44, 60, 71, 0.18);
+  transform: var(--board-shift-arrow-transform);
+}
+
+.boardShiftArrow:hover:not(:disabled) {
+  transform: var(--board-shift-arrow-transform);
+  box-shadow: 0 8px 18px rgba(44, 60, 71, 0.22);
+}
+
+.boardShiftArrow svg {
+  width: 13px;
+  height: 13px;
+  fill: var(--accent-strong);
+}
+
+.boardShiftArrow.north {
+  left: 50%;
+  top: 0;
+  --board-shift-arrow-transform: translate(-50%, calc(-100% - 6px));
+}
+
+.boardShiftArrow.south {
+  left: 50%;
+  top: 100%;
+  --board-shift-arrow-transform: translate(-50%, 6px) rotate(180deg);
+}
+
+.boardShiftArrow.west {
+  left: 0;
+  top: 50%;
+  --board-shift-arrow-transform: translate(calc(-100% - 6px), -50%) rotate(-90deg);
+}
+
+.boardShiftArrow.east {
+  left: 100%;
+  top: 50%;
+  --board-shift-arrow-transform: translate(6px, -50%) rotate(90deg);
+}
+
+.boardTransformButton {
+  position: absolute;
+  z-index: 4;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(251, 253, 254, 0.92);
+  box-shadow: 0 6px 16px rgba(44, 60, 71, 0.18);
+  color: var(--accent-strong);
+  transform: var(--board-transform-button-transform);
+}
+
+.boardTransformButton:hover:not(:disabled) {
+  transform: var(--board-transform-button-transform);
+  box-shadow: 0 8px 18px rgba(44, 60, 71, 0.22);
+}
+
+.boardTransformButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+.boardTransformButton.corner-nw {
+  left: 0;
+  top: 0;
+  --board-transform-button-transform: translate(calc(-100% - 6px), calc(-100% - 6px));
+}
+
+.boardTransformButton.corner-ne {
+  left: 100%;
+  top: 0;
+  --board-transform-button-transform: translate(6px, calc(-100% - 6px));
+}
+
+.boardTransformButton.top-center {
+  left: 50%;
+  top: 0;
+  --board-transform-button-transform: translate(-50%, calc(-200% - 12px));
+}
+
+.boardTransformButton.left-center {
+  left: 0;
+  top: 50%;
+  --board-transform-button-transform: translate(calc(-200% - 12px), -50%);
+}
+
+.boardTransformButton.corner-sw {
+  left: 0;
+  top: 100%;
+  --board-transform-button-transform: translate(calc(-100% - 6px), 6px);
+}
+
+.boardTransformButton.corner-se {
+  left: 100%;
+  top: 100%;
+  --board-transform-button-transform: translate(6px, 6px);
 }
 
 .inspectorBody {
@@ -581,6 +700,22 @@ canvas {
   border: 1px solid rgba(57, 75, 66, 0.12);
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.82);
+}
+
+.touchTargetButton {
+  width: 100%;
+  text-align: left;
+  box-shadow: none;
+}
+
+.touchTargetButton:hover:not(:disabled) {
+  transform: none;
+}
+
+.activeTileCompactCard.targeted {
+  border-color: rgba(35, 95, 122, 0.36);
+  box-shadow: inset 0 0 0 2px rgba(35, 95, 122, 0.2);
+  background: rgba(241, 247, 250, 0.96);
 }
 
 .activeTileSlotLabel {

@@ -3,17 +3,25 @@ import { useEffect, useRef } from "react";
 import type { TileSpecJson } from "../../src/c2m/mapCodec.js";
 import type { CC2Tileset } from "../../src/c2m/render/cc2Tileset.js";
 import { BOARD_TILE_PIXEL_SIZE, ensureCanvasSize } from "./boardCanvasPresentation";
-import { getSharedCc2CanvasCellCache } from "./cc2CanvasCache";
-import { createPreviewTileSpec } from "./editor/renderPreview";
+import { drawRgbaImageToContext } from "./canvasDrawing";
+import { drawDirectionArrow, resolveMobDirectionArrow } from "./directionArrows";
+import { createPreviewTileSpec, renderTilePreview } from "./editor/renderPreview";
 
 type TilePreviewProps = Readonly<{
   tileset: CC2Tileset | null;
   tile: string | TileSpecJson;
   className?: string;
   pixelSize?: number;
+  showDirectionArrow?: boolean;
 }>;
 
-export function TilePreview({ tileset, tile, className, pixelSize }: TilePreviewProps) {
+export function TilePreview({
+  tileset,
+  tile,
+  className,
+  pixelSize,
+  showDirectionArrow = false,
+}: TilePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -29,8 +37,14 @@ export function TilePreview({ tileset, tile, className, pixelSize }: TilePreview
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    getSharedCc2CanvasCellCache(tileset).drawCell(ctx, createPreviewTileSpec(tile), 0, 0);
-  }, [tile, tileset]);
+    const previewTile = createPreviewTileSpec(tile);
+    drawRgbaImageToContext(ctx, renderTilePreview(tileset, previewTile), 0, 0);
+
+    const direction = showDirectionArrow ? resolveMobDirectionArrow(previewTile) : null;
+    if (direction) {
+      drawDirectionArrow(ctx, direction, BOARD_TILE_PIXEL_SIZE);
+    }
+  }, [showDirectionArrow, tile, tileset]);
 
   return (
     <canvas

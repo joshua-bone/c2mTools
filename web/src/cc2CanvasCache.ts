@@ -4,6 +4,7 @@ import { CC2RendererCore } from "../../src/c2m/render/cc2RendererCore.js";
 import type { CC2Tileset } from "../../src/c2m/render/cc2Tileset.js";
 import { BOARD_TILE_PIXEL_SIZE } from "./boardCanvasPresentation.js";
 import { drawRgbaImageToContext } from "./canvasDrawing.js";
+import { drawDirectionArrow, resolveMobDirectionArrow } from "./directionArrows.js";
 
 export type CanvasAtlasSource = Readonly<{
   canvas: HTMLCanvasElement;
@@ -117,8 +118,12 @@ export function createCc2CanvasCellCache(tileset: CC2Tileset): Cc2CanvasCellCach
       height: 1,
       tiles: [canonicalizeTileSpec(tile)],
     });
+    const direction = resolveMobDirectionArrow(tile);
     const source = atlas.allocate((ctx, dx, dy) => {
       drawRgbaImageToContext(ctx, image, dx, dy);
+      if (direction) {
+        drawDirectionArrow(ctx, direction, BOARD_TILE_PIXEL_SIZE, dx, dy);
+      }
     });
     cells.set(key, source);
     return source;

@@ -52,9 +52,9 @@ export function createDefaultBrushTileSpec(tile: string | TileSpecJson): TileSpe
       modifiers: [
         {
           kind: "TRACKS",
-          pieces: ["HORIZONTAL", "VERTICAL"],
-          active: "H",
-          entered: "W",
+          pieces: ["VERTICAL"],
+          active: "V",
+          entered: "N",
         },
       ],
     };

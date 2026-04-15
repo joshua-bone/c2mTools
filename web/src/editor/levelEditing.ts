@@ -1,4 +1,5 @@
 import {
+  buildCellFromLayers,
   canonicalizeTileSpec,
   cloneTileSpec,
   flattenCellLayers,
@@ -27,8 +28,63 @@ type BrushApplicationResult = Readonly<{
   changed: boolean;
 }>;
 
+const TRACK_PIECE_ORDER = [
+  "TURN_NE",
+  "TURN_SE",
+  "TURN_SW",
+  "TURN_NW",
+  "HORIZONTAL",
+  "VERTICAL",
+  "SWITCH",
+] as const;
+
 function tilesEqual(a: TileSpecJson, b: TileSpecJson): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function mergeRailroadTracks(currentTile: TileSpecJson, brush: TileSpecJson): TileSpecJson | null {
+  const currentLayers = flattenCellLayers(currentTile);
+  const brushLayers = flattenCellLayers(brush);
+  if (
+    currentLayers.terrain.tile !== "RAILROAD_TRACK" ||
+    brushLayers.terrain.tile !== "RAILROAD_TRACK"
+  ) {
+    return null;
+  }
+
+  const currentModifier = currentLayers.terrain.modifiers?.find(
+    (modifier) => modifier.kind === "TRACKS",
+  );
+  const brushModifier = brushLayers.terrain.modifiers?.find(
+    (modifier) => modifier.kind === "TRACKS",
+  );
+  if (
+    !currentModifier ||
+    currentModifier.kind !== "TRACKS" ||
+    !brushModifier ||
+    brushModifier.kind !== "TRACKS"
+  ) {
+    return null;
+  }
+
+  const pieceSet = new Set([...currentModifier.pieces, ...brushModifier.pieces]);
+  const pieces = TRACK_PIECE_ORDER.filter((piece) => pieceSet.has(piece));
+  const nextTerrain = canonicalizeTileSpec({
+    tile: "RAILROAD_TRACK",
+    modifiers: [
+      {
+        kind: "TRACKS",
+        pieces: [...pieces],
+        active: brushModifier.active,
+        entered: brushModifier.entered,
+      },
+    ],
+  });
+
+  return buildCellFromLayers({
+    ...currentLayers,
+    terrain: typeof nextTerrain === "string" ? { tile: nextTerrain } : nextTerrain,
+  });
 }
 
 function replaceTileAtIndex(
@@ -57,6 +113,14 @@ export function classifyBrushRole(brush: TileSpecJson) {
 }
 
 function applyBrushToTile(tile: TileSpecJson, brush: TileSpecJson): BrushApplicationResult {
+  const mergedRailroadTile = mergeRailroadTracks(tile, brush);
+  if (mergedRailroadTile) {
+    return {
+      tile: mergedRailroadTile,
+      changed: !tilesEqual(tile, mergedRailroadTile),
+    };
+  }
+
   const nextTile = replaceCellForBrush(tile, brush);
   return {
     tile: nextTile,
@@ -201,4 +265,25 @@ export function floodFillMap(map: MapJson, origin: GridPoint, brush: TileSpecJso
   }
 
   return paintMapCells(map, fillIndices, brush);
+}
+
+export function shiftMapWrap(map: MapJson, dx: number, dy: number): MapJson {
+  const normalizedDx = ((dx % map.width) + map.width) % map.width;
+  const normalizedDy = ((dy % map.height) + map.height) % map.height;
+  if (normalizedDx === 0 && normalizedDy === 0) return map;
+
+  const nextTiles = new Array<TileSpecJson>(map.tiles.length);
+
+  for (let index = 0; index < map.tiles.length; index += 1) {
+    const point = indexToPoint(index, map);
+    const nextX = (point.x + normalizedDx) % map.width;
+    const nextY = (point.y + normalizedDy) % map.height;
+    nextTiles[nextY * map.width + nextX] = cloneTileSpec(map.tiles[index]!);
+  }
+
+  return {
+    width: map.width,
+    height: map.height,
+    tiles: nextTiles,
+  };
 }
