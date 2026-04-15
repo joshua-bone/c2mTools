@@ -4,7 +4,11 @@ import type { TileSpecJson } from "../../src/c2m/mapCodec.js";
 import type { CC2Tileset } from "../../src/c2m/render/cc2Tileset.js";
 import { BOARD_TILE_PIXEL_SIZE, ensureCanvasSize } from "./boardCanvasPresentation";
 import { drawRgbaImageToContext } from "./canvasDrawing";
-import { drawDirectionArrow, resolveMobDirectionArrow } from "./directionArrows";
+import {
+  drawDirectionArrow,
+  resolveMobDirectionArrow,
+  resolvePaletteDirectionArrow,
+} from "./directionArrows";
 import { createPreviewTileSpec, renderTilePreview } from "./editor/renderPreview";
 
 type TilePreviewProps = Readonly<{
@@ -16,7 +20,7 @@ type TilePreviewProps = Readonly<{
   }>;
   className?: string;
   pixelSize?: number;
-  showDirectionArrow?: boolean;
+  directionArrowMode?: "map" | "palette";
 }>;
 
 export function TilePreview({
@@ -25,7 +29,7 @@ export function TilePreview({
   spriteSheetCell,
   className,
   pixelSize,
-  showDirectionArrow = false,
+  directionArrowMode,
 }: TilePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -48,12 +52,17 @@ export function TilePreview({
       const previewTile = createPreviewTileSpec(tile);
       drawRgbaImageToContext(ctx, renderTilePreview(tileset, previewTile), 0, 0);
 
-      const direction = showDirectionArrow ? resolveMobDirectionArrow(previewTile) : null;
+      const direction =
+        directionArrowMode === "palette"
+          ? resolvePaletteDirectionArrow(previewTile)
+          : directionArrowMode === "map"
+            ? resolveMobDirectionArrow(previewTile)
+            : null;
       if (direction) {
         drawDirectionArrow(ctx, direction, BOARD_TILE_PIXEL_SIZE);
       }
     }
-  }, [showDirectionArrow, spriteSheetCell, tile, tileset]);
+  }, [directionArrowMode, spriteSheetCell, tile, tileset]);
 
   return (
     <canvas

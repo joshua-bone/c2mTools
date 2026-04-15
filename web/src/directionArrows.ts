@@ -13,6 +13,7 @@ type DirectionArrowContext = {
 };
 
 const ALWAYS_ARROW_MOBS = new Set(["PURPLE_BALL", "WALKER", "FIRE_BOX"]);
+const PALETTE_ARROW_MOBS = new Set(["PURPLE_BALL", "WALKER", "FIRE_BOX", "BLOB"]);
 const CLONER_OR_TRAP_ARROW_MOBS = new Set([
   "DIRT_BLOCK",
   "ICE_BLOCK",
@@ -29,10 +30,27 @@ const CLONER_OR_TRAP_TERRAINS = new Set([
   "CLONE_MACHINE_OLD",
 ]);
 
-function resolveDirectMobDirection(spec: TileSpecJson): Dir | null {
+function resolveDirectMobDirectionFromSet(
+  spec: TileSpecJson,
+  arrowMobs: ReadonlySet<string>,
+): Dir | null {
   if (typeof spec === "string") return null;
   if (classifyTileLayer(spec.tile) !== "mob") return null;
-  return ALWAYS_ARROW_MOBS.has(spec.tile) ? (spec.dir ?? null) : null;
+  return arrowMobs.has(spec.tile) ? (spec.dir ?? null) : null;
+}
+
+function resolveDirectMobDirection(spec: TileSpecJson): Dir | null {
+  return resolveDirectMobDirectionFromSet(spec, ALWAYS_ARROW_MOBS);
+}
+
+export function resolvePaletteDirectionArrow(spec: TileSpecJson): Dir | null {
+  try {
+    const mob = flattenCellLayers(spec).mob;
+    if (!mob?.dir) return null;
+    return PALETTE_ARROW_MOBS.has(mob.tile) ? mob.dir : null;
+  } catch {
+    return resolveDirectMobDirectionFromSet(spec, PALETTE_ARROW_MOBS);
+  }
 }
 
 export function resolveMobDirectionArrow(spec: TileSpecJson): Dir | null {
