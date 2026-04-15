@@ -21,6 +21,9 @@ describe("palette sections", () => {
     ).toContain("THINWALL_CANOPY");
     expect(
       sections.find((section) => section.key === "overlay")?.tiles.map((tile) => tile.key),
+    ).toContain("CANOPY");
+    expect(
+      sections.find((section) => section.key === "overlay")?.tiles.map((tile) => tile.key),
     ).toContain("NOT_ALLOWED_MARKER");
   });
 
@@ -81,6 +84,20 @@ describe("palette sections", () => {
     );
   });
 
+  it("keeps railroad track brushes adjacent", () => {
+    const terrainKeys =
+      getPaletteSections({ query: "" })
+        .find((section) => section.key === "terrain")
+        ?.tiles.map((tile) => tile.key) ?? [];
+
+    expect(terrainKeys.indexOf("RAILROAD_TRACK:corner")).toBe(
+      terrainKeys.indexOf("RAILROAD_TRACK:line") + 1,
+    );
+    expect(terrainKeys.indexOf("RAILROAD_TRACK:switch")).toBe(
+      terrainKeys.indexOf("RAILROAD_TRACK:corner") + 1,
+    );
+  });
+
   it("includes C2M-specific palette variants and excludes obsolete tiles", () => {
     const sections = getPaletteSections({ query: "" });
     const allKeys = sections.flatMap((section) => section.tiles.map((tile) => tile.key));
@@ -93,6 +110,7 @@ describe("palette sections", () => {
     expect(allKeys).toContain("ICE_CORNER");
     expect(allKeys).toContain("FORCE_FLOOR");
     expect(allKeys).toContain("SWIVEL_DOOR");
+    expect(allKeys).toContain("CANOPY");
     expect(allKeys).toContain("DIRECTIONAL_BLOCK:4");
     expect(allKeys).not.toContain("CLONE_MACHINE_OLD");
     expect(allKeys).not.toContain("EXPLOSION_ANIMATION_UNUSED");
@@ -133,6 +151,16 @@ describe("palette sections", () => {
         tile: {
           tile: "THINWALL_CANOPY",
           thinWallCanopy: { walls: ["E"], canopy: false },
+          lower: "FLOOR",
+        },
+      }),
+    );
+    expect(allEntries.find((entry) => entry.key === "CANOPY")).toEqual(
+      expect.objectContaining({
+        kind: "brush",
+        tile: {
+          tile: "THINWALL_CANOPY",
+          thinWallCanopy: { walls: [], canopy: true },
           lower: "FLOOR",
         },
       }),

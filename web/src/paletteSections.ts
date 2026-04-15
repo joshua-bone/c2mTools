@@ -232,7 +232,7 @@ function makeRailroadEntries(direction: Dir): PaletteBrushEntry[] {
       orientBrush(lineBase, direction),
       "Railroad Track",
       "railroad track line vertical horizontal",
-      800,
+      TERRAIN_GROUP_ORDER.get("RAILROAD_TRACK:line") ?? 803,
     ),
     makeBrushEntry(
       "RAILROAD_TRACK:corner",
@@ -240,7 +240,7 @@ function makeRailroadEntries(direction: Dir): PaletteBrushEntry[] {
       orientBrush(cornerBase, direction),
       "Railroad Corner",
       "railroad track corner",
-      801,
+      TERRAIN_GROUP_ORDER.get("RAILROAD_TRACK:corner") ?? 804,
     ),
     makeBrushEntry(
       "RAILROAD_TRACK:switch",
@@ -248,7 +248,7 @@ function makeRailroadEntries(direction: Dir): PaletteBrushEntry[] {
       switchBrush,
       "Railroad Switch",
       "railroad switch track",
-      802,
+      TERRAIN_GROUP_ORDER.get("RAILROAD_TRACK:switch") ?? 805,
     ),
   ];
 }
@@ -333,7 +333,7 @@ function makeLogicGateEntries(direction: Dir, counterValue: number): PaletteBrus
       gateTile,
       gate === "COUNTER" ? "Logic Gate (Counter)" : `Logic Gate (${formatTileDisplayName(gate)})`,
       `logic gate ${gate.toLowerCase()} counter`,
-      803 + index,
+      TERRAIN_GROUP_ORDER.get(`LOGIC_GATE:${gate}`) ?? 806 + index,
     );
   });
 }
@@ -405,6 +405,21 @@ function makeTemplateEntries(direction: Dir, counterValue: number): PaletteTileE
       "Thin Wall",
       "thin wall canopy",
       40000,
+    ),
+    makeBrushEntry(
+      "CANOPY",
+      "overlay",
+      {
+        tile: "THINWALL_CANOPY",
+        thinWallCanopy: {
+          walls: [],
+          canopy: true,
+        },
+        lower: "FLOOR",
+      },
+      "Canopy",
+      "canopy thin wall",
+      40001,
     ),
     ...makeRailroadEntries(direction),
     ...makeLogicGateEntries(direction, counterValue),
