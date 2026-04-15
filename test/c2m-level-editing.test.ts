@@ -11,6 +11,7 @@ import {
   connectWirePoints,
   classifyBrushRole,
   copyMapRegion,
+  disconnectWirePoints,
   paintMapCells,
   paintMapLine,
   pasteMapRegion,
@@ -315,6 +316,49 @@ describe("c2m level editing", () => {
     expect(connected.tiles[pointToIndex({ x: 3, y: 2 }, map)]).toEqual({
       tile: "FLOOR",
       modifiers: [{ kind: "WIRES", wires: ["W"], tunnels: [] }],
+    });
+  });
+
+  it("disconnects wire links but keeps explicit wire nodes in place", () => {
+    const map = connectWirePoints(
+      placeWireNode(placeWireNode(createMap(), { x: 2, y: 2 }), { x: 3, y: 2 }),
+      { x: 2, y: 2 },
+      { x: 3, y: 2 },
+    );
+    const disconnected = disconnectWirePoints(map, { x: 2, y: 2 }, { x: 3, y: 2 });
+
+    expect(disconnected.tiles[pointToIndex({ x: 2, y: 2 }, disconnected)]).toEqual({
+      tile: "FLOOR",
+      modifiers: [{ kind: "WIRES", wires: [], tunnels: [] }],
+    });
+    expect(disconnected.tiles[pointToIndex({ x: 3, y: 2 }, disconnected)]).toEqual({
+      tile: "FLOOR",
+      modifiers: [{ kind: "WIRES", wires: [], tunnels: [] }],
+    });
+  });
+
+  it("rejects wire connections that violate logic-gate direction rules", () => {
+    const map = withTile(
+      createMap(),
+      { x: 2, y: 2 },
+      {
+        tile: "LOGIC_GATE",
+        modifiers: [{ kind: "LOGIC", gate: "AND", facing: "E" }],
+      },
+    );
+
+    expect(connectWirePoints(map, { x: 2, y: 2 }, { x: 1, y: 2 })).toBe(map);
+
+    expect(
+      connectWirePoints(map, { x: 2, y: 2 }, { x: 3, y: 2 }).tiles[
+        pointToIndex({ x: 2, y: 2 }, map)
+      ],
+    ).toEqual({
+      tile: "LOGIC_GATE",
+      modifiers: [
+        { kind: "WIRES", wires: ["E"], tunnels: [] },
+        { kind: "LOGIC", gate: "AND", facing: "E" },
+      ],
     });
   });
 

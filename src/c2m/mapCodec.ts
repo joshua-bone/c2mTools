@@ -100,13 +100,28 @@ const TILE_DIRECTIONAL_BLOCK = 0x81;
 const TILE_CLONE_MACHINE_OLD = 0x43;
 const TILE_CLONE_MACHINE = 0x44;
 
-// Wires modifier applies to these tiles (from your spec excerpt)
+// Wires modifier applies to these tiles.
 const WIRES_TILES = new Set<number>([
   0x01, // Floor
+  0x0a, // Force north
+  0x0b, // Force east
+  0x0c, // Force south
+  0x0d, // Force west
   0x10, // Red teleport
   0x11, // Blue teleport
+  0x42, // Trap
+  0x43, // Clone machine old
+  0x44, // Clone machine
+  0x48, // Swivel door SW
+  0x49, // Swivel door NW
+  0x4a, // Swivel door NE
+  0x4b, // Swivel door SE
   0x4e, // Transmogrifier
+  0x4f, // Railroad track
   0x50, // Steel wall
+  0x5c, // Logic gate
+  0x5f, // Flame jet off
+  0x60, // Flame jet on
   0x88, // Switch off
   0x89, // Switch on
   0x5e, // Pink button
@@ -601,6 +616,11 @@ function readModifierValue(r: BinaryReader, modTag: number): number {
   return r.readU32LE();
 }
 
+type RawModifierEntry = Readonly<{
+  modTag: number;
+  value: number;
+}>;
+
 function interpretModifier(tileId: number, value: number): ModifierJson {
   if (WIRES_TILES.has(tileId)) return decodeWiresValue(value & 0xff);
   if (tileId === TILE_RAILROAD_TRACK) return decodeTracksValue(value & 0xffff);
@@ -615,6 +635,62 @@ function interpretModifier(tileId: number, value: number): ModifierJson {
   );
 }
 
+function tryDecodeLogicValue(value: number): Extract<ModifierJson, { kind: "LOGIC" }> | null {
+  try {
+    return decodeLogicValue(value);
+  } catch {
+    return null;
+  }
+}
+
+function interpretModifierEntries(
+  tileId: number,
+  modifierEntries: ReadonlyArray<RawModifierEntry>,
+): ModifierJson[] {
+  if (modifierEntries.length === 0) return [];
+
+  if (tileId === TILE_RAILROAD_TRACK) {
+    return modifierEntries.map((entry) =>
+      entry.modTag === MOD_16
+        ? decodeTracksValue(entry.value & 0xffff)
+        : decodeWiresValue(entry.value & 0xff),
+    );
+  }
+
+  if (tileId === TILE_LOGIC_GATE) {
+    if (modifierEntries.length === 1) {
+      const onlyEntry = modifierEntries[0]!;
+      const logic = tryDecodeLogicValue(onlyEntry.value & 0xff);
+      return [logic ?? decodeWiresValue(onlyEntry.value & 0xff)];
+    }
+
+    return modifierEntries.map((entry, index) =>
+      index === modifierEntries.length - 1
+        ? decodeLogicValue(entry.value & 0xff)
+        : decodeWiresValue(entry.value & 0xff),
+    );
+  }
+
+  if (tileId === TILE_CLONE_MACHINE || tileId === TILE_CLONE_MACHINE_OLD) {
+    if (modifierEntries.length === 1) {
+      const onlyEntry = modifierEntries[0]!;
+      return [
+        (onlyEntry.value & 0xff) > 0x0f
+          ? decodeWiresValue(onlyEntry.value & 0xff)
+          : decodeCloneArrowsValue(onlyEntry.value & 0xff),
+      ];
+    }
+
+    return modifierEntries.map((entry, index) =>
+      index === modifierEntries.length - 1
+        ? decodeCloneArrowsValue(entry.value & 0xff)
+        : decodeWiresValue(entry.value & 0xff),
+    );
+  }
+
+  return modifierEntries.map((entry) => interpretModifier(tileId, entry.value));
+}
+
 function minimizeTile(obj: TileSpecObjJson): TileSpecJson {
   const hasDir = obj.dir !== undefined;
   const hasT = obj.thinWallCanopy !== undefined;
@@ -627,7 +703,7 @@ function minimizeTile(obj: TileSpecObjJson): TileSpecJson {
 }
 
 function parseTileSpecBytes(r: BinaryReader): TileSpecJson {
-  const modifierValues: number[] = [];
+  const modifierEntries: RawModifierEntry[] = [];
 
   while (true) {
     const b = r.readU8();
@@ -659,8 +735,8 @@ function parseTileSpecBytes(r: BinaryReader): TileSpecJson {
         base.lower = parseTileSpecBytes(r);
       }
 
-      if (modifierValues.length > 0) {
-        const mods = modifierValues.map((v) => interpretModifier(tileId, v));
+      if (modifierEntries.length > 0) {
+        const mods = interpretModifierEntries(tileId, modifierEntries);
         mods.sort((a, b2) => modifierKindOrder(a.kind) - modifierKindOrder(b2.kind));
         base.modifiers = mods;
       }
@@ -668,7 +744,10 @@ function parseTileSpecBytes(r: BinaryReader): TileSpecJson {
       return minimizeTile(base);
     }
 
-    modifierValues.push(readModifierValue(r, b));
+    modifierEntries.push({
+      modTag: b,
+      value: readModifierValue(r, b),
+    });
   }
 }
 

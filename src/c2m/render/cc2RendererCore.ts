@@ -75,6 +75,30 @@ function renderWireable(
   return ts.merge(own, base);
 }
 
+function renderWireBackdrop(
+  ts: CC2Tileset,
+  tile: TileSpecObjJson,
+  baseX: number,
+  baseY: number,
+): RgbaImage {
+  const { wires, hasModifier } = wiresMask(tile);
+  if (wires === 0) {
+    const own = ts.draw(baseX, baseY);
+    return hasModifier ? ts.merge(ts.draw(12, 26), own) : own;
+  }
+
+  let base = ts.draw(13, 26);
+
+  if ((wires & 0x1) === 0) base = ts.merge(ts.drawElectricSide(baseX, baseY, "TOP"), base);
+  if ((wires & 0x2) === 0)
+    base = ts.mergeWithOffset(ts.drawElectricSide(baseX, baseY, "RIGHT"), base, T / 2 + 1, 0);
+  if ((wires & 0x4) === 0)
+    base = ts.mergeWithOffset(ts.drawElectricSide(baseX, baseY, "BOTTOM"), base, 0, T / 2 + 1);
+  if ((wires & 0x8) === 0) base = ts.merge(ts.drawElectricSide(baseX, baseY, "LEFT"), base);
+
+  return base;
+}
+
 function renderSuperWireable(
   ts: CC2Tileset,
   ownX: number,
@@ -142,7 +166,7 @@ function renderSwivelOverlay(ts: CC2Tileset, terrainName: string): RgbaImage | n
 }
 
 function renderCloneMachine(ts: CC2Tileset, tile: TileSpecObjJson): RgbaImage {
-  let base = ts.draw(15, 1);
+  let base = renderWireable(ts, 15, 1, tile, false);
   const m = getModifier(tile, "CLONE_ARROWS");
   if (!m || m.kind !== "CLONE_ARROWS") return base;
 
@@ -173,7 +197,7 @@ function renderDirectionalBlock(ts: CC2Tileset, tile: TileSpecObjJson): RgbaImag
 
 function renderRailroadTrack(ts: CC2Tileset, tile: TileSpecObjJson): RgbaImage {
   // Mirrors your friend's TrainTrack.get_gfx approach.
-  let base = ts.draw(9, 10);
+  let base = renderWireBackdrop(ts, tile, 9, 10);
   const m = getModifier(tile, "TRACKS");
   if (!m || m.kind !== "TRACKS") return base;
 
@@ -217,7 +241,7 @@ function renderRailroadTrack(ts: CC2Tileset, tile: TileSpecObjJson): RgbaImage {
 
 function renderLogicGate(ts: CC2Tileset, tile: TileSpecObjJson): RgbaImage {
   // Best-effort reproduction of your friend's LogicGate.get_gfx.
-  let base = ts.draw(13, 26);
+  let base = renderWireBackdrop(ts, tile, 0, 2);
 
   const m = getModifier(tile, "LOGIC");
   let value = 0;
@@ -276,6 +300,14 @@ function renderTerrain(ts: CC2Tileset, tile: TileSpecObjJson): RgbaImage {
   if (name === "BLACK_BUTTON") return renderWireable(ts, 13, 6, tile, false);
   if (name === "SWITCH_OFF") return renderWireable(ts, 12, 21, tile, true);
   if (name === "SWITCH_ON") return renderWireable(ts, 13, 21, tile, true);
+  if (name === "TRAP") return renderWireable(ts, 9, 9, tile, false);
+  if (name === "TRANSMOGRIFIER") return renderWireable(ts, 12, 19, tile, false);
+  if (name === "FORCE_N") return renderWireable(ts, 0, 19, tile, false);
+  if (name === "FORCE_E") return renderWireable(ts, 2, 19, tile, false);
+  if (name === "FORCE_S") return renderWireable(ts, 1, 19, tile, false);
+  if (name === "FORCE_W") return renderWireable(ts, 2, 20, tile, false);
+  if (name === "FLAME_JET_OFF") return renderWireable(ts, 8, 5, tile, false);
+  if (name === "FLAME_JET_ON") return renderWireable(ts, 9, 5, tile, false);
 
   if (name === "CLONE_MACHINE" || name === "CLONE_MACHINE_OLD") return renderCloneMachine(ts, tile);
   if (name === "RAILROAD_TRACK") return renderRailroadTrack(ts, tile);
@@ -330,7 +362,7 @@ function renderTerrain(ts: CC2Tileset, tile: TileSpecObjJson): RgbaImage {
     name === "SWIVEL_DOOR_NE" ||
     name === "SWIVEL_DOOR_SE"
   ) {
-    return ts.draw(13, 11);
+    return renderWireBackdrop(ts, tile, 13, 11);
   }
 
   const staticXY: Record<string, { x: number; y: number }> = {
@@ -368,14 +400,10 @@ function renderTerrain(ts: CC2Tileset, tile: TileSpecObjJson): RgbaImage {
     SOLID_BLUE_WALL: { x: 0, y: 10 },
     FALSE_BLUE_WALL: { x: 10, y: 31 },
     DIRT: { x: 4, y: 31 },
-    TRANSMOGRIFIER: { x: 12, y: 19 },
     TOOL_THIEF: { x: 3, y: 2 },
     KEY_THIEF: { x: 15, y: 21 },
     OPEN_TRAP_UNUSED: { x: 10, y: 9 },
-    TRAP: { x: 9, y: 9 },
     CLUE: { x: 5, y: 2 },
-    FLAME_JET_OFF: { x: 8, y: 5 },
-    FLAME_JET_ON: { x: 9, y: 5 },
     MALE_ONLY_SIGN: { x: 5, y: 31 },
     FEMALE_ONLY_SIGN: { x: 6, y: 31 },
     SOLID_GREEN_WALL: { x: 12, y: 5 },

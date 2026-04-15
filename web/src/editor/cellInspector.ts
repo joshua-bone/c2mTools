@@ -60,7 +60,7 @@ export type InspectableCell = Readonly<{
   layers: ReadonlyArray<InspectableCellLayer>;
 }>;
 
-const WIRES_TILE_NAMES = new Set<string>([
+const GENERIC_WIREABLE_TILE_NAMES = new Set<string>([
   "FLOOR",
   "RED_TELEPORT",
   "BLUE_TELEPORT",
@@ -70,10 +70,72 @@ const WIRES_TILE_NAMES = new Set<string>([
   "SWITCH_ON",
   "PINK_BUTTON",
   "BLACK_BUTTON",
+  "TRAP",
+  "CLONE_MACHINE",
+  "CLONE_MACHINE_OLD",
+  "SWIVEL_DOOR_SW",
+  "SWIVEL_DOOR_NW",
+  "SWIVEL_DOOR_NE",
+  "SWIVEL_DOOR_SE",
+  "FORCE_N",
+  "FORCE_E",
+  "FORCE_S",
+  "FORCE_W",
+  "FLAME_JET_OFF",
+  "FLAME_JET_ON",
 ]);
 
-export function tileAllowsWires(tileName: string): boolean {
-  return WIRES_TILE_NAMES.has(tileName);
+function rotateDir(dir: Dir, quarterTurns: number): Dir {
+  const index = CARDINAL_DIRS.indexOf(dir);
+  return CARDINAL_DIRS[(index + quarterTurns + CARDINAL_DIRS.length) % CARDINAL_DIRS.length] ?? dir;
+}
+
+function sortDirsUnique(dirs: ReadonlyArray<Dir>): Dir[] {
+  const set = new Set(dirs);
+  return CARDINAL_DIRS.filter((dir) => set.has(dir));
+}
+
+export function resolveWireableDirections(tile: TileSpecObjJson): Dir[] {
+  if (GENERIC_WIREABLE_TILE_NAMES.has(tile.tile)) {
+    return [...CARDINAL_DIRS];
+  }
+
+  if (tile.tile === "RAILROAD_TRACK") {
+    const tracksModifier = getTileModifier(tile, "TRACKS");
+    return tracksModifier?.kind === "TRACKS" && tracksModifier.pieces.includes("SWITCH")
+      ? [...CARDINAL_DIRS]
+      : [];
+  }
+
+  if (tile.tile === "LOGIC_GATE") {
+    const logicModifier = getTileModifier(tile, "LOGIC");
+    if (!logicModifier || logicModifier.kind !== "LOGIC") {
+      return [...CARDINAL_DIRS];
+    }
+
+    if (logicModifier.gate === "COUNTER") {
+      return [...CARDINAL_DIRS];
+    }
+
+    const facing = logicModifier.facing ?? "N";
+    const allowed = [facing];
+
+    if (logicModifier.gate !== "INVERTER") {
+      allowed.push(rotateDir(facing, -1), rotateDir(facing, 1));
+    }
+
+    if (logicModifier.gate === "INVERTER") {
+      allowed.push(rotateDir(facing, 2));
+    }
+
+    return sortDirsUnique(allowed);
+  }
+
+  return [];
+}
+
+export function tileAllowsWires(tile: TileSpecObjJson): boolean {
+  return resolveWireableDirections(tile).length > 0;
 }
 
 function stripLower(tile: TileSpecObjJson): TileSpecObjJson {
@@ -149,7 +211,7 @@ export function tileSupportsModifierKind(
 ): boolean {
   switch (kind) {
     case "WIRES":
-      return tileAllowsWires(tile.tile);
+      return tileAllowsWires(tile);
     case "TRACKS":
       return tile.tile === "RAILROAD_TRACK";
     case "CLONE_ARROWS":

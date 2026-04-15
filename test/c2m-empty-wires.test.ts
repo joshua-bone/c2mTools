@@ -17,4 +17,40 @@ describe("empty wire nodes", () => {
 
     expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(map);
   });
+
+  it("round-trips railroad wire modifiers alongside track metadata", () => {
+    const map = {
+      width: 1,
+      height: 1,
+      tiles: [
+        {
+          tile: "RAILROAD_TRACK",
+          modifiers: [
+            { kind: "WIRES", wires: ["E"], tunnels: [] },
+            { kind: "TRACKS", pieces: ["VERTICAL", "SWITCH"], active: "V", entered: "N" },
+          ],
+        },
+      ],
+    } as const;
+
+    expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(map);
+  });
+
+  it("round-trips logic gate wire modifiers alongside logic metadata", () => {
+    const map = {
+      width: 1,
+      height: 1,
+      tiles: [
+        {
+          tile: "LOGIC_GATE",
+          modifiers: [
+            { kind: "WIRES", wires: ["E"], tunnels: [] },
+            { kind: "LOGIC", gate: "AND", facing: "E" },
+          ],
+        },
+      ],
+    } as const;
+
+    expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(map);
+  });
 });

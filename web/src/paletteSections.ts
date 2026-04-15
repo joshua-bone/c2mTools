@@ -4,7 +4,7 @@ import { DIR_ORDER, rotateBrushSpec } from "./editor/brushTransforms.js";
 import { createDefaultBrushTileSpec } from "./editor/renderPreview.js";
 import { describeTileSpec, formatTileDisplayName } from "./editor/tileDisplay.js";
 
-type PaletteSectionKey = "terrain" | "item" | "mob" | "overlay";
+type PaletteSectionKey = "terrain" | "item" | "mob" | "overlay" | "tool";
 
 export type PaletteBrushEntry = Readonly<{
   kind: "brush";
@@ -48,6 +48,7 @@ const SECTION_ORDER: ReadonlyArray<PaletteSectionKey> = Object.freeze([
   "item",
   "mob",
   "overlay",
+  "tool",
 ]);
 
 const SECTION_TITLES: Record<PaletteSectionKey, string> = {
@@ -55,6 +56,7 @@ const SECTION_TITLES: Record<PaletteSectionKey, string> = {
   item: "Items",
   mob: "Creatures",
   overlay: "Overlays",
+  tool: "Tools",
 };
 
 const EXCLUDED_TILE_NAMES = new Set([
@@ -135,7 +137,6 @@ const TERRAIN_GROUPS: ReadonlyArray<ReadonlyArray<string>> = Object.freeze([
     "LOGIC_GATE:LATCH_CCW",
     "LOGIC_GATE:NAND",
     "LOGIC_GATE:COUNTER",
-    "WIRE_TOOL",
     "RAILROAD_SIGN",
   ],
   [
@@ -413,7 +414,7 @@ function makeTemplateEntries(direction: Dir, counterValue: number): PaletteTileE
     ...makeRailroadEntries(direction),
     ...makeLogicGateEntries(direction, counterValue),
     ...makeDirectionalBlockEntries(direction),
-    makeToolEntry("WIRE_TOOL", "terrain", "Wire Tool", "wire tool spool", 811, { x: 12, y: 26 }),
+    makeToolEntry("WIRE_TOOL", "tool", "Wire Tool", "wire tool spool", 99999, { x: 12, y: 26 }),
   ];
 }
 

@@ -77,6 +77,7 @@ import {
   canPlaceWireOnCell,
   connectWirePoints,
   copyMapRegion,
+  disconnectWirePoints,
   floodFillMap,
   paintMapCells,
   paintMapLine,
@@ -249,6 +250,7 @@ type WireDragState = Readonly<{
   pointerId: number;
   lastPoint: GridPoint;
   previewMap: MapJson;
+  mode: "add" | "remove";
 }>;
 
 type DragState = BrushDragState | LineDragState | SelectDragState | WireDragState;
@@ -1840,17 +1842,22 @@ export default function App() {
       }
 
       if (tool === "wire") {
-        if (event.button !== 0 || !canMutateBoard) return;
+        if (event.button !== 0 && event.button !== 2) return;
+        if (!canMutateBoard) return;
         const cell = activeMap.tiles[pointToIndex(point, activeMap)];
         if (!cell || !canPlaceWireOnCell(cell)) return;
         event.preventDefault();
         event.currentTarget.setPointerCapture(event.pointerId);
-        let nextPreviewMap = placeWireNode(activeMap, point);
+        const mode = event.button === 2 ? "remove" : "add";
+        let nextPreviewMap = mode === "add" ? placeWireNode(activeMap, point) : activeMap;
         if (
           pendingWirePoint &&
           (pendingWirePoint.x !== point.x || pendingWirePoint.y !== point.y)
         ) {
-          nextPreviewMap = connectWirePoints(nextPreviewMap, pendingWirePoint, point);
+          nextPreviewMap =
+            mode === "add"
+              ? connectWirePoints(nextPreviewMap, pendingWirePoint, point)
+              : disconnectWirePoints(nextPreviewMap, pendingWirePoint, point);
         }
         setPastePreviewActive(false);
         setPendingWirePoint(point);
@@ -1860,6 +1867,7 @@ export default function App() {
           pointerId: event.pointerId,
           lastPoint: point,
           previewMap: nextPreviewMap,
+          mode,
         });
         return;
       }
@@ -2030,13 +2038,14 @@ export default function App() {
             indexToPoint(index, activeMap),
           );
           for (let index = 1; index < linePoints.length; index += 1) {
-            nextPreviewMap = connectWirePoints(
-              nextPreviewMap,
-              linePoints[index - 1]!,
-              linePoints[index]!,
-            );
+            nextPreviewMap =
+              dragState.mode === "add"
+                ? connectWirePoints(nextPreviewMap, linePoints[index - 1]!, linePoints[index]!)
+                : disconnectWirePoints(nextPreviewMap, linePoints[index - 1]!, linePoints[index]!);
           }
-          nextPreviewMap = placeWireNode(nextPreviewMap, point);
+          if (dragState.mode === "add") {
+            nextPreviewMap = placeWireNode(nextPreviewMap, point);
+          }
 
           setPendingWirePoint(point);
           setTransientMap(nextPreviewMap);
@@ -2111,6 +2120,7 @@ export default function App() {
         if (dragState.tool === "wire") {
           commitMapChange(dragState.previewMap);
           setTransientMap(null);
+          setPendingWirePoint(dragState.mode === "add" ? (point ?? dragState.lastPoint) : null);
           setDragState(null);
           updateHoverAtClientPoint(event.clientX, event.clientY);
           return;

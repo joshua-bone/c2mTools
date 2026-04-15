@@ -16,7 +16,7 @@ import {
   type GridPoint,
   type GridRect,
 } from "./boardGeometry.js";
-import { getTileModifier, setTileModifier, tileAllowsWires } from "./cellInspector.js";
+import { getTileModifier, resolveWireableDirections, setTileModifier } from "./cellInspector.js";
 
 export type C2mClipboard = Readonly<{
   width: number;
@@ -397,7 +397,7 @@ function addWireDir(tile: TileSpecObjJson, dir: Dir): TileSpecObjJson {
 }
 
 export function canPlaceWireOnCell(cell: TileSpecJson): boolean {
-  return tileAllowsWires(flattenCellLayers(cell).terrain.tile);
+  return resolveWireableDirections(flattenCellLayers(cell).terrain).length > 0;
 }
 
 export function placeWireNode(map: MapJson, point: GridPoint): MapJson {
@@ -405,13 +405,17 @@ export function placeWireNode(map: MapJson, point: GridPoint): MapJson {
 
   return buildNextCellAtIndex(map, pointToIndex(point, map), (cell) => {
     const layers = flattenCellLayers(cell);
-    if (!tileAllowsWires(layers.terrain.tile)) return cell;
+    if (resolveWireableDirections(layers.terrain).length === 0) return cell;
 
     return buildCellFromLayers({
       ...layers,
       terrain: withWireModifier(layers.terrain),
     });
   });
+}
+
+function canWireCellDirection(cell: TileSpecJson, dir: Dir): boolean {
+  return resolveWireableDirections(flattenCellLayers(cell).terrain).includes(dir);
 }
 
 export function connectWirePoints(map: MapJson, from: GridPoint, to: GridPoint): MapJson {
@@ -423,7 +427,12 @@ export function connectWirePoints(map: MapJson, from: GridPoint, to: GridPoint):
   const firstCell = map.tiles[firstIndex];
   const secondCell = map.tiles[secondIndex];
   if (!firstCell || !secondCell) return map;
-  if (!canPlaceWireOnCell(firstCell) || !canPlaceWireOnCell(secondCell)) return map;
+  if (
+    !canWireCellDirection(firstCell, dir) ||
+    !canWireCellDirection(secondCell, oppositeDir(dir))
+  ) {
+    return map;
+  }
 
   const withFirst = buildNextCellAtIndex(map, firstIndex, (cell) => {
     const layers = flattenCellLayers(cell);
@@ -438,6 +447,43 @@ export function connectWirePoints(map: MapJson, from: GridPoint, to: GridPoint):
     return buildCellFromLayers({
       ...layers,
       terrain: addWireDir(layers.terrain, oppositeDir(dir)),
+    });
+  });
+}
+
+function removeWireDir(tile: TileSpecObjJson, dir: Dir): TileSpecObjJson {
+  const modifier = getTileModifier(tile, "WIRES");
+  if (!modifier) return tile;
+  return setTileModifier(tile, "WIRES", {
+    kind: "WIRES",
+    wires: sortDirs(modifier.wires.filter((entry) => entry !== dir)),
+    tunnels: [...modifier.tunnels],
+  });
+}
+
+export function disconnectWirePoints(map: MapJson, from: GridPoint, to: GridPoint): MapJson {
+  const dir = getWireDirection(from, to);
+  if (!dir) return map;
+
+  const firstIndex = pointToIndex(from, map);
+  const secondIndex = pointToIndex(to, map);
+  const firstCell = map.tiles[firstIndex];
+  const secondCell = map.tiles[secondIndex];
+  if (!firstCell || !secondCell) return map;
+
+  const withFirst = buildNextCellAtIndex(map, firstIndex, (cell) => {
+    const layers = flattenCellLayers(cell);
+    return buildCellFromLayers({
+      ...layers,
+      terrain: removeWireDir(layers.terrain, dir),
+    });
+  });
+
+  return buildNextCellAtIndex(withFirst, secondIndex, (cell) => {
+    const layers = flattenCellLayers(cell);
+    return buildCellFromLayers({
+      ...layers,
+      terrain: removeWireDir(layers.terrain, oppositeDir(dir)),
     });
   });
 }
