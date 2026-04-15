@@ -2852,17 +2852,6 @@ export default function App() {
                 </select>
               </label>
             </div>
-
-            <label className="checkboxRow">
-              <input
-                type="checkbox"
-                checked={metadataDraft.readOnlyChunk}
-                onChange={(event) =>
-                  updateMetadataDraftField("readOnlyChunk", event.target.checked)
-                }
-              />
-              <span>Emit `RDNY` read-only chunk</span>
-            </label>
           </fieldset>
         </div>
 

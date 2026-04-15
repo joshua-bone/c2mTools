@@ -1095,6 +1095,12 @@ textarea {
   padding: 10px 12px;
 }
 
+select.textField.compactField {
+  font-size: 13px;
+  line-height: 1.2;
+  padding: 9px 32px 9px 10px;
+}
+
 .inspectorTextArea {
   resize: vertical;
   min-height: 84px;
