@@ -48,6 +48,8 @@ export type BoardViewportPresentationOptions = Readonly<{
   viewportHeight: number;
 }>;
 
+export type BoardResizeLockedEdge = "N" | "E" | "S" | "W";
+
 export function ensureCanvasSize(canvas: SizedCanvas, width: number, height: number): boolean {
   if (canvas.width === width && canvas.height === height) return false;
   canvas.width = width;
@@ -97,6 +99,55 @@ export function clampBoardPan(
     x: Math.min(maxPanX, Math.max(minPanX, options.boardPan.x)),
     y: Math.min(maxPanY, Math.max(minPanY, options.boardPan.y)),
   };
+}
+
+export function resolveBoardPanAfterEdgeResize(
+  options: Readonly<{
+    edge: BoardResizeLockedEdge;
+    previousBoardPixelWidth: number;
+    previousBoardPixelHeight: number;
+    nextBoardPixelWidth: number;
+    nextBoardPixelHeight: number;
+    boardPan: BoardPan;
+    boardZoom: number;
+    viewportWidth: number;
+    viewportHeight: number;
+  }>,
+): BoardPan {
+  const widthDelta =
+    (options.nextBoardPixelWidth - options.previousBoardPixelWidth) * options.boardZoom;
+  const heightDelta =
+    (options.nextBoardPixelHeight - options.previousBoardPixelHeight) * options.boardZoom;
+
+  const nextPan =
+    options.edge === "W"
+      ? {
+          x: options.boardPan.x + widthDelta / 2,
+          y: options.boardPan.y,
+        }
+      : options.edge === "E"
+        ? {
+            x: options.boardPan.x - widthDelta / 2,
+            y: options.boardPan.y,
+          }
+        : options.edge === "N"
+          ? {
+              x: options.boardPan.x,
+              y: options.boardPan.y + heightDelta / 2,
+            }
+          : {
+              x: options.boardPan.x,
+              y: options.boardPan.y - heightDelta / 2,
+            };
+
+  return clampBoardPan({
+    boardPixelWidth: options.nextBoardPixelWidth,
+    boardPixelHeight: options.nextBoardPixelHeight,
+    boardPan: nextPan,
+    boardZoom: options.boardZoom,
+    viewportWidth: options.viewportWidth,
+    viewportHeight: options.viewportHeight,
+  });
 }
 
 function clampCellCoordinate(value: number, maxInclusive: number): number {

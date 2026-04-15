@@ -15,4 +15,5 @@ export type EditorPlatform = Readonly<{
   openDocumentFile: () => Promise<OpenedDocumentFile | null>;
   saveC2mFile: (fileName: string, bytes: Uint8Array) => Promise<void>;
   saveJsonFile: (fileName: string, text: string) => Promise<void>;
+  openExternalUrl: (url: string) => void;
 }>;

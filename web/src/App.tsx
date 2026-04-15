@@ -20,6 +20,7 @@ import type { CC2Tileset } from "../../src/c2m/render/cc2Tileset";
 import {
   BOARD_TILE_PIXEL_SIZE,
   clampBoardPan,
+  resolveBoardPanAfterEdgeResize,
   resolveBoardCellScreenRect,
   resolveBoardScreenRect,
   viewportClientPointToBoardPoint,
@@ -105,6 +106,7 @@ import {
   type ResizeEdge,
   type ResizeAnchor,
 } from "./editor/mapResize";
+import { buildNotccLevelUrl } from "./editor/notcc";
 import { createDefaultBrushTileSpec } from "./editor/renderPreview";
 import {
   rotateBrushSpec,
@@ -758,6 +760,7 @@ export default function App() {
   const jsonOk = doc !== null && parseError === null && jsonTextPresent;
   const canMutateBoard = map !== null && jsonOk;
   const canSave = jsonOk;
+  const canTestInNotcc = doc !== null && jsonOk;
   const canUndo = history !== null && history.cursor > 0 && jsonOk;
   const canRedo = history !== null && history.cursor < history.events.length && jsonOk;
   const visualEditLockReason = resolveVisualEditLockReason({
@@ -1450,14 +1453,36 @@ export default function App() {
     (edge: ResizeEdge, delta: -1 | 1) => {
       if (!map || !canMutateBoard || !canResizeMapEdge(map, edge, delta)) return;
       resetBoardTransientState();
-      commitMapChange(
-        resizeMapEdge(map, {
+      const nextMap = resizeMapEdge(map, {
+        edge,
+        delta,
+      });
+      const boardSnapshot = boardStatusStoreRef.current.getSnapshot();
+
+      if (!commitMapChange(nextMap)) return;
+
+      boardStatusStoreRef.current.update({
+        boardPan: resolveBoardPanAfterEdgeResize({
           edge,
-          delta,
+          previousBoardPixelWidth: map.width * BOARD_TILE_PIXEL_SIZE,
+          previousBoardPixelHeight: map.height * BOARD_TILE_PIXEL_SIZE,
+          nextBoardPixelWidth: nextMap.width * BOARD_TILE_PIXEL_SIZE,
+          nextBoardPixelHeight: nextMap.height * BOARD_TILE_PIXEL_SIZE,
+          boardPan: boardSnapshot.boardPan,
+          boardZoom: boardSnapshot.boardZoom,
+          viewportWidth: viewportSize.width,
+          viewportHeight: viewportSize.height,
         }),
-      );
+      });
     },
-    [canMutateBoard, commitMapChange, map, resetBoardTransientState],
+    [
+      canMutateBoard,
+      commitMapChange,
+      map,
+      resetBoardTransientState,
+      viewportSize.height,
+      viewportSize.width,
+    ],
   );
 
   useEffect(() => {
@@ -1935,6 +1960,37 @@ export default function App() {
       setError(asErrorMessage(err));
     });
   }, [fileName, jsonOk, jsonText]);
+
+  const onTestInNotcc = useCallback(() => {
+    if (!doc || !jsonOk) {
+      setError("Load or fix a valid level before testing it in NotCC.");
+      return;
+    }
+
+    setError(null);
+    setRenderError(null);
+
+    try {
+      platform.openExternalUrl(buildNotccLevelUrl(encodeC2mFromJsonV1(doc)));
+    } catch (err: unknown) {
+      setError(asErrorMessage(err));
+    }
+  }, [doc, jsonOk]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "F5") return;
+      event.preventDefault();
+      if (event.repeat) return;
+      setBoardMenuOpen(null);
+      onTestInNotcc();
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onTestInNotcc]);
 
   const applyTransform = useCallback(
     (op: LevelTransformKind) => {
@@ -2845,6 +2901,17 @@ export default function App() {
                     >
                       Download JSON
                     </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!canTestInNotcc}
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        onTestInNotcc();
+                      }}
+                    >
+                      Test in NotCC (F5)
+                    </button>
                   </div>
                 ) : null}
               </div>
@@ -3176,7 +3243,7 @@ export default function App() {
                 symbols, and logic counters when those brushes are selected. The wire tool is picked
                 from the palette with LMB only. Middle mouse, `Cmd`/`Ctrl` plus drag, or dragging
                 empty board space pans. Arrow keys and `WASD` also move the camera. Mouse wheel
-                zooms the board.
+                zooms the board. Press `F5` to test the current level in NotCC.
               </div>
             </section>
           ) : null}

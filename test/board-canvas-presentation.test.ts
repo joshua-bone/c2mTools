@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   clampBoardPan,
+  resolveBoardPanAfterEdgeResize,
   resolveBoardCellScreenRect,
   resolveBoardScreenRect,
   resolveVisibleBoardCellWindow,
@@ -104,5 +105,72 @@ describe("board canvas presentation", () => {
       startRow: 0,
       endRow: 11,
     });
+  });
+
+  it("keeps the resized board edge fixed on screen", () => {
+    const viewportWidth = 900;
+    const viewportHeight = 700;
+    const boardZoom = 1.5;
+    const boardPan = { x: -260, y: -120 };
+
+    const westLockedPan = resolveBoardPanAfterEdgeResize({
+      edge: "W",
+      previousBoardPixelWidth: 20 * 32,
+      previousBoardPixelHeight: 12 * 32,
+      nextBoardPixelWidth: 21 * 32,
+      nextBoardPixelHeight: 12 * 32,
+      boardPan,
+      boardZoom,
+      viewportWidth,
+      viewportHeight,
+    });
+    const westBefore = resolveBoardScreenRect({
+      boardPixelWidth: 20 * 32,
+      boardPixelHeight: 12 * 32,
+      boardPan,
+      boardZoom,
+      viewportWidth,
+      viewportHeight,
+    });
+    const westAfter = resolveBoardScreenRect({
+      boardPixelWidth: 21 * 32,
+      boardPixelHeight: 12 * 32,
+      boardPan: westLockedPan,
+      boardZoom,
+      viewportWidth,
+      viewportHeight,
+    });
+
+    expect(westAfter.x).toBeCloseTo(westBefore.x);
+
+    const southLockedPan = resolveBoardPanAfterEdgeResize({
+      edge: "S",
+      previousBoardPixelWidth: 20 * 32,
+      previousBoardPixelHeight: 12 * 32,
+      nextBoardPixelWidth: 20 * 32,
+      nextBoardPixelHeight: 11 * 32,
+      boardPan,
+      boardZoom,
+      viewportWidth,
+      viewportHeight,
+    });
+    const southBefore = resolveBoardScreenRect({
+      boardPixelWidth: 20 * 32,
+      boardPixelHeight: 12 * 32,
+      boardPan,
+      boardZoom,
+      viewportWidth,
+      viewportHeight,
+    });
+    const southAfter = resolveBoardScreenRect({
+      boardPixelWidth: 20 * 32,
+      boardPixelHeight: 11 * 32,
+      boardPan: southLockedPan,
+      boardZoom,
+      viewportWidth,
+      viewportHeight,
+    });
+
+    expect(southAfter.y + southAfter.height).toBeCloseTo(southBefore.y + southBefore.height);
   });
 });
