@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  BrowseWallsDialog,
+  GenerateWallsDialog,
+  type GenerateWallsDialogProps,
+  type WallsBrowserLoadState,
+} from "dattools/walls-react";
+import type { WallsBankRecord } from "dattools/walls-core";
 
 import {
   decodeC2mToJsonV1,
@@ -151,6 +158,8 @@ import {
   upsertRecentLevelEntry,
   type PersistedRecentLevelEntry,
 } from "./recentLevelStorage";
+import { applyBankWallMask32ToC2mMap, applyGeneratedWallGridToC2mMap } from "./wallsC2m";
+import { loadWallsBank } from "./wallsBank";
 
 const TILESET_URL = `${import.meta.env.BASE_URL}cc2/spritesheet.png`;
 const DOCUMENT_PERSIST_DEBOUNCE_MS = 300;
@@ -160,6 +169,9 @@ const ZOOM_STEP = 1.15;
 const KEYBOARD_PAN_SPEED = 520;
 const MAX_PARTIAL_REDRAW_CELLS = 1024;
 const PARTIAL_REDRAW_RATIO = 0.2;
+const C2M_WALLS_STARRED_STORAGE_KEY = "c2mtools:walls-bank-starred";
+const C2M_WALLS_HIDDEN_STORAGE_KEY = "c2mtools:walls-bank-hidden";
+const EMPTY_STRING_SET: ReadonlySet<string> = new Set<string>();
 const ERASER_BRUSH: TileSpecJson = "FLOOR";
 const EYEDROPPER_CURSOR =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g transform='rotate(45 12 12)'><rect x='10' y='2.5' width='4' height='11' rx='1.4' fill='%23f6fbff' stroke='%23121a1f' stroke-width='1.6'/><path d='M10 5.5H8.4A1.4 1.4 0 0 0 7 6.9v3.7A1.4 1.4 0 0 0 8.4 12H10' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/><path d='M14 13v6' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><path d='M10.3 19.3h7.4' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><circle cx='14' cy='21' r='1.5' fill='%23235f7a'/></g></svg>\") 4 20, crosshair";
@@ -283,8 +295,10 @@ const BLOB_PATTERN_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
 
 type InspectorTab = "palette" | "inspect";
 type LeftPanelTab = "document" | "controls";
-type BoardMenuId = "file" | "view" | "transform";
+type BoardMenuId = "file" | "view" | "transform" | "ideas";
 type PaletteAssignmentTarget = "primary" | "secondary";
+type IdeasDialogId = "browse-walls" | "generate-walls";
+type GeneratedWallLayoutRecord = Parameters<GenerateWallsDialogProps["onImport"]>[0];
 
 type ToolMode = EditorToolMode;
 
@@ -385,6 +399,27 @@ function removeLocalStorage(key: string): void {
   } catch {
     // Ignore storage removal errors.
   }
+}
+
+function parseStoredStringSet(value: string | null): Set<string> {
+  if (!value) return new Set();
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((entry): entry is string => typeof entry === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+function persistStringSet(key: string, values: ReadonlySet<string>): void {
+  if (values.size === 0) {
+    removeLocalStorage(key);
+    return;
+  }
+
+  writeLocalStorage(key, JSON.stringify([...values].sort((a, b) => a.localeCompare(b, "en"))));
 }
 
 function formatRecentLevelUpdatedAt(updatedAt: number): string {
@@ -815,6 +850,7 @@ export default function App() {
     initialAppState.activeRecentLevelId,
   );
   const [recentModalOpen, setRecentModalOpen] = useState(false);
+  const [ideasDialogOpen, setIdeasDialogOpen] = useState<IdeasDialogId | null>(null);
   const [viewportSize, setViewportSize] = useState<ViewportSize>({
     width: 0,
     height: 0,
@@ -854,6 +890,15 @@ export default function App() {
   const [isAltPressed, setIsAltPressed] = useState(false);
   const [tileset, setTileset] = useState<CC2Tileset | null>(null);
   const [tilesetError, setTilesetError] = useState<string | null>(null);
+  const [wallsBankRecords, setWallsBankRecords] = useState<ReadonlyArray<WallsBankRecord>>([]);
+  const [wallsBankLoadState, setWallsBankLoadState] = useState<WallsBrowserLoadState>("idle");
+  const [wallsBankErrorMessage, setWallsBankErrorMessage] = useState<string | null>(null);
+  const [wallsStarredKeys, setWallsStarredKeys] = useState<Set<string>>(() =>
+    parseStoredStringSet(readLocalStorage(C2M_WALLS_STARRED_STORAGE_KEY)),
+  );
+  const [wallsHiddenKeys, setWallsHiddenKeys] = useState<Set<string>>(() =>
+    parseStoredStringSet(readLocalStorage(C2M_WALLS_HIDDEN_STORAGE_KEY)),
+  );
 
   const boardStatus = useSyncExternalStore(
     boardStatusStoreRef.current.subscribe,
@@ -866,6 +911,15 @@ export default function App() {
   const activeMap = transientMap ?? map;
   const boardPixelWidth = activeMap ? activeMap.width * BOARD_TILE_PIXEL_SIZE : 0;
   const boardPixelHeight = activeMap ? activeMap.height * BOARD_TILE_PIXEL_SIZE : 0;
+  const generateWallsSizeLimits = useMemo(
+    () => ({
+      min: MIN_C2M_MAP_SIZE,
+      max: MAX_C2M_MAP_SIZE,
+      initialWidth: map?.width ?? 32,
+      initialHeight: map?.height ?? 32,
+    }),
+    [map?.height, map?.width],
+  );
   const jsonTextPresent = jsonText.trim().length > 0;
   const jsonOk = doc !== null && parseError === null && jsonTextPresent;
   const canMutateBoard = map !== null && jsonOk;
@@ -1293,6 +1347,42 @@ export default function App() {
       return true;
     },
     [doc, jsonOk, replaceDocumentChangeLive],
+  );
+
+  const toggleWallsStar = useCallback((wallKey: string) => {
+    setWallsStarredKeys((current) => {
+      const next = new Set(current);
+      if (next.has(wallKey)) next.delete(wallKey);
+      else next.add(wallKey);
+      return next;
+    });
+  }, []);
+
+  const toggleWallsHidden = useCallback((wallKey: string) => {
+    setWallsHiddenKeys((current) => {
+      const next = new Set(current);
+      if (next.has(wallKey)) next.delete(wallKey);
+      else next.add(wallKey);
+      return next;
+    });
+  }, []);
+
+  const importBankWallLayout = useCallback(
+    (wallKey: string) => {
+      if (!map || !jsonOk) return;
+      commitMapChange(applyBankWallMask32ToC2mMap(map, wallKey));
+      setIdeasDialogOpen(null);
+    },
+    [commitMapChange, jsonOk, map],
+  );
+
+  const importGeneratedWallLayout = useCallback(
+    (record: GeneratedWallLayoutRecord) => {
+      if (!record.grid || !jsonOk) return;
+      commitMapChange(applyGeneratedWallGridToC2mMap(record.grid));
+      setIdeasDialogOpen(null);
+    },
+    [commitMapChange, jsonOk],
   );
 
   const commitMetadataDraftChanges = useCallback(
@@ -1936,6 +2026,37 @@ export default function App() {
       }),
     );
   }, [viewMode]);
+
+  useEffect(() => {
+    persistStringSet(C2M_WALLS_STARRED_STORAGE_KEY, wallsStarredKeys);
+  }, [wallsStarredKeys]);
+
+  useEffect(() => {
+    persistStringSet(C2M_WALLS_HIDDEN_STORAGE_KEY, wallsHiddenKeys);
+  }, [wallsHiddenKeys]);
+
+  useEffect(() => {
+    if (ideasDialogOpen !== "browse-walls" || wallsBankRecords.length > 0) return;
+
+    const controller = new AbortController();
+    setWallsBankLoadState("loading");
+    setWallsBankErrorMessage(null);
+
+    loadWallsBank(controller.signal)
+      .then((loaded) => {
+        setWallsBankRecords(loaded.records);
+        setWallsBankLoadState("ready");
+      })
+      .catch((err: unknown) => {
+        if (isAbortError(err)) return;
+        setWallsBankLoadState("error");
+        setWallsBankErrorMessage(asErrorMessage(err));
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [ideasDialogOpen, wallsBankRecords.length]);
 
   useEffect(() => {
     recentLevelsRef.current = recentLevels;
@@ -3318,6 +3439,32 @@ export default function App() {
         </div>
       ))}
 
+      {ideasDialogOpen === "browse-walls" ? (
+        <BrowseWallsDialog
+          records={wallsBankRecords}
+          loadState={wallsBankLoadState}
+          errorMessage={wallsBankErrorMessage}
+          starredKeys={wallsStarredKeys}
+          hiddenKeys={wallsHiddenKeys}
+          onToggleStar={toggleWallsStar}
+          onToggleHidden={toggleWallsHidden}
+          onImport={importBankWallLayout}
+          onClose={() => setIdeasDialogOpen(null)}
+        />
+      ) : null}
+
+      {ideasDialogOpen === "generate-walls" ? (
+        <GenerateWallsDialog
+          starredKeys={EMPTY_STRING_SET}
+          onToggleStar={() => {}}
+          onImport={importGeneratedWallLayout}
+          onClose={() => setIdeasDialogOpen(null)}
+          sizeLimits={generateWallsSizeLimits}
+          frameToMask={false}
+          starUiEnabled={false}
+        />
+      ) : null}
+
       {recentModalOpen ? (
         <div
           className="modalBackdrop"
@@ -3604,6 +3751,43 @@ export default function App() {
                         {transform.label}
                       </button>
                     ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="menuWrap" onPointerDown={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  className="menuButton"
+                  aria-expanded={boardMenuOpen === "ideas"}
+                  onClick={() => toggleBoardMenu("ideas")}
+                >
+                  Ideas
+                </button>
+                {boardMenuOpen === "ideas" ? (
+                  <div className="dropdownMenu">
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!map || !jsonOk}
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        setIdeasDialogOpen("generate-walls");
+                      }}
+                    >
+                      Generate Walls
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!map || !jsonOk}
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        setIdeasDialogOpen("browse-walls");
+                      }}
+                    >
+                      Browse Walls
+                    </button>
                   </div>
                 ) : null}
               </div>
