@@ -84,13 +84,12 @@ function pickDocumentFileFromInput(): Promise<File | null> {
     const finish = (file: File | null) => {
       if (settled) return;
       settled = true;
-      window.removeEventListener("focus", handleWindowFocus);
+      input.removeEventListener("cancel", handleCancel);
       input.remove();
       resolve(file);
     };
-
-    const handleWindowFocus = () => {
-      window.setTimeout(() => finish(input.files?.item(0) ?? null), 0);
+    const handleCancel = () => {
+      finish(null);
     };
 
     input.addEventListener(
@@ -100,8 +99,7 @@ function pickDocumentFileFromInput(): Promise<File | null> {
       },
       { once: true },
     );
-
-    window.addEventListener("focus", handleWindowFocus, { once: true });
+    input.addEventListener("cancel", handleCancel, { once: true });
     parent.appendChild(input);
     input.click();
   });
