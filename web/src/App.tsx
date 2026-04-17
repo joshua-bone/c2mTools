@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   BrowseWallsDialog,
+  parsePersistedGeneratedLayoutRecordList,
+  serializePersistedGeneratedLayoutRecordList,
   GenerateWallsDialog,
   type GenerateWallsDialogProps,
   type WallsBrowserLoadState,
@@ -171,7 +173,7 @@ const MAX_PARTIAL_REDRAW_CELLS = 1024;
 const PARTIAL_REDRAW_RATIO = 0.2;
 const C2M_WALLS_STARRED_STORAGE_KEY = "c2mtools:walls-bank-starred";
 const C2M_WALLS_HIDDEN_STORAGE_KEY = "c2mtools:walls-bank-hidden";
-const EMPTY_STRING_SET: ReadonlySet<string> = new Set<string>();
+const C2M_GENERATED_WALLS_STARRED_STORAGE_KEY = "c2mtools:generate-starred";
 const ERASER_BRUSH: TileSpecJson = "FLOOR";
 const EYEDROPPER_CURSOR =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g transform='rotate(45 12 12)'><rect x='10' y='2.5' width='4' height='11' rx='1.4' fill='%23f6fbff' stroke='%23121a1f' stroke-width='1.6'/><path d='M10 5.5H8.4A1.4 1.4 0 0 0 7 6.9v3.7A1.4 1.4 0 0 0 8.4 12H10' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/><path d='M14 13v6' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><path d='M10.3 19.3h7.4' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><circle cx='14' cy='21' r='1.5' fill='%23235f7a'/></g></svg>\") 4 20, crosshair";
@@ -899,6 +901,13 @@ export default function App() {
   const [wallsHiddenKeys, setWallsHiddenKeys] = useState<Set<string>>(() =>
     parseStoredStringSet(readLocalStorage(C2M_WALLS_HIDDEN_STORAGE_KEY)),
   );
+  const [generatedWallStarredRecords, setGeneratedWallStarredRecords] = useState<
+    ReadonlyArray<GeneratedWallLayoutRecord>
+  >(() =>
+    parsePersistedGeneratedLayoutRecordList(
+      readLocalStorage(C2M_GENERATED_WALLS_STARRED_STORAGE_KEY),
+    ),
+  );
 
   const boardStatus = useSyncExternalStore(
     boardStatusStoreRef.current.subscribe,
@@ -1364,6 +1373,20 @@ export default function App() {
       if (next.has(wallKey)) next.delete(wallKey);
       else next.add(wallKey);
       return next;
+    });
+  }, []);
+
+  const toggleGeneratedWallStar = useCallback((record: GeneratedWallLayoutRecord) => {
+    setGeneratedWallStarredRecords((current) => {
+      const index = current.findIndex((entry) => entry.recordKey === record.recordKey);
+      if (index >= 0) {
+        return [...current.slice(0, index), ...current.slice(index + 1)];
+      }
+      return [...current, record].sort(
+        (left, right) =>
+          left.title.localeCompare(right.title, "en") ||
+          left.recordKey.localeCompare(right.recordKey, "en"),
+      );
     });
   }, []);
 
@@ -2034,6 +2057,13 @@ export default function App() {
   useEffect(() => {
     persistStringSet(C2M_WALLS_HIDDEN_STORAGE_KEY, wallsHiddenKeys);
   }, [wallsHiddenKeys]);
+
+  useEffect(() => {
+    writeLocalStorage(
+      C2M_GENERATED_WALLS_STARRED_STORAGE_KEY,
+      serializePersistedGeneratedLayoutRecordList(generatedWallStarredRecords),
+    );
+  }, [generatedWallStarredRecords]);
 
   useEffect(() => {
     if (ideasDialogOpen !== "browse-walls" || wallsBankRecords.length > 0) return;
@@ -3455,13 +3485,12 @@ export default function App() {
 
       {ideasDialogOpen === "generate-walls" ? (
         <GenerateWallsDialog
-          starredKeys={EMPTY_STRING_SET}
-          onToggleStar={() => {}}
+          starredRecords={generatedWallStarredRecords}
+          onToggleStar={toggleGeneratedWallStar}
           onImport={importGeneratedWallLayout}
           onClose={() => setIdeasDialogOpen(null)}
           sizeLimits={generateWallsSizeLimits}
           frameToMask={false}
-          starUiEnabled={false}
         />
       ) : null}
 
