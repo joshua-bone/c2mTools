@@ -13,10 +13,14 @@ describe("persisted app preferences", () => {
   it("round-trips the stored view mode", () => {
     const encoded = serializePersistedAppPreferences({
       viewMode: "board",
+      leftPanelWidth: 260,
+      rightPanelWidth: 340,
     });
 
     expect(parsePersistedAppPreferences(encoded)).toEqual({
       viewMode: "board",
+      leftPanelWidth: 260,
+      rightPanelWidth: 340,
     });
   });
 
@@ -30,6 +34,8 @@ describe("persisted app preferences", () => {
       ),
     ).toEqual({
       viewMode: "board",
+      leftPanelWidth: 236,
+      rightPanelWidth: 320,
     });
   });
 

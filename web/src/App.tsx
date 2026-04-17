@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   BrowseWallsDialog,
   parsePersistedGeneratedLayoutRecordList,
@@ -171,6 +180,14 @@ const ZOOM_STEP = 1.15;
 const KEYBOARD_PAN_SPEED = 520;
 const MAX_PARTIAL_REDRAW_CELLS = 1024;
 const PARTIAL_REDRAW_RATIO = 0.2;
+const DEFAULT_LEFT_PANEL_WIDTH = 236;
+const DEFAULT_RIGHT_PANEL_WIDTH = 320;
+const MIN_LEFT_PANEL_WIDTH = 180;
+const MAX_LEFT_PANEL_WIDTH = 420;
+const MIN_RIGHT_PANEL_WIDTH = 220;
+const MAX_RIGHT_PANEL_WIDTH = 520;
+const MIN_BOARD_COLUMN_WIDTH = 360;
+const SPLITTER_WIDTH = 10;
 const C2M_WALLS_STARRED_STORAGE_KEY = "c2mtools:walls-bank-starred";
 const C2M_WALLS_HIDDEN_STORAGE_KEY = "c2mtools:walls-bank-hidden";
 const C2M_GENERATED_WALLS_STARRED_STORAGE_KEY = "c2mtools:generate-starred";
@@ -318,6 +335,13 @@ type ViewportSize = Readonly<{
   height: number;
 }>;
 
+type LayoutResizeState = Readonly<{
+  side: "left" | "right";
+  pointerId: number;
+  startClientX: number;
+  startWidth: number;
+}>;
+
 type DragPanState = Readonly<{
   pointerId: number;
   startClientX: number;
@@ -370,6 +394,10 @@ function isAbortError(err: unknown): boolean {
 
 function clampZoom(value: number): number {
   return Math.min(MAX_BOARD_ZOOM, Math.max(MIN_BOARD_ZOOM, Number(value.toFixed(3))));
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
 function readLocalStorage(key: string): string | null {
@@ -810,6 +838,7 @@ function createInitialAppState(): InitialAppState {
 export default function App() {
   const boardCanvasRef = useRef<HTMLCanvasElement>(null);
   const boardViewportRef = useRef<HTMLDivElement>(null);
+  const editorLayoutRef = useRef<HTMLElement>(null);
   const boardStatusStoreRef = useRef(createBoardEditorStatusStore());
   const dragPanRef = useRef<DragPanState | null>(null);
   const recentCarouselRef = useRef<HTMLDivElement>(null);
@@ -875,6 +904,21 @@ export default function App() {
   const [selection, setSelection] = useState<GridRect | null>(null);
   const [clipboard, setClipboard] = useState<C2mClipboard | null>(null);
   const [pastePreviewActive, setPastePreviewActive] = useState(false);
+  const [layoutResizeState, setLayoutResizeState] = useState<LayoutResizeState | null>(null);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(() =>
+    clampNumber(
+      initialAppState.preferences.leftPanelWidth,
+      MIN_LEFT_PANEL_WIDTH,
+      MAX_LEFT_PANEL_WIDTH,
+    ),
+  );
+  const [rightPanelWidth, setRightPanelWidth] = useState(() =>
+    clampNumber(
+      initialAppState.preferences.rightPanelWidth,
+      MIN_RIGHT_PANEL_WIDTH,
+      MAX_RIGHT_PANEL_WIDTH,
+    ),
+  );
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [pendingWirePoint, setPendingWirePoint] = useState<GridPoint | null>(null);
   const [transientMap, setTransientMap] = useState<MapJson | null>(null);
@@ -945,6 +989,14 @@ export default function App() {
   const paletteSections = useMemo(
     () => getPaletteSections({ query: paletteQuery, globalDirection, logicCounterValue }),
     [globalDirection, logicCounterValue, paletteQuery],
+  );
+  const editorLayoutStyle = useMemo(
+    () =>
+      ({
+        "--left-panel-width": `${leftPanelWidth}px`,
+        "--right-panel-width": `${rightPanelWidth}px`,
+      }) as CSSProperties,
+    [leftPanelWidth, rightPanelWidth],
   );
 
   const boardRect = useMemo(
@@ -2046,9 +2098,57 @@ export default function App() {
       APP_PREFERENCES_STORAGE_KEY,
       serializePersistedAppPreferences({
         viewMode,
+        leftPanelWidth,
+        rightPanelWidth,
       }),
     );
-  }, [viewMode]);
+  }, [leftPanelWidth, rightPanelWidth, viewMode]);
+
+  useEffect(() => {
+    if (!layoutResizeState) return;
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== layoutResizeState.pointerId) return;
+
+      const editorWidth = editorLayoutRef.current?.clientWidth ?? window.innerWidth;
+      const deltaX = event.clientX - layoutResizeState.startClientX;
+
+      if (layoutResizeState.side === "left") {
+        const maxWidth = Math.min(
+          MAX_LEFT_PANEL_WIDTH,
+          editorWidth - rightPanelWidth - SPLITTER_WIDTH * 2 - MIN_BOARD_COLUMN_WIDTH,
+        );
+        setLeftPanelWidth(
+          clampNumber(layoutResizeState.startWidth + deltaX, MIN_LEFT_PANEL_WIDTH, maxWidth),
+        );
+        return;
+      }
+
+      const maxWidth = Math.min(
+        MAX_RIGHT_PANEL_WIDTH,
+        editorWidth - leftPanelWidth - SPLITTER_WIDTH * 2 - MIN_BOARD_COLUMN_WIDTH,
+      );
+      setRightPanelWidth(
+        clampNumber(layoutResizeState.startWidth - deltaX, MIN_RIGHT_PANEL_WIDTH, maxWidth),
+      );
+    };
+
+    const stopResize = (event: PointerEvent) => {
+      if (event.pointerId !== layoutResizeState.pointerId) return;
+      setLayoutResizeState(null);
+    };
+
+    document.body.style.userSelect = "none";
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", stopResize);
+    document.addEventListener("pointercancel", stopResize);
+    return () => {
+      document.body.style.userSelect = "";
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", stopResize);
+      document.removeEventListener("pointercancel", stopResize);
+    };
+  }, [layoutResizeState, leftPanelWidth, rightPanelWidth]);
 
   useEffect(() => {
     persistStringSet(C2M_WALLS_STARRED_STORAGE_KEY, wallsStarredKeys);
@@ -2087,6 +2187,19 @@ export default function App() {
       controller.abort();
     };
   }, [ideasDialogOpen, wallsBankRecords.length]);
+
+  function beginLayoutResize(
+    event: ReactPointerEvent<HTMLDivElement>,
+    side: "left" | "right",
+  ): void {
+    event.preventDefault();
+    setLayoutResizeState({
+      side,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startWidth: side === "left" ? leftPanelWidth : rightPanelWidth,
+    });
+  }
 
   useEffect(() => {
     recentLevelsRef.current = recentLevels;
@@ -3604,7 +3717,7 @@ export default function App() {
         </div>
       ) : null}
 
-      <main className="editorLayout">
+      <main className="editorLayout" ref={editorLayoutRef} style={editorLayoutStyle}>
         <aside className="panel levelPanel">
           <section className="panelSection">
             <div className="panelBrand">
@@ -3992,7 +4105,13 @@ export default function App() {
           ) : null}
         </aside>
 
-        <div className="panelSplitter" aria-hidden="true" />
+        <div
+          className={`panelSplitter ${layoutResizeState?.side === "left" ? "active" : ""}`}
+          onPointerDown={(event) => beginLayoutResize(event, "left")}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize left sidebar"
+        />
 
         <section className="panel boardPanel">
           <section className="panelSection">
@@ -4294,7 +4413,13 @@ export default function App() {
           )}
         </section>
 
-        <div className="panelSplitter" aria-hidden="true" />
+        <div
+          className={`panelSplitter ${layoutResizeState?.side === "right" ? "active" : ""}`}
+          onPointerDown={(event) => beginLayoutResize(event, "right")}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize right sidebar"
+        />
 
         <aside className="panel inspectorPanel">
           <div className="inspectorTabs" role="tablist" aria-label="Inspector tabs">

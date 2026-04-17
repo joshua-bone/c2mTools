@@ -10,6 +10,8 @@ const PERSISTED_EDITOR_SESSION_SCHEMA = "c2mTools.web.editorSession.v1";
 
 export type PersistedAppPreferences = Readonly<{
   viewMode: AppViewMode;
+  leftPanelWidth: number;
+  rightPanelWidth: number;
 }>;
 
 export type PersistedEditorSession = Readonly<{
@@ -19,6 +21,8 @@ export type PersistedEditorSession = Readonly<{
 
 export const DEFAULT_PERSISTED_APP_PREFERENCES: PersistedAppPreferences = {
   viewMode: "board",
+  leftPanelWidth: 236,
+  rightPanelWidth: 320,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -41,6 +45,14 @@ export function parsePersistedAppPreferences(value: string | null): PersistedApp
           : parsed.viewMode === "board" || parsed.viewMode === "image"
             ? "board"
             : DEFAULT_PERSISTED_APP_PREFERENCES.viewMode,
+      leftPanelWidth:
+        typeof parsed.leftPanelWidth === "number" && Number.isFinite(parsed.leftPanelWidth)
+          ? parsed.leftPanelWidth
+          : DEFAULT_PERSISTED_APP_PREFERENCES.leftPanelWidth,
+      rightPanelWidth:
+        typeof parsed.rightPanelWidth === "number" && Number.isFinite(parsed.rightPanelWidth)
+          ? parsed.rightPanelWidth
+          : DEFAULT_PERSISTED_APP_PREFERENCES.rightPanelWidth,
     };
   } catch {
     return DEFAULT_PERSISTED_APP_PREFERENCES;
