@@ -1,6 +1,11 @@
+/// <reference lib="dom" />
+
 export type TextBrushFontChoice = Readonly<{
   label: string;
   family: string;
+  defaultSize: number;
+  sizeChoices: ReadonlyArray<number>;
+  sizeStepBase: number | null;
 }>;
 
 export type TextBrushAlign = "left" | "center" | "right";
@@ -17,17 +22,84 @@ const DEFAULT_DESCENT_RATIO = 0.2;
 const ALPHA_THRESHOLD = 56;
 const GLYPH_GAP = 1;
 const LINE_GAP = 1;
+const SCALE_STEPS = Object.freeze([1, 2, 3, 4] as const);
+const GENERIC_TEXT_BRUSH_SIZES = Object.freeze([6, 8, 10, 12, 16, 24, 32, 48] as const);
+
+function buildScaledSizes(baseSize: number): ReadonlyArray<number> {
+  return Object.freeze(SCALE_STEPS.map((scale) => baseSize * scale));
+}
 
 export const TEXT_BRUSH_FONT_CHOICES: ReadonlyArray<TextBrushFontChoice> = Object.freeze([
-  { label: "Small Fonts", family: '"Small Fonts", "MS Sans Serif", sans-serif' },
-  { label: "Wingdings", family: '"Wingdings", "Segoe UI Symbol", sans-serif' },
-  { label: "Wingdings 2", family: '"Wingdings 2", "Segoe UI Symbol", sans-serif' },
-  { label: "Wingdings 3", family: '"Wingdings 3", "Segoe UI Symbol", sans-serif' },
-  { label: "Webdings", family: '"Webdings", "Segoe UI Symbol", sans-serif' },
-  { label: "Tahoma", family: '"Tahoma", "Segoe UI", sans-serif' },
-  { label: "Verdana", family: '"Verdana", "Segoe UI", sans-serif' },
-  { label: "Arial Narrow", family: '"Arial Narrow", "Arial", sans-serif' },
-  { label: "Courier New", family: '"Courier New", monospace' },
+  {
+    label: "Tiny5",
+    family: '"Tiny5", monospace',
+    defaultSize: 5,
+    sizeChoices: buildScaledSizes(5),
+    sizeStepBase: 5,
+  },
+  {
+    label: "Micro 5",
+    family: '"Micro 5", monospace',
+    defaultSize: 5,
+    sizeChoices: buildScaledSizes(5),
+    sizeStepBase: 5,
+  },
+  {
+    label: "Silkscreen",
+    family: '"Silkscreen", sans-serif',
+    defaultSize: 8,
+    sizeChoices: buildScaledSizes(8),
+    sizeStepBase: 8,
+  },
+  {
+    label: "Press Start 2P",
+    family: '"Press Start 2P", monospace',
+    defaultSize: 8,
+    sizeChoices: buildScaledSizes(8),
+    sizeStepBase: 8,
+  },
+  {
+    label: "Wingdings",
+    family: '"Wingdings", "Segoe UI Symbol", sans-serif',
+    defaultSize: 12,
+    sizeChoices: GENERIC_TEXT_BRUSH_SIZES,
+    sizeStepBase: null,
+  },
+  {
+    label: "Wingdings 2",
+    family: '"Wingdings 2", "Segoe UI Symbol", sans-serif',
+    defaultSize: 12,
+    sizeChoices: GENERIC_TEXT_BRUSH_SIZES,
+    sizeStepBase: null,
+  },
+  {
+    label: "Wingdings 3",
+    family: '"Wingdings 3", "Segoe UI Symbol", sans-serif',
+    defaultSize: 12,
+    sizeChoices: GENERIC_TEXT_BRUSH_SIZES,
+    sizeStepBase: null,
+  },
+  {
+    label: "Webdings",
+    family: '"Webdings", "Segoe UI Symbol", sans-serif',
+    defaultSize: 12,
+    sizeChoices: GENERIC_TEXT_BRUSH_SIZES,
+    sizeStepBase: null,
+  },
+  {
+    label: "System Sans",
+    family: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
+    defaultSize: 12,
+    sizeChoices: GENERIC_TEXT_BRUSH_SIZES,
+    sizeStepBase: null,
+  },
+  {
+    label: "System Mono",
+    family: '"SFMono-Regular", "Menlo", "Monaco", "Courier New", monospace',
+    defaultSize: 12,
+    sizeChoices: GENERIC_TEXT_BRUSH_SIZES,
+    sizeStepBase: null,
+  },
 ]);
 
 export const TEXT_BRUSH_ALIGN_CHOICES: ReadonlyArray<
@@ -41,14 +113,58 @@ export const TEXT_BRUSH_ALIGN_CHOICES: ReadonlyArray<
   { value: "right", label: "Right" },
 ]);
 
-export const TEXT_BRUSH_SIZE_CHOICES: ReadonlyArray<number> = Object.freeze([
-  4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48,
-]);
+export const TEXT_BRUSH_SIZE_CHOICES: ReadonlyArray<number> =
+  TEXT_BRUSH_FONT_CHOICES[0]!.sizeChoices;
 
 export const DEFAULT_TEXT_BRUSH_TEXT = "TEXT";
 export const DEFAULT_TEXT_BRUSH_FONT_FAMILY = TEXT_BRUSH_FONT_CHOICES[0]!.family;
-export const DEFAULT_TEXT_BRUSH_FONT_SIZE = 6;
+export const DEFAULT_TEXT_BRUSH_FONT_SIZE = TEXT_BRUSH_FONT_CHOICES[0]!.defaultSize;
 export const DEFAULT_TEXT_BRUSH_ALIGN: TextBrushAlign = "left";
+
+export function getTextBrushFontChoice(fontFamily: string): TextBrushFontChoice {
+  return (
+    TEXT_BRUSH_FONT_CHOICES.find((choice) => choice.family === fontFamily) ??
+    TEXT_BRUSH_FONT_CHOICES[0]!
+  );
+}
+
+export function getTextBrushSizeChoices(fontFamily: string): ReadonlyArray<number> {
+  return getTextBrushFontChoice(fontFamily).sizeChoices;
+}
+
+export function normalizeTextBrushFontSize(fontFamily: string, fontSize: number): number {
+  const sizeChoices = getTextBrushSizeChoices(fontFamily);
+  if (sizeChoices.includes(fontSize)) return fontSize;
+  return sizeChoices.reduce((closest, size) =>
+    Math.abs(size - fontSize) < Math.abs(closest - fontSize) ? size : closest,
+  );
+}
+
+export function formatTextBrushFontSizeLabel(fontFamily: string, fontSize: number): string {
+  const choice = getTextBrushFontChoice(fontFamily);
+  if (choice.sizeStepBase && fontSize % choice.sizeStepBase === 0) {
+    return `${fontSize}px (${fontSize / choice.sizeStepBase}x)`;
+  }
+  return `${fontSize}px`;
+}
+
+export function getTextBrushPreviewFontSize(fontFamily: string, fontSize: number): number {
+  const choice = getTextBrushFontChoice(fontFamily);
+  if (choice.sizeStepBase) {
+    return Math.min(fontSize * 4, 96);
+  }
+  return Math.min(Math.max(fontSize * 2.25, 14), 40);
+}
+
+export async function loadTextBrushFont(
+  fontFamily: string,
+  fontSize: number,
+  text: string,
+): Promise<void> {
+  if (typeof document === "undefined" || typeof document.fonts?.load !== "function") return;
+  const sample = text.trim().length > 0 ? text : DEFAULT_TEXT_BRUSH_TEXT;
+  await document.fonts.load(`${fontSize}px ${fontFamily}`, sample);
+}
 
 type MeasuredGlyph = Readonly<{
   char: string;

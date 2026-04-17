@@ -20,6 +20,10 @@
   "license": "CC-BY-4.0",
   "type": "module",
   "dependencies": {
+    "@fontsource/micro-5": "^5.2.7",
+    "@fontsource/press-start-2p": "^5.2.7",
+    "@fontsource/silkscreen": "^5.2.8",
+    "@fontsource/tiny5": "^5.2.7",
     "buffer": "^6.0.3",
     "commander": "^14.0.2",
     "dattools": "git+https://github.com/joshua-bone/DATTools.git#6fe85c0",

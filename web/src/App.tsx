@@ -164,9 +164,13 @@ import {
   DEFAULT_TEXT_BRUSH_FONT_FAMILY,
   DEFAULT_TEXT_BRUSH_FONT_SIZE,
   DEFAULT_TEXT_BRUSH_TEXT,
+  formatTextBrushFontSizeLabel,
+  getTextBrushPreviewFontSize,
+  getTextBrushSizeChoices,
+  loadTextBrushFont,
+  normalizeTextBrushFontSize,
   TEXT_BRUSH_ALIGN_CHOICES,
   TEXT_BRUSH_FONT_CHOICES,
-  TEXT_BRUSH_SIZE_CHOICES,
   rasterizeTextBrush,
   type RasterizedTextBrush,
   type TextBrushAlign,
@@ -1286,6 +1290,12 @@ export default function App() {
   const [textBrushFontFamily, setTextBrushFontFamily] = useState(DEFAULT_TEXT_BRUSH_FONT_FAMILY);
   const [textBrushFontSize, setTextBrushFontSize] = useState(DEFAULT_TEXT_BRUSH_FONT_SIZE);
   const [textBrushAlign, setTextBrushAlign] = useState<TextBrushAlign>(DEFAULT_TEXT_BRUSH_ALIGN);
+  useEffect(() => {
+    const normalizedFontSize = normalizeTextBrushFontSize(textBrushFontFamily, textBrushFontSize);
+    if (normalizedFontSize !== textBrushFontSize) {
+      setTextBrushFontSize(normalizedFontSize);
+    }
+  }, [textBrushFontFamily, textBrushFontSize]);
   const [paletteQuery, setPaletteQuery] = useState("");
   const [tool, setTool] = useState<ToolMode>("brush");
   const [selectionMode, setSelectionMode] = useState<SelectionMode>(DEFAULT_SELECTION_MODE);
@@ -1466,6 +1476,24 @@ export default function App() {
     }),
     [textBrushAlign, textBrushFontFamily, textBrushFontSize, textBrushText],
   );
+  const [textBrushFontLoadTick, setTextBrushFontLoadTick] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    void loadTextBrushFont(
+      textBrushConfig.fontFamily,
+      textBrushConfig.fontSize,
+      textBrushConfig.text,
+    )
+      .then(() => {
+        if (!cancelled) {
+          setTextBrushFontLoadTick((tick) => tick + 1);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [textBrushConfig.fontFamily, textBrushConfig.fontSize, textBrushConfig.text]);
   const textBrushRaster = useMemo(
     () =>
       rasterizeTextBrush(
@@ -1474,7 +1502,12 @@ export default function App() {
         textBrushConfig.fontSize,
         textBrushConfig.align,
       ),
-    [textBrushConfig],
+    [textBrushConfig, textBrushFontLoadTick],
+  );
+  const textBrushSizeChoices = getTextBrushSizeChoices(textBrushConfig.fontFamily);
+  const textBrushPreviewFontSize = getTextBrushPreviewFontSize(
+    textBrushConfig.fontFamily,
+    textBrushConfig.fontSize,
   );
   const textPreviewBaseIndices = useMemo(
     () =>
@@ -5061,7 +5094,7 @@ export default function App() {
                     value={textBrushConfig.text}
                     style={{
                       fontFamily: textBrushConfig.fontFamily,
-                      fontSize: `${Math.min(Math.max(textBrushConfig.fontSize * 2.25, 14), 40)}px`,
+                      fontSize: `${textBrushPreviewFontSize}px`,
                       lineHeight: 1.1,
                       textAlign: textBrushConfig.align,
                     }}
@@ -5075,7 +5108,13 @@ export default function App() {
                   <select
                     id="c2m-text-brush-font"
                     value={textBrushConfig.fontFamily}
-                    onChange={(event) => setTextBrushFontFamily(event.target.value)}
+                    onChange={(event) => {
+                      const nextFamily = event.target.value;
+                      setTextBrushFontFamily(nextFamily);
+                      setTextBrushFontSize(
+                        normalizeTextBrushFontSize(nextFamily, textBrushConfig.fontSize),
+                      );
+                    }}
                   >
                     {TEXT_BRUSH_FONT_CHOICES.map((option) => (
                       <option key={option.family} value={option.family}>
@@ -5093,9 +5132,9 @@ export default function App() {
                     value={String(textBrushConfig.fontSize)}
                     onChange={(event) => setTextBrushFontSize(Number(event.target.value))}
                   >
-                    {TEXT_BRUSH_SIZE_CHOICES.map((size) => (
+                    {textBrushSizeChoices.map((size) => (
                       <option key={size} value={String(size)}>
-                        {size}px
+                        {formatTextBrushFontSizeLabel(textBrushConfig.fontFamily, size)}
                       </option>
                     ))}
                   </select>
