@@ -662,7 +662,7 @@ canvas {
   shape-rendering: crispEdges;
 }
 
-.textBrushPreviewRaster rect {
+.textBrushPreviewPixel {
   fill: var(--ink);
 }
 
@@ -671,7 +671,7 @@ canvas {
 }
 
 .textBrushPreviewCaret {
-  fill: var(--ink);
+  fill: rgba(35, 95, 122, 0.92);
   animation: textBrushCaretBlink 1s steps(1, end) infinite;
 }
 
