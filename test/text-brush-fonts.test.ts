@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildTextBrushPreviewModel,
   DEFAULT_TEXT_BRUSH_FONT_FAMILY,
   DEFAULT_TEXT_BRUSH_FONT_SIZE,
   TEXT_BRUSH_FONT_CHOICES,
   formatTextBrushFontSizeLabel,
   getTextBrushSizeChoices,
   normalizeTextBrushFontSize,
+  reducePixelFontBlockAlpha,
 } from "../web/src/editor/textBrush.js";
 
 describe("text brush font presets", () => {
@@ -24,24 +24,9 @@ describe("text brush font presets", () => {
     expect(normalizeTextBrushFontSize(tiny5Family, 6)).toBe(5);
   });
 
-  it("builds preview geometry directly from the brush raster", () => {
-    const preview = buildTextBrushPreviewModel(
-      {
-        width: 3,
-        height: 2,
-        indices: [0, 2, 4, 5],
-      },
-      4,
-    );
-    expect(preview).toEqual({
-      width: 12,
-      height: 8,
-      cells: [
-        { x: 0, y: 0, size: 4 },
-        { x: 8, y: 0, size: 4 },
-        { x: 4, y: 4, size: 4 },
-        { x: 8, y: 4, size: 4 },
-      ],
-    });
+  it("does not let a single antialiased subpixel fill a full pixel-font cell", () => {
+    expect(reducePixelFontBlockAlpha([255])).toBe(255);
+    expect(reducePixelFontBlockAlpha([255, 0, 0, 0])).toBe(0);
+    expect(reducePixelFontBlockAlpha(new Array(16).fill(255))).toBe(255);
   });
 });

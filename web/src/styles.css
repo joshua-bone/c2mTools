@@ -630,44 +630,6 @@ canvas {
   line-height: 1.35;
 }
 
-.textBrushTextareaWrap {
-  position: relative;
-}
-
-.textBrushTextareaPreview {
-  position: absolute;
-  inset: 1px;
-  display: flex;
-  align-items: flex-start;
-  padding: 7px 10px;
-  color: var(--ink);
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.textBrushTextareaPreview-left {
-  justify-content: flex-start;
-}
-
-.textBrushTextareaPreview-center {
-  justify-content: center;
-}
-
-.textBrushTextareaPreview-right {
-  justify-content: flex-end;
-}
-
-.textBrushTextareaPreviewSvg {
-  display: block;
-  flex: none;
-}
-
-.textBrushTextareaRasterized {
-  color: transparent;
-  caret-color: var(--ink);
-  text-shadow: none;
-}
-
 .panelBanner {
   margin: 8px 10px 0;
 }
