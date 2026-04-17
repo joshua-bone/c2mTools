@@ -301,7 +301,7 @@ function transformModifier(m: ModifierJson, kind: LevelTransformKind): ModifierJ
   }
 }
 
-function transformTileSpec(spec: TileSpecJson, kind: LevelTransformKind): TileSpecJson {
+export function transformTileSpec(spec: TileSpecJson, kind: LevelTransformKind): TileSpecJson {
   const obj0 = toObjTile(spec);
 
   const tile = transformTileName(obj0.tile, kind);

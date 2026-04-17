@@ -309,10 +309,14 @@ export function resolveEyedropperBrushAtPoint(map: MapJson, point: GridPoint): T
 }
 
 export function floodFillMap(map: MapJson, origin: GridPoint, brush: TileSpecJson): MapJson {
+  return paintMapCells(map, resolveFloodFillIndices(map, origin), brush);
+}
+
+export function resolveFloodFillIndices(map: MapJson, origin: GridPoint): number[] {
   const start = clampPoint(origin, map);
   const startIndex = pointToIndex(start, map);
   const startTile = map.tiles[startIndex];
-  if (startTile === undefined) return map;
+  if (startTile === undefined) return [];
 
   const visited = new Set<number>();
   const queue = [startIndex];
@@ -335,7 +339,7 @@ export function floodFillMap(map: MapJson, origin: GridPoint, brush: TileSpecJso
     if (point.y < map.height - 1) queue.push(index + map.width);
   }
 
-  return paintMapCells(map, fillIndices, brush);
+  return fillIndices;
 }
 
 export function shiftMapWrap(map: MapJson, dx: number, dy: number): MapJson {

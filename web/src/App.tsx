@@ -24,7 +24,11 @@ import {
   parseC2mJsonV1,
   stringifyC2mJsonV1,
 } from "../../src/c2m/c2mJsonV1";
-import { transformLevelJson, type LevelTransformKind } from "../../src/c2m/levelTransform";
+import {
+  transformLevelJson,
+  transformTileSpec,
+  type LevelTransformKind,
+} from "../../src/c2m/levelTransform";
 import type { C2mJsonV1 } from "../../src/c2m/c2mJsonV1";
 import type {
   Dir,
@@ -45,6 +49,20 @@ import {
   boardPointToCell,
   type BoardScreenRect,
 } from "./boardCanvasPresentation";
+import {
+  clampMirrorState,
+  createDefaultMirrorState,
+  getActiveMirrors,
+  resolveMirrorDragOffset,
+  resolveMirrorHandleAnchor,
+  resolveMirrorLineSegment,
+  resolveMirroredHoverPoints,
+  resolveMirroredIndexGroups,
+  setMirrorOffset,
+  toggleMirrorActive,
+  type MirrorKind,
+  type MirrorState,
+} from "./boardMirrors";
 import {
   buildHoverCellSummary,
   createBoardEditorStatusStore,
@@ -106,6 +124,7 @@ import {
   placeWireNode,
   resolveClipboardPreviewRect,
   resolveEyedropperBrushAtPoint,
+  resolveFloodFillIndices,
   shiftMapWrap,
   type C2mClipboard,
 } from "./editor/levelEditing";
@@ -259,6 +278,18 @@ const BOARD_TRANSFORM_BUTTONS: ReadonlyArray<
   { op: "FLIP_DIAG_NWSE", position: "corner-se", label: "Flip along the NW-SE diagonal" },
 ] as const;
 
+const BOARD_MIRROR_BUTTONS: ReadonlyArray<
+  Readonly<{
+    kind: MirrorKind;
+    label: string;
+  }>
+> = [
+  { kind: "horizontal", label: "Toggle horizontal mirror" },
+  { kind: "diag-desc", label: "Toggle descending diagonal mirror" },
+  { kind: "vertical", label: "Toggle vertical mirror" },
+  { kind: "diag-asc", label: "Toggle ascending diagonal mirror" },
+] as const;
+
 const LAYER_LABELS = {
   terrain: "Terrain",
   item: "Item",
@@ -347,6 +378,14 @@ type DragPanState = Readonly<{
   startClientX: number;
   startClientY: number;
   originPan: Readonly<{ x: number; y: number }>;
+}>;
+
+type MirrorDragState = Readonly<{
+  kind: MirrorKind;
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  moved: boolean;
 }>;
 
 type BrushDragState = Readonly<{
@@ -760,6 +799,73 @@ function renderBoardTransformIcon(op: LevelTransformKind) {
   }
 }
 
+function applyMirroredMapPaint(
+  map: MapJson,
+  indices: ReadonlyArray<number>,
+  brush: TileSpecJson,
+  mirrors: MirrorState,
+): MapJson {
+  const groups = resolveMirroredIndexGroups(indices, mirrors, {
+    width: map.width,
+    height: map.height,
+  });
+  let nextMap = map;
+
+  const applyGroup = (
+    groupIndices: ReadonlyArray<number>,
+    transformKind: LevelTransformKind | null,
+  ) => {
+    if (groupIndices.length === 0) return;
+    const nextBrush = transformKind ? transformTileSpec(brush, transformKind) : brush;
+    nextMap = paintMapCells(nextMap, groupIndices, nextBrush);
+  };
+
+  applyGroup(groups.SELF, null);
+  applyGroup(groups.FLIP_H, "FLIP_H");
+  applyGroup(groups.FLIP_V, "FLIP_V");
+  applyGroup(groups.FLIP_DIAG_NWSE, "FLIP_DIAG_NWSE");
+  applyGroup(groups.FLIP_DIAG_NESW, "FLIP_DIAG_NESW");
+  applyGroup(groups.ROTATE_180, "ROTATE_180");
+
+  return nextMap;
+}
+
+function applyMirroredMapLine(
+  map: MapJson,
+  start: GridPoint,
+  end: GridPoint,
+  brush: TileSpecJson,
+  mirrors: MirrorState,
+): MapJson {
+  return applyMirroredMapPaint(map, getLineIndices(start, end, map), brush, mirrors);
+}
+
+function applyMirroredMapFill(
+  map: MapJson,
+  origin: GridPoint,
+  brush: TileSpecJson,
+  mirrors: MirrorState,
+): MapJson {
+  return applyMirroredMapPaint(map, resolveFloodFillIndices(map, origin), brush, mirrors);
+}
+
+function resolveMirrorButtonTransform(kind: MirrorKind, edge: "top" | "left" | "right"): string {
+  switch (kind) {
+    case "vertical":
+      return "translate(-50%, calc(-100% - 10px))";
+    case "horizontal":
+      return "translate(calc(-100% - 10px), -50%) rotate(-90deg)";
+    case "diag-desc":
+      return edge === "top"
+        ? "translate(-78%, calc(-100% - 10px)) rotate(-45deg)"
+        : "translate(calc(-100% - 10px), -78%) rotate(-45deg)";
+    case "diag-asc":
+      return edge === "top"
+        ? "translate(-22%, calc(-100% - 10px)) rotate(45deg)"
+        : "translate(10px, -78%) rotate(45deg)";
+  }
+}
+
 function isValidLetterSymbol(symbol: string): boolean {
   return (
     symbol === "↑" ||
@@ -923,6 +1029,13 @@ export default function App() {
     ),
   );
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [mirrorState, setMirrorState] = useState<MirrorState>(() =>
+    createDefaultMirrorState({
+      width: history?.doc?.map?.width ?? 32,
+      height: history?.doc?.map?.height ?? 32,
+    }),
+  );
+  const [mirrorDragState, setMirrorDragState] = useState<MirrorDragState | null>(null);
   const [pendingWirePoint, setPendingWirePoint] = useState<GridPoint | null>(null);
   const [transientMap, setTransientMap] = useState<MapJson | null>(null);
   const [metadataDraft, setMetadataDraft] = useState<C2mMetadataDraft | null>(null);
@@ -967,6 +1080,13 @@ export default function App() {
   const activeMap = transientMap ?? map;
   const boardPixelWidth = activeMap ? activeMap.width * BOARD_TILE_PIXEL_SIZE : 0;
   const boardPixelHeight = activeMap ? activeMap.height * BOARD_TILE_PIXEL_SIZE : 0;
+  const mirrorBoardSize = useMemo(
+    () => ({
+      width: activeMap?.width ?? map?.width ?? 32,
+      height: activeMap?.height ?? map?.height ?? 32,
+    }),
+    [activeMap?.height, activeMap?.width, map?.height, map?.width],
+  );
   const generateWallsSizeLimits = useMemo(
     () => ({
       min: MIN_C2M_MAP_SIZE,
@@ -1025,10 +1145,19 @@ export default function App() {
     ],
   );
 
-  const hoverCellRect = useMemo(() => {
-    if (!activeMap || !boardRect || !boardStatus.hoverPoint) return null;
-    return resolveBoardCellScreenRect(boardStatus.hoverPoint, activeMap, boardRect);
-  }, [activeMap, boardRect, boardStatus.hoverPoint]);
+  useEffect(() => {
+    setMirrorState((current) => clampMirrorState(current, mirrorBoardSize));
+  }, [mirrorBoardSize]);
+
+  const activeMirrors = useMemo(() => getActiveMirrors(mirrorState), [mirrorState]);
+  const hasActiveMirrors = activeMirrors.length > 0;
+
+  const hoverCellRects = useMemo(() => {
+    if (!activeMap || !boardRect || !boardStatus.hoverPoint) return [];
+    return resolveMirroredHoverPoints(boardStatus.hoverPoint, mirrorState, mirrorBoardSize).map(
+      (point) => resolveBoardCellScreenRect(point, activeMap, boardRect),
+    );
+  }, [activeMap, boardRect, boardStatus.hoverPoint, mirrorBoardSize, mirrorState]);
   const boardCanvasCursor = boardStatus.isPanning
     ? "grabbing"
     : isAltPressed || tool === "eyedropper"
@@ -1045,8 +1174,27 @@ export default function App() {
 
   const linePreviewIndices = useMemo(() => {
     if (!activeMap || dragState?.tool !== "line") return [];
-    return getLineIndices(dragState.start, dragState.current, activeMap);
-  }, [activeMap, dragState]);
+    const groups = resolveMirroredIndexGroups(
+      getLineIndices(dragState.start, dragState.current, activeMap),
+      mirrorState,
+      mirrorBoardSize,
+    );
+    return [
+      ...groups.SELF,
+      ...groups.FLIP_H,
+      ...groups.FLIP_V,
+      ...groups.FLIP_DIAG_NWSE,
+      ...groups.FLIP_DIAG_NESW,
+      ...groups.ROTATE_180,
+    ];
+  }, [activeMap, dragState, mirrorBoardSize, mirrorState]);
+  const mirrorLineSegments = useMemo(
+    () =>
+      activeMirrors
+        .map((mirror) => resolveMirrorLineSegment(mirror, mirrorBoardSize))
+        .filter((segment): segment is NonNullable<typeof segment> => segment !== null),
+    [activeMirrors, mirrorBoardSize],
+  );
 
   const pasteAnchor = useMemo(() => {
     if (!activeMap) return null;
@@ -2154,6 +2302,73 @@ export default function App() {
   }, [layoutResizeState, leftPanelWidth, rightPanelWidth]);
 
   useEffect(() => {
+    if (!mirrorDragState || !boardRect) return;
+
+    const updateMirrorOffset = (clientX: number, clientY: number) => {
+      const viewportRect = boardViewportRef.current?.getBoundingClientRect();
+      if (!viewportRect) return;
+
+      setMirrorState((current) =>
+        setMirrorOffset(
+          current,
+          mirrorDragState.kind,
+          resolveMirrorDragOffset(
+            mirrorDragState.kind,
+            clientX,
+            clientY,
+            {
+              left: viewportRect.left + boardRect.x,
+              top: viewportRect.top + boardRect.y,
+              width: boardRect.width,
+              height: boardRect.height,
+            },
+            mirrorBoardSize,
+          ),
+          mirrorBoardSize,
+        ),
+      );
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== mirrorDragState.pointerId) return;
+      const moved =
+        Math.abs(event.clientX - mirrorDragState.startClientX) > 3 ||
+        Math.abs(event.clientY - mirrorDragState.startClientY) > 3;
+      if (moved && !mirrorDragState.moved) {
+        setMirrorDragState((current) => (current ? { ...current, moved: true } : current));
+      }
+      updateMirrorOffset(event.clientX, event.clientY);
+    };
+
+    const stopDrag = (event: PointerEvent) => {
+      if (event.pointerId !== mirrorDragState.pointerId) return;
+      const moved =
+        mirrorDragState.moved ||
+        Math.abs(event.clientX - mirrorDragState.startClientX) > 3 ||
+        Math.abs(event.clientY - mirrorDragState.startClientY) > 3;
+
+      if (moved) {
+        updateMirrorOffset(event.clientX, event.clientY);
+      } else {
+        setMirrorState((current) => toggleMirrorActive(current, mirrorDragState.kind));
+      }
+
+      setMirrorDragState(null);
+    };
+
+    document.body.style.userSelect = "none";
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", stopDrag);
+    document.addEventListener("pointercancel", stopDrag);
+    return () => {
+      document.body.style.userSelect = "";
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", stopDrag);
+      document.removeEventListener("pointercancel", stopDrag);
+    };
+  }, [boardRect, mirrorBoardSize, mirrorDragState]);
+
+  useEffect(() => {
     persistStringSet(C2M_WALLS_STARRED_STORAGE_KEY, wallsStarredKeys);
   }, [wallsStarredKeys]);
 
@@ -2201,6 +2416,18 @@ export default function App() {
       pointerId: event.pointerId,
       startClientX: event.clientX,
       startWidth: side === "left" ? leftPanelWidth : rightPanelWidth,
+    });
+  }
+
+  function beginMirrorDrag(kind: MirrorKind, event: ReactPointerEvent<HTMLButtonElement>): void {
+    event.preventDefault();
+    event.stopPropagation();
+    setMirrorDragState({
+      kind,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      moved: false,
     });
   }
 
@@ -2862,7 +3089,16 @@ export default function App() {
 
       if (tool === "fill") {
         event.preventDefault();
-        commitMapChange(floodFillMap(activeMap, point, resolvePaintBrushForInput(event.button)));
+        commitMapChange(
+          hasActiveMirrors
+            ? applyMirroredMapFill(
+                activeMap,
+                point,
+                resolvePaintBrushForInput(event.button),
+                mirrorState,
+              )
+            : floodFillMap(activeMap, point, resolvePaintBrushForInput(event.button)),
+        );
         setPastePreviewActive(false);
         return;
       }
@@ -2883,11 +3119,18 @@ export default function App() {
 
       event.preventDefault();
       event.currentTarget.setPointerCapture(event.pointerId);
-      const previewMap = paintMapCells(
-        activeMap,
-        [pointToIndex(point, activeMap)],
-        resolvePaintBrushForInput(event.button),
-      );
+      const previewMap = hasActiveMirrors
+        ? applyMirroredMapPaint(
+            activeMap,
+            [pointToIndex(point, activeMap)],
+            resolvePaintBrushForInput(event.button),
+            mirrorState,
+          )
+        : paintMapCells(
+            activeMap,
+            [pointToIndex(point, activeMap)],
+            resolvePaintBrushForInput(event.button),
+          );
       setPastePreviewActive(false);
       setTransientMap(previewMap);
       setDragState({
@@ -2907,7 +3150,9 @@ export default function App() {
       clipboard,
       commitMapChange,
       commitPastePreview,
+      hasActiveMirrors,
       map,
+      mirrorState,
       pastePreviewActive,
       resolveBoardCellAtClientPoint,
       resolvePaintBrushForInput,
@@ -2952,12 +3197,15 @@ export default function App() {
           if (!point) return;
           if (point.x === dragState.lastPoint.x && point.y === dragState.lastPoint.y) return;
 
-          const nextPreviewMap = paintMapLine(
-            dragState.previewMap,
-            dragState.lastPoint,
-            point,
-            dragState.brush,
-          );
+          const nextPreviewMap = hasActiveMirrors
+            ? applyMirroredMapLine(
+                dragState.previewMap,
+                dragState.lastPoint,
+                point,
+                dragState.brush,
+                mirrorState,
+              )
+            : paintMapLine(dragState.previewMap, dragState.lastPoint, point, dragState.brush);
 
           setTransientMap(nextPreviewMap);
           setDragState({
@@ -3047,6 +3295,8 @@ export default function App() {
       boardRect,
       boardStatus.boardZoom,
       dragState,
+      hasActiveMirrors,
+      mirrorState,
       replaceMapChangeLive,
       resolveBoardCellAtClientPoint,
       updateHoverAtClientPoint,
@@ -3086,7 +3336,15 @@ export default function App() {
         if (dragState.tool === "line") {
           if (map && canMutateBoard) {
             commitMapChange(
-              paintMapLine(map, dragState.start, point ?? dragState.current, dragState.brush),
+              hasActiveMirrors
+                ? applyMirroredMapLine(
+                    map,
+                    dragState.start,
+                    point ?? dragState.current,
+                    dragState.brush,
+                    mirrorState,
+                  )
+                : paintMapLine(map, dragState.start, point ?? dragState.current, dragState.brush),
             );
           }
           setDragState(null);
@@ -3128,7 +3386,9 @@ export default function App() {
       commitDocumentChange,
       doc,
       dragState,
+      hasActiveMirrors,
       map,
+      mirrorState,
       resolveBoardCellAtClientPoint,
       updateHoverAtClientPoint,
     ],
@@ -4297,6 +4557,29 @@ export default function App() {
                             {renderBoardTransformIcon(button.op)}
                           </button>
                         ))}
+                        {BOARD_MIRROR_BUTTONS.map((button) => {
+                          const mirror = mirrorState[button.kind];
+                          const anchor = resolveMirrorHandleAnchor(mirror, mirrorBoardSize);
+                          if (!anchor) return null;
+
+                          return (
+                            <button
+                              key={button.kind}
+                              type="button"
+                              className={`boardMirrorButton ${mirror.active ? "active" : ""}`}
+                              aria-label={button.label}
+                              title={`${mirror.active ? "Disable" : "Enable"} mirror`}
+                              style={{
+                                left: `${(anchor.point.x / Math.max(1, mirrorBoardSize.width)) * 100}%`,
+                                top: `${(anchor.point.y / Math.max(1, mirrorBoardSize.height)) * 100}%`,
+                                transform: resolveMirrorButtonTransform(button.kind, anchor.edge),
+                              }}
+                              onPointerDown={(event) => beginMirrorDrag(button.kind, event)}
+                            >
+                              Mirror
+                            </button>
+                          );
+                        })}
                         {LEVEL_EDGE_CONTROLS.map((control) => (
                           <div
                             key={control.direction}
@@ -4364,6 +4647,28 @@ export default function App() {
 
                     {boardRect ? (
                       <svg className="boardOverlaySvg" aria-hidden="true">
+                        {mirrorLineSegments.map((segment, index) => (
+                          <line
+                            key={`mirror-${index}`}
+                            x1={
+                              boardRect.x +
+                              (segment.start.x / mirrorBoardSize.width) * boardRect.width
+                            }
+                            y1={
+                              boardRect.y +
+                              (segment.start.y / mirrorBoardSize.height) * boardRect.height
+                            }
+                            x2={
+                              boardRect.x +
+                              (segment.end.x / mirrorBoardSize.width) * boardRect.width
+                            }
+                            y2={
+                              boardRect.y +
+                              (segment.end.y / mirrorBoardSize.height) * boardRect.height
+                            }
+                            className="boardMirrorLine"
+                          />
+                        ))}
                         {linePreviewIndices.map((index) => {
                           const cellPoint = {
                             x: index % activeMap.width,
@@ -4460,17 +4765,18 @@ export default function App() {
                       </svg>
                     ) : null}
 
-                    {hoverCellRect ? (
+                    {hoverCellRects.map((hoverRect, index) => (
                       <div
+                        key={`hover-${index}`}
                         className="boardHoverCell"
                         style={{
-                          left: hoverCellRect.x,
-                          top: hoverCellRect.y,
-                          width: hoverCellRect.width,
-                          height: hoverCellRect.height,
+                          left: hoverRect.x,
+                          top: hoverRect.y,
+                          width: hoverRect.width,
+                          height: hoverRect.height,
                         }}
                       />
-                    ) : null}
+                    ))}
                   </>
                 )}
               </div>
