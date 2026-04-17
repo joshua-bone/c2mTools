@@ -24,8 +24,7 @@ const GLYPH_GAP = 1;
 const LINE_GAP = 1;
 const SCALE_STEPS = Object.freeze([1, 2, 3, 4] as const);
 const GENERIC_TEXT_BRUSH_SIZES = Object.freeze([6, 8, 10, 12, 16, 24, 32, 48] as const);
-const PIXEL_FONT_OVERSAMPLE = 4;
-const PIXEL_FONT_BLOCK_THRESHOLD = 160;
+const PIXEL_FONT_BLOCK_THRESHOLD = 48;
 
 function buildScaledSizes(baseSize: number): ReadonlyArray<number> {
   return Object.freeze(SCALE_STEPS.map((scale) => baseSize * scale));
@@ -183,6 +182,8 @@ type AlphaMask = Readonly<{
   height: number;
   alpha: Uint8ClampedArray;
 }>;
+
+type TextRasterCropMode = "content" | "full";
 
 function createScratchCanvas(): HTMLCanvasElement | null {
   if (typeof document === "undefined") return null;
@@ -375,6 +376,51 @@ function cropAlphaMask(
   };
 }
 
+function cropAlphaMaskToBounds(
+  alphaMask: AlphaMask,
+  minX: number,
+  minY: number,
+  maxX: number,
+  maxY: number,
+): AlphaMask {
+  const width = maxX - minX + 1;
+  const height = maxY - minY + 1;
+  const alpha = new Uint8ClampedArray(width * height);
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      alpha[(y - minY) * width + (x - minX)] = alphaMask.alpha[y * alphaMask.width + x] ?? 0;
+    }
+  }
+  return { width, height, alpha };
+}
+
+function alphaMaskToRaster(
+  alphaMask: AlphaMask,
+  threshold: number,
+  cropMode: TextRasterCropMode,
+  preserveFullHeight = false,
+): RasterizedTextBrush | null {
+  if (cropMode === "content") {
+    return cropAlphaMask(alphaMask, threshold, preserveFullHeight);
+  }
+
+  const indices: number[] = [];
+  for (let y = 0; y < alphaMask.height; y += 1) {
+    for (let x = 0; x < alphaMask.width; x += 1) {
+      const alpha = alphaMask.alpha[y * alphaMask.width + x] ?? 0;
+      if (alpha >= threshold) {
+        indices.push(y * alphaMask.width + x);
+      }
+    }
+  }
+
+  return {
+    width: alphaMask.width,
+    height: alphaMask.height,
+    indices,
+  };
+}
+
 export function reducePixelFontBlockAlpha(
   block: ReadonlyArray<number>,
   threshold = PIXEL_FONT_BLOCK_THRESHOLD,
@@ -408,7 +454,7 @@ function downsampleAlphaMask(alphaMask: AlphaMask, factor: number): AlphaMask {
   return { width, height, alpha };
 }
 
-function scaleRasterizedTextBrush(
+export function scaleRasterizedTextBrush(
   raster: RasterizedTextBrush,
   factor: number,
 ): RasterizedTextBrush {
@@ -428,6 +474,163 @@ function scaleRasterizedTextBrush(
   return { width, height, indices };
 }
 
+function findAlphaBounds(
+  alphaMask: AlphaMask,
+  threshold: number,
+): [number, number, number, number] | null {
+  let minX = alphaMask.width;
+  let minY = alphaMask.height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < alphaMask.height; y += 1) {
+    for (let x = 0; x < alphaMask.width; x += 1) {
+      const alpha = alphaMask.alpha[y * alphaMask.width + x] ?? 0;
+      if (alpha < threshold) continue;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+
+  return maxX >= minX && maxY >= minY ? [minX, minY, maxX, maxY] : null;
+}
+
+function cropAlphaMaskToAlignedBounds(
+  alphaMask: AlphaMask,
+  threshold: number,
+  factor: number,
+): AlphaMask {
+  const bounds = findAlphaBounds(alphaMask, threshold);
+  if (!bounds) return alphaMask;
+  const [minX, minY, maxX, maxY] = bounds;
+  const alignedWidth = Math.ceil((maxX - minX + 1) / factor) * factor;
+  const alignedHeight = Math.ceil((maxY - minY + 1) / factor) * factor;
+  const alignedMaxX = Math.min(alphaMask.width - 1, minX + alignedWidth - 1);
+  const alignedMaxY = Math.min(alphaMask.height - 1, minY + alignedHeight - 1);
+  return cropAlphaMaskToBounds(alphaMask, minX, minY, alignedMaxX, alignedMaxY);
+}
+
+function rasterizePixelFontGlyph(
+  char: string,
+  fontFamily: string,
+  fontSize: number,
+): RasterizedTextBrush {
+  const previewFontSize = getTextBrushPreviewFontSize(fontFamily, fontSize);
+  const previewScale = Math.max(1, Math.round(previewFontSize / fontSize));
+  const previewMask = renderTextAlphaMask(
+    char === " " ? " " : char,
+    fontFamily,
+    previewFontSize,
+    "left",
+    0,
+    0,
+    0,
+  );
+  if (!previewMask) {
+    return {
+      width: Math.max(1, fontSize),
+      height: Math.max(1, fontSize),
+      indices: [],
+    };
+  }
+
+  const alignedMask =
+    char === " "
+      ? previewMask
+      : cropAlphaMaskToAlignedBounds(previewMask, ALPHA_THRESHOLD, previewScale);
+  const reducedMask = downsampleAlphaMask(alignedMask, previewScale);
+  const raster = alphaMaskToRaster(reducedMask, ALPHA_THRESHOLD, "full");
+
+  return (
+    raster ?? {
+      width: reducedMask.width,
+      height: reducedMask.height,
+      indices: [],
+    }
+  );
+}
+
+function composeRasterizedTextBrush(
+  lines: ReadonlyArray<ReadonlyArray<RasterizedTextBrush>>,
+  align: TextBrushAlign,
+  glyphGap: number,
+  lineGap: number,
+): RasterizedTextBrush | null {
+  if (lines.length === 0) return null;
+
+  const lineWidths = lines.map((line) =>
+    line.reduce((total, glyph, index) => total + glyph.width + (index > 0 ? glyphGap : 0), 0),
+  );
+  const lineHeights = lines.map((line) =>
+    Math.max(1, ...line.map((glyph) => glyph.height), line.length === 0 ? 1 : 0),
+  );
+  const width = Math.max(1, ...lineWidths);
+  const height = Math.max(
+    1,
+    lineHeights.reduce((total, value) => total + value, 0) + lineGap * (lines.length - 1),
+  );
+  const indices: number[] = [];
+
+  let cursorY = 0;
+  lines.forEach((line, lineIndex) => {
+    const lineWidth = lineWidths[lineIndex] ?? 0;
+    const xOffset =
+      align === "center"
+        ? Math.floor((width - lineWidth) / 2)
+        : align === "right"
+          ? width - lineWidth
+          : 0;
+    let cursorX = xOffset;
+    line.forEach((glyph, glyphIndex) => {
+      if (glyphIndex > 0) {
+        cursorX += glyphGap;
+      }
+      for (const index of glyph.indices) {
+        const x = cursorX + (index % glyph.width);
+        const y = cursorY + Math.floor(index / glyph.width);
+        indices.push(y * width + x);
+      }
+      cursorX += glyph.width;
+    });
+    cursorY += (lineHeights[lineIndex] ?? 1) + lineGap;
+  });
+
+  return { width, height, indices };
+}
+
+function rasterizePixelFontText(
+  text: string,
+  fontFamily: string,
+  fontSize: number,
+  align: TextBrushAlign,
+): RasterizedTextBrush | null {
+  const normalizedText = text.replace(/\r\n?/g, "\n");
+  if (normalizedText.trim().length === 0) return null;
+  const lines = normalizedText
+    .split("\n")
+    .map((line) =>
+      Array.from(line).map((char) => rasterizePixelFontGlyph(char, fontFamily, fontSize)),
+    );
+  return composeRasterizedTextBrush(lines, align, GLYPH_GAP, LINE_GAP);
+}
+
+export function rasterizeTextBrushPreviewModel(
+  text: string,
+  fontFamily: string,
+  fontSize: number,
+  align: TextBrushAlign,
+): RasterizedTextBrush | null {
+  const brush = rasterizeTextBrush(text, fontFamily, fontSize, align);
+  if (!brush) return null;
+  const choice = getTextBrushFontChoice(fontFamily);
+  if (!choice.sizeStepBase) return brush;
+  const previewFontSize = getTextBrushPreviewFontSize(fontFamily, fontSize);
+  const previewScale = Math.max(1, Math.round(previewFontSize / fontSize));
+  return scaleRasterizedTextBrush(brush, previewScale);
+}
+
 export function rasterizeTextBrush(
   text: string,
   fontFamily: string,
@@ -436,22 +639,7 @@ export function rasterizeTextBrush(
 ): RasterizedTextBrush | null {
   const choice = getTextBrushFontChoice(fontFamily);
   if (choice.sizeStepBase) {
-    const nativeSize = choice.sizeStepBase;
-    const outputScale = Math.max(1, Math.round(fontSize / nativeSize));
-    const oversampledMask = renderTextAlphaMask(
-      text,
-      fontFamily,
-      nativeSize * PIXEL_FONT_OVERSAMPLE,
-      align,
-      GLYPH_GAP * PIXEL_FONT_OVERSAMPLE,
-      LINE_GAP * PIXEL_FONT_OVERSAMPLE,
-      0,
-    );
-    if (!oversampledMask) return null;
-    const nativeMask = downsampleAlphaMask(oversampledMask, PIXEL_FONT_OVERSAMPLE);
-    const nativeRaster = cropAlphaMask(nativeMask, ALPHA_THRESHOLD, true);
-    if (!nativeRaster) return null;
-    return scaleRasterizedTextBrush(nativeRaster, outputScale);
+    return rasterizePixelFontText(text, fontFamily, fontSize, align);
   }
 
   const alphaMask = renderTextAlphaMask(
