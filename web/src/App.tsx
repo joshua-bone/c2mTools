@@ -1445,7 +1445,7 @@ export default function App() {
   const importBankWallLayout = useCallback(
     (wallKey: string) => {
       if (!map || !jsonOk) return;
-      commitMapChange(applyBankWallMask32ToC2mMap(map, wallKey));
+      commitMapChange(applyBankWallMask32ToC2mMap(wallKey));
       setIdeasDialogOpen(null);
     },
     [commitMapChange, jsonOk, map],
