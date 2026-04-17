@@ -27,6 +27,7 @@ export type C2mClipboard = Readonly<{
   width: number;
   height: number;
   cells: ReadonlyArray<TileSpecJson>;
+  mask?: ReadonlyArray<boolean>;
 }>;
 
 type BrushApplicationResult = Readonly<{
@@ -232,17 +233,24 @@ export function paintMapLine(
   return paintMapCells(map, getLineIndices(start, end, map), brush);
 }
 
-export function copyMapRegion(map: MapJson, rect: GridRect): C2mClipboard {
+export function copyMapRegion(
+  map: MapJson,
+  rect: GridRect,
+  selectedIndices?: ReadonlyArray<number>,
+): C2mClipboard {
   const anchor = clampPoint({ x: rect.x, y: rect.y }, map);
   const width = Math.max(1, Math.min(rect.width, map.width - anchor.x));
   const height = Math.max(1, Math.min(rect.height, map.height - anchor.y));
   const cells: TileSpecJson[] = [];
+  const selectedSet = selectedIndices ? new Set(selectedIndices) : null;
+  const mask: boolean[] | null = selectedSet ? [] : null;
 
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const index = pointToIndex({ x: anchor.x + x, y: anchor.y + y }, map);
       const tile = map.tiles[index];
       if (tile === undefined) continue;
+      mask?.push(selectedSet?.has(index) ?? true);
       cells.push(cloneTileSpec(tile));
     }
   }
@@ -251,6 +259,7 @@ export function copyMapRegion(map: MapJson, rect: GridRect): C2mClipboard {
     width,
     height,
     cells,
+    ...(mask ? { mask } : {}),
   };
 }
 
@@ -281,6 +290,7 @@ export function pasteMapRegion(map: MapJson, anchor: GridPoint, clipboard: C2mCl
       if (targetX >= map.width || targetY >= map.height) continue;
 
       const clipboardIndex = y * clipboard.width + x;
+      if (clipboard.mask && !clipboard.mask[clipboardIndex]) continue;
       const clipboardTile = clipboard.cells[clipboardIndex];
       if (clipboardTile === undefined) continue;
 

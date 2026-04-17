@@ -211,8 +211,175 @@ const C2M_WALLS_STARRED_STORAGE_KEY = "c2mtools:walls-bank-starred";
 const C2M_WALLS_HIDDEN_STORAGE_KEY = "c2mtools:walls-bank-hidden";
 const C2M_GENERATED_WALLS_STARRED_STORAGE_KEY = "c2mtools:generate-starred";
 const ERASER_BRUSH: TileSpecJson = "FLOOR";
+const SELECTION_MODE_ORDER: ReadonlyArray<SelectionMode> = ["rect", "contiguous", "tile"];
+const DEFAULT_SELECTION_MODE: SelectionMode = "rect";
 const EYEDROPPER_CURSOR =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g transform='rotate(45 12 12)'><rect x='10' y='2.5' width='4' height='11' rx='1.4' fill='%23f6fbff' stroke='%23121a1f' stroke-width='1.6'/><path d='M10 5.5H8.4A1.4 1.4 0 0 0 7 6.9v3.7A1.4 1.4 0 0 0 8.4 12H10' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/><path d='M14 13v6' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><path d='M10.3 19.3h7.4' fill='none' stroke='%23121a1f' stroke-width='1.6' stroke-linecap='round'/><circle cx='14' cy='21' r='1.5' fill='%23235f7a'/></g></svg>\") 4 20, crosshair";
+
+function cycleSelectionMode(current: SelectionMode): SelectionMode {
+  const currentIndex = SELECTION_MODE_ORDER.indexOf(current);
+  return SELECTION_MODE_ORDER[(currentIndex + 1) % SELECTION_MODE_ORDER.length]!;
+}
+
+function getSelectionModeBadge(mode: SelectionMode): "S" | "C" | "T" {
+  switch (mode) {
+    case "rect":
+      return "S";
+    case "contiguous":
+      return "C";
+    case "tile":
+      return "T";
+  }
+}
+
+function getSelectionModeLabel(mode: SelectionMode): string {
+  switch (mode) {
+    case "rect":
+      return "Select";
+    case "contiguous":
+      return "Select Contiguous";
+    case "tile":
+      return "Select Tile";
+  }
+}
+
+function resolveSelectionOperationFromModifierKeys(
+  shiftPressed: boolean,
+  altPressed: boolean,
+): SelectionOperation {
+  if (altPressed) return "subtract";
+  if (shiftPressed) return "add";
+  return "replace";
+}
+
+function getSelectionOperationBadge(operation: SelectionOperation): "" | "+" | "-" {
+  switch (operation) {
+    case "replace":
+      return "";
+    case "add":
+      return "+";
+    case "subtract":
+      return "-";
+  }
+}
+
+function buildSelectionCursor(mode: SelectionMode, operation: SelectionOperation): string {
+  const modeBadge = getSelectionModeBadge(mode);
+  const operationBadge = getSelectionOperationBadge(operation);
+  return `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path fill="rgba(248,252,255,0.98)" stroke="rgba(28,42,51,0.96)" stroke-width="1.3" d="M5.5 3.5v18.9l4.48-4.22 2.87 7.43 3.17-1.24-2.88-7.43 6.38-.1z"/><rect x="16.5" y="18.5" width="11" height="9" rx="3" fill="rgba(20,33,42,0.94)"/><text x="22" y="24.3" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="7.8" font-weight="700" fill="rgba(248,252,255,0.98)">${modeBadge}</text>${operationBadge ? `<text x="26.6" y="26.7" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="6.6" font-weight="700" fill="rgba(129, 215, 255, 0.98)">${operationBadge}</text>` : ""}</svg>`,
+  )}") 2 2, crosshair`;
+}
+
+function uniqueSortedIndices(indices: ReadonlyArray<number>): number[] {
+  return [...new Set(indices)].sort((a, b) => a - b);
+}
+
+function resolveSelectionIndices(selection: SelectionArea | null, map: MapJson | null): number[] {
+  if (!selection || !map) return [];
+  return selection.indices ? [...selection.indices] : rectToIndices(selection, map);
+}
+
+function buildSelectionFromIndices(
+  indices: ReadonlyArray<number>,
+  map: MapJson,
+  mode: SelectionMode,
+): SelectionArea | null {
+  const normalized = uniqueSortedIndices(indices);
+  if (normalized.length === 0) return null;
+
+  let minX = map.width - 1;
+  let maxX = 0;
+  let minY = map.height - 1;
+  let maxY = 0;
+
+  for (const index of normalized) {
+    const x = index % map.width;
+    const y = Math.floor(index / map.width);
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+
+  const bounds = {
+    x: minX,
+    y: minY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1,
+  };
+  const rectIndices = rectToIndices(bounds, map);
+  const isRectangular =
+    normalized.length === rectIndices.length &&
+    normalized.every((index, entryIndex) => rectIndices[entryIndex] === index);
+
+  return isRectangular ? { ...bounds, mode } : { ...bounds, indices: normalized, mode };
+}
+
+function createSelectionFromRect(rect: GridRect): SelectionArea {
+  return {
+    ...rect,
+    mode: "rect",
+  };
+}
+
+function applySelectionOperation(
+  current: SelectionArea | null,
+  nextIndices: ReadonlyArray<number>,
+  map: MapJson,
+  operation: SelectionOperation,
+  mode: SelectionMode,
+): SelectionArea | null {
+  if (operation === "replace") return buildSelectionFromIndices(nextIndices, map, mode);
+
+  const nextSet = new Set(uniqueSortedIndices(nextIndices));
+  const merged = resolveSelectionIndices(current, map).filter((index) =>
+    operation === "subtract" ? !nextSet.has(index) : true,
+  );
+
+  if (operation === "add") merged.push(...nextSet);
+  return buildSelectionFromIndices(merged, map, mode);
+}
+
+function tileSelectionKey(tile: TileSpecJson | undefined): string {
+  return JSON.stringify(tile ?? null);
+}
+
+function resolveContiguousTileSelection(map: MapJson, origin: GridPoint): number[] {
+  const startIndex = pointToIndex(origin, map);
+  const startKey = tileSelectionKey(map.tiles[startIndex]);
+  const visited = new Set<number>();
+  const queue = [startIndex];
+  const matches: number[] = [];
+
+  while (queue.length > 0) {
+    const index = queue.shift()!;
+    if (visited.has(index)) continue;
+    visited.add(index);
+    if (tileSelectionKey(map.tiles[index]) !== startKey) continue;
+    matches.push(index);
+
+    const point = indexToPoint(index, map);
+    if (point.x > 0) queue.push(index - 1);
+    if (point.x < map.width - 1) queue.push(index + 1);
+    if (point.y > 0) queue.push(index - map.width);
+    if (point.y < map.height - 1) queue.push(index + map.width);
+  }
+
+  return matches;
+}
+
+function resolveTileMatchSelection(map: MapJson, origin: GridPoint): number[] {
+  const startIndex = pointToIndex(origin, map);
+  const startKey = tileSelectionKey(map.tiles[startIndex]);
+  const matches: number[] = [];
+
+  for (let index = 0; index < map.tiles.length; index += 1) {
+    if (tileSelectionKey(map.tiles[index]) === startKey) matches.push(index);
+  }
+
+  return matches;
+}
 
 const TRANSFORMS: Array<{ label: string; op: LevelTransformKind }> = [
   { label: "Rot 90", op: "ROTATE_90" },
@@ -351,6 +518,13 @@ type IdeasDialogId = "browse-walls" | "generate-walls";
 type GeneratedWallLayoutRecord = Parameters<GenerateWallsDialogProps["onImport"]>[0];
 
 type ToolMode = EditorToolMode;
+type SelectionMode = "rect" | "contiguous" | "tile";
+type SelectionOperation = "replace" | "add" | "subtract";
+type SelectionArea = GridRect &
+  Readonly<{
+    indices?: ReadonlyArray<number>;
+    mode: SelectionMode;
+  }>;
 
 type InitialAppState = Readonly<{
   history: C2mEditorHistory | null;
@@ -409,6 +583,8 @@ type SelectDragState = Readonly<{
   pointerId: number;
   start: GridPoint;
   current: GridPoint;
+  mode: SelectionMode;
+  operation: SelectionOperation;
 }>;
 
 type WireDragState = Readonly<{
@@ -1002,6 +1178,7 @@ export default function App() {
   );
   const [paletteQuery, setPaletteQuery] = useState("");
   const [tool, setTool] = useState<ToolMode>("brush");
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>(DEFAULT_SELECTION_MODE);
   const [globalDirection, setGlobalDirection] = useState<Dir>("N");
   const [logicCounterValue, setLogicCounterValue] = useState(0);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("palette");
@@ -1010,7 +1187,7 @@ export default function App() {
   const [boardMenuDropdownShift, setBoardMenuDropdownShift] = useState(0);
   const [lastPaletteAssignmentTarget, setLastPaletteAssignmentTarget] =
     useState<PaletteAssignmentTarget>("primary");
-  const [selection, setSelection] = useState<GridRect | null>(null);
+  const [selection, setSelection] = useState<SelectionArea | null>(null);
   const [clipboard, setClipboard] = useState<C2mClipboard | null>(null);
   const [pastePreviewActive, setPastePreviewActive] = useState(false);
   const [layoutResizeState, setLayoutResizeState] = useState<LayoutResizeState | null>(null);
@@ -1050,6 +1227,7 @@ export default function App() {
   const [renderError, setRenderError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isAltPressed, setIsAltPressed] = useState(false);
+  const [isShiftPressed, setIsShiftPressed] = useState(false);
   const [tileset, setTileset] = useState<CC2Tileset | null>(null);
   const [tilesetError, setTilesetError] = useState<string | null>(null);
   const [wallsBankRecords, setWallsBankRecords] = useState<ReadonlyArray<WallsBankRecord>>([]);
@@ -1158,16 +1336,31 @@ export default function App() {
       (point) => resolveBoardCellScreenRect(point, activeMap, boardRect),
     );
   }, [activeMap, boardRect, boardStatus.hoverPoint, mirrorBoardSize, mirrorState]);
+  const selectionOperationPreview = resolveSelectionOperationFromModifierKeys(
+    isShiftPressed,
+    isAltPressed,
+  );
   const boardCanvasCursor = boardStatus.isPanning
     ? "grabbing"
-    : isAltPressed || tool === "eyedropper"
-      ? EYEDROPPER_CURSOR
-      : undefined;
+    : tool === "select"
+      ? buildSelectionCursor(selectionMode, selectionOperationPreview)
+      : isAltPressed || tool === "eyedropper"
+        ? EYEDROPPER_CURSOR
+        : undefined;
 
   const selectionPreviewRect = useMemo(() => {
     if (!activeMap) return null;
     if (dragState?.tool === "select") {
-      return normalizeRect(dragState.start, dragState.current, activeMap);
+      const nextRect = createSelectionFromRect(
+        normalizeRect(dragState.start, dragState.current, activeMap),
+      );
+      return applySelectionOperation(
+        selection,
+        resolveSelectionIndices(nextRect, activeMap),
+        activeMap,
+        dragState.operation,
+        dragState.mode,
+      );
     }
     return selection;
   }, [activeMap, dragState, selection]);
@@ -1231,7 +1424,10 @@ export default function App() {
     describeTileSpec(secondaryBrush) ?? formatTileDisplayName(getTileSpecName(secondaryBrush));
   const primaryBrushKey = tileSpecKey(primaryBrush);
   const secondaryBrushKey = tileSpecKey(secondaryBrush);
-  const activeToolLabel = TOOL_SHORTCUTS.find((entry) => entry.id === tool)?.label ?? tool;
+  const activeToolLabel =
+    tool === "select"
+      ? getSelectionModeLabel(selectionMode)
+      : (TOOL_SHORTCUTS.find((entry) => entry.id === tool)?.label ?? tool);
   const preservedSectionTags = doc?.sections?.map((section) => section.tag) ?? [];
   const preservedExtraChunkTags = doc?.extraChunks?.map((section) => section.tag) ?? [];
   const resizeDirty =
@@ -1365,12 +1561,15 @@ export default function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.altKey) setIsAltPressed(true);
+      if (event.shiftKey) setIsShiftPressed(true);
     };
     const onKeyUp = (event: KeyboardEvent) => {
       if (!event.altKey) setIsAltPressed(false);
+      if (!event.shiftKey) setIsShiftPressed(false);
     };
     const onBlur = () => {
       setIsAltPressed(false);
+      setIsShiftPressed(false);
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -1905,7 +2104,7 @@ export default function App() {
 
   const copySelection = useCallback(() => {
     if (!map || !selection) return;
-    setClipboard(copyMapRegion(map, selection));
+    setClipboard(copyMapRegion(map, selection, resolveSelectionIndices(selection, map)));
     setTool("select");
   }, [map, selection]);
 
@@ -1914,13 +2113,47 @@ export default function App() {
     setPastePreviewActive(false);
   }, []);
 
+  const handleSelectToolButtonClick = useCallback(() => {
+    if (tool === "select") {
+      setSelectionMode((current) => cycleSelectionMode(current));
+      return;
+    }
+    setTool("select");
+  }, [tool]);
+
   const eraseSelection = useCallback(() => {
     if (!map || !selection || !canMutateBoard) return;
 
-    const nextMap = paintMapCells(map, rectToIndices(selection, map), ERASER_BRUSH);
+    const nextMap = paintMapCells(map, resolveSelectionIndices(selection, map), ERASER_BRUSH);
     commitMapChange(nextMap);
     setPastePreviewActive(false);
   }, [canMutateBoard, commitMapChange, map, selection]);
+
+  const rotateSelectedSelection = useCallback(
+    (direction: "clockwise" | "counterclockwise") => {
+      if (!map || !selection || tool !== "select" || !canMutateBoard) return;
+
+      const kind = direction === "clockwise" ? "ROTATE_90" : "ROTATE_270";
+      const nextTiles = [...map.tiles];
+      let changed = false;
+
+      for (const index of resolveSelectionIndices(selection, map)) {
+        const tile = map.tiles[index];
+        if (!tile) continue;
+        const rotated = transformTileSpec(tile, kind);
+        if (JSON.stringify(rotated) === JSON.stringify(tile)) continue;
+        nextTiles[index] = rotated;
+        changed = true;
+      }
+
+      if (!changed) return;
+      commitMapChange({
+        ...map,
+        tiles: nextTiles,
+      });
+    },
+    [canMutateBoard, commitMapChange, map, selection, tool],
+  );
 
   const clearActiveMap = useCallback(() => {
     if (!map || !canMutateBoard) return;
@@ -1930,6 +2163,11 @@ export default function App() {
     });
     commitMapChange(clearMapToFloor(map));
   }, [canMutateBoard, commitMapChange, map, resetBoardTransientState]);
+
+  useEffect(() => {
+    if (tool === "select") return;
+    clearSelectionState();
+  }, [clearSelectionState, tool]);
 
   const beginPastePreview = useCallback(() => {
     if (!clipboard) return;
@@ -1949,11 +2187,22 @@ export default function App() {
       const nextSelection = resolveClipboardPreviewRect(map, anchor, clipboard);
 
       if (commitMapChange(nextMap)) {
-        setSelection(nextSelection);
+        setSelection({
+          ...nextSelection,
+          mode: selectionMode,
+        });
       }
       setPastePreviewActive(false);
     },
-    [boardStatus.hoverPoint, canMutateBoard, clipboard, commitMapChange, map, selection],
+    [
+      boardStatus.hoverPoint,
+      canMutateBoard,
+      clipboard,
+      commitMapChange,
+      map,
+      selection,
+      selectionMode,
+    ],
   );
 
   const assignEyedropperBrush = useCallback(
@@ -2613,6 +2862,22 @@ export default function App() {
   useEffect(() => {
     if (!map || !selection) return;
 
+    if (selection.indices) {
+      const nextIndices = selection.indices.filter(
+        (index) => index >= 0 && index < map.tiles.length,
+      );
+      const nextSelection = buildSelectionFromIndices(nextIndices, map, selection.mode);
+      const currentIndices = resolveSelectionIndices(selection, map);
+      const nextSelectionIndices = resolveSelectionIndices(nextSelection, map);
+      const changed =
+        currentIndices.length !== nextSelectionIndices.length ||
+        currentIndices.some((index, entryIndex) => nextSelectionIndices[entryIndex] !== index);
+      if (changed || !nextSelection) {
+        setSelection(nextSelection);
+      }
+      return;
+    }
+
     const nextSelection = normalizeRect(
       { x: selection.x, y: selection.y },
       { x: selection.x + selection.width - 1, y: selection.y + selection.height - 1 },
@@ -2628,7 +2893,10 @@ export default function App() {
       return;
     }
 
-    setSelection(nextSelection);
+    setSelection({
+      ...nextSelection,
+      mode: selection.mode,
+    });
   }, [map, selection]);
 
   useEffect(() => {
@@ -2649,6 +2917,11 @@ export default function App() {
     if (dragState?.tool === "brush") return;
     if (transientMap) setTransientMap(null);
   }, [dragState, transientMap]);
+
+  useEffect(() => {
+    if (tool === "select" || dragState?.tool !== "select") return;
+    setDragState(null);
+  }, [dragState, tool]);
 
   useEffect(() => {
     if (!boardMenuOpen) return;
@@ -2742,13 +3015,15 @@ export default function App() {
       if (!event.altKey && !event.ctrlKey && !event.metaKey) {
         if (event.key === "," || event.key === "<") {
           event.preventDefault();
-          rotateSelectedPaletteBrush("counterclockwise");
+          if (tool === "select" && selection) rotateSelectedSelection("counterclockwise");
+          else rotateSelectedPaletteBrush("counterclockwise");
           return;
         }
 
         if (event.key === "." || event.key === ">") {
           event.preventDefault();
-          rotateSelectedPaletteBrush("clockwise");
+          if (tool === "select" && selection) rotateSelectedSelection("clockwise");
+          else rotateSelectedPaletteBrush("clockwise");
           return;
         }
       }
@@ -2798,7 +3073,8 @@ export default function App() {
           return;
         case "set-tool":
           event.preventDefault();
-          setTool(command.tool);
+          if (command.tool === "select") handleSelectToolButtonClick();
+          else setTool(command.tool);
           return;
       }
     };
@@ -2821,8 +3097,11 @@ export default function App() {
     onUndo,
     pastePreviewActive,
     resetBoardTransientState,
+    rotateSelectedSelection,
     rotateSelectedPaletteBrush,
     selection,
+    handleSelectToolButtonClick,
+    tool,
     viewMode,
   ]);
 
@@ -3027,7 +3306,7 @@ export default function App() {
         return;
       }
 
-      if (event.altKey || tool === "eyedropper") {
+      if ((event.altKey && tool !== "select") || tool === "eyedropper") {
         event.preventDefault();
         assignEyedropperBrush(point, event.button === 2 ? "secondary" : "primary");
         return;
@@ -3079,14 +3358,33 @@ export default function App() {
       if (tool === "select") {
         if (event.button !== 0) return;
         event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
+        const operation = resolveSelectionOperationFromModifierKeys(event.shiftKey, event.altKey);
+        if (selectionMode === "rect") {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setPastePreviewActive(false);
+          setDragState({
+            tool: "select",
+            pointerId: event.pointerId,
+            start: point,
+            current: point,
+            mode: selectionMode,
+            operation,
+          });
+          return;
+        }
+
         setPastePreviewActive(false);
-        setDragState({
-          tool: "select",
-          pointerId: event.pointerId,
-          start: point,
-          current: point,
-        });
+        setSelection(
+          applySelectionOperation(
+            selection,
+            selectionMode === "contiguous"
+              ? resolveContiguousTileSelection(activeMap, point)
+              : resolveTileMatchSelection(activeMap, point),
+            activeMap,
+            operation,
+            selectionMode,
+          ),
+        );
         return;
       }
 
@@ -3373,7 +3671,18 @@ export default function App() {
 
         if (dragState.tool === "select") {
           if (activeMap) {
-            setSelection(normalizeRect(dragState.start, point ?? dragState.current, activeMap));
+            const nextSelectionRect = createSelectionFromRect(
+              normalizeRect(dragState.start, point ?? dragState.current, activeMap),
+            );
+            setSelection(
+              applySelectionOperation(
+                selection,
+                resolveSelectionIndices(nextSelectionRect, activeMap),
+                activeMap,
+                dragState.operation,
+                dragState.mode,
+              ),
+            );
           }
           setDragState(null);
           setPastePreviewActive(false);
@@ -4453,29 +4762,43 @@ export default function App() {
                 </h2>
               </div>
               {viewMode === "board" ? (
-                <div className="sectionActions boardToolRow">
-                  {TOOL_SHORTCUTS.map((entry) => {
-                    const mutatesBoard =
-                      entry.id === "brush" ||
-                      entry.id === "line" ||
-                      entry.id === "fill" ||
-                      entry.id === "erase" ||
-                      entry.id === "wire";
+                <div className="sectionActions boardToolGroups">
+                  <div className="toolButtonGroup toolButtonGroupSeparated">
+                    <button
+                      type="button"
+                      className={`toolButton ${tool === "select" ? "active" : ""}`}
+                      onClick={handleSelectToolButtonClick}
+                      title={`${getSelectionModeLabel(selectionMode)} (V)`}
+                    >
+                      <span>Select</span>
+                      <span className="toolModeBadge">{getSelectionModeBadge(selectionMode)}</span>
+                      <span className="toolShortcut">V</span>
+                    </button>
+                  </div>
+                  <div className="toolButtonGroup boardToolRow">
+                    {TOOL_SHORTCUTS.filter((entry) => entry.id !== "select").map((entry) => {
+                      const mutatesBoard =
+                        entry.id === "brush" ||
+                        entry.id === "line" ||
+                        entry.id === "fill" ||
+                        entry.id === "erase" ||
+                        entry.id === "wire";
 
-                    return (
-                      <button
-                        key={entry.id}
-                        type="button"
-                        className={`toolButton ${tool === entry.id ? "active" : ""}`}
-                        disabled={mutatesBoard && !canMutateBoard}
-                        onClick={() => setTool(entry.id)}
-                        title={`${entry.label} (${entry.shortcut})`}
-                      >
-                        <span>{entry.label}</span>
-                        <span className="toolShortcut">{entry.shortcut}</span>
-                      </button>
-                    );
-                  })}
+                      return (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          className={`toolButton ${tool === entry.id ? "active" : ""}`}
+                          disabled={mutatesBoard && !canMutateBoard}
+                          onClick={() => setTool(entry.id)}
+                          title={`${entry.label} (${entry.shortcut})`}
+                        >
+                          <span>{entry.label}</span>
+                          <span className="toolShortcut">{entry.shortcut}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -4696,28 +5019,51 @@ export default function App() {
                         })}
 
                         {selectionPreviewRect
-                          ? (() => {
-                              const rect = resolveRectScreenRect(
-                                selectionPreviewRect,
-                                activeMap,
-                                boardRect,
-                              );
+                          ? selectionPreviewRect.indices
+                            ? resolveSelectionIndices(selectionPreviewRect, activeMap).map(
+                                (index) => {
+                                  const cellPoint = indexToPoint(index, activeMap);
+                                  const rect = resolveBoardCellScreenRect(
+                                    cellPoint,
+                                    activeMap,
+                                    boardRect,
+                                  );
+                                  return (
+                                    <rect
+                                      key={`selection-${index}`}
+                                      x={rect.x}
+                                      y={rect.y}
+                                      width={rect.width}
+                                      height={rect.height}
+                                      fill="rgba(216, 165, 77, 0.12)"
+                                      stroke="rgba(216, 165, 77, 0.9)"
+                                      strokeWidth={Math.max(1.2, rect.width / 10)}
+                                    />
+                                  );
+                                },
+                              )
+                            : (() => {
+                                const rect = resolveRectScreenRect(
+                                  selectionPreviewRect,
+                                  activeMap,
+                                  boardRect,
+                                );
 
-                              return (
-                                <rect
-                                  x={rect.x}
-                                  y={rect.y}
-                                  width={rect.width}
-                                  height={rect.height}
-                                  fill="rgba(216, 165, 77, 0.12)"
-                                  stroke="rgba(216, 165, 77, 0.9)"
-                                  strokeWidth={Math.max(
-                                    1.5,
-                                    rect.width / Math.max(10, selectionPreviewRect.width * 6),
-                                  )}
-                                />
-                              );
-                            })()
+                                return (
+                                  <rect
+                                    x={rect.x}
+                                    y={rect.y}
+                                    width={rect.width}
+                                    height={rect.height}
+                                    fill="rgba(216, 165, 77, 0.12)"
+                                    stroke="rgba(216, 165, 77, 0.9)"
+                                    strokeWidth={Math.max(
+                                      1.5,
+                                      rect.width / Math.max(10, selectionPreviewRect.width * 6),
+                                    )}
+                                  />
+                                );
+                              })()
                           : null}
 
                         {pendingWirePoint

@@ -492,10 +492,41 @@ canvas {
   font-size: 12px;
 }
 
+.boardToolGroups {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.toolButtonGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.toolButtonGroupSeparated {
+  margin-right: 2px;
+}
+
 .toolButton.active {
   border-color: rgba(35, 95, 122, 0.42);
   background: linear-gradient(180deg, rgba(221, 235, 243, 0.98), rgba(235, 243, 248, 0.98));
   box-shadow: 0 4px 10px rgba(35, 95, 122, 0.12);
+}
+
+.toolModeBadge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(35, 95, 122, 0.12);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--accent-strong);
 }
 
 .toolShortcut {
