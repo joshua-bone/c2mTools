@@ -852,17 +852,17 @@ function applyMirroredMapFill(
 function resolveMirrorButtonTransform(kind: MirrorKind, edge: "top" | "left" | "right"): string {
   switch (kind) {
     case "vertical":
-      return "translate(-50%, calc(-100% - 54px))";
+      return "translate(-50%, calc(-100% - 64px))";
     case "horizontal":
-      return "translate(calc(-100% - 44px), -50%) rotate(-90deg)";
+      return "translate(calc(-100% - 54px), -50%) rotate(-90deg)";
     case "diag-desc":
-      return edge === "top"
-        ? "translate(-50%, calc(-100% - 56px)) rotate(-45deg)"
-        : "translate(calc(-100% - 56px), -50%) rotate(-45deg)";
+      return edge === "top" || edge === "left"
+        ? "translate(calc(-50% - 44px), calc(-50% - 44px)) rotate(-45deg)"
+        : "translate(calc(-50% - 44px), calc(-50% - 44px)) rotate(-45deg)";
     case "diag-asc":
-      return edge === "top"
-        ? "translate(-50%, calc(-100% - 56px)) rotate(45deg)"
-        : "translate(56px, -50%) rotate(45deg)";
+      return edge === "top" || edge === "right"
+        ? "translate(calc(-50% + 44px), calc(-50% - 44px)) rotate(45deg)"
+        : "translate(calc(-50% + 44px), calc(-50% - 44px)) rotate(45deg)";
   }
 }
 

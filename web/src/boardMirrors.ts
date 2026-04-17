@@ -415,12 +415,13 @@ export function resolveMirrorLineSegment(
       return points.length >= 2 ? { start: points[0]!, end: points[1]! } : null;
     }
     case "diag-asc": {
+      const diagonalSum = mirror.offset + 1;
       const points = collectLineIntersections(
         [
-          { x: 0, y: mirror.offset },
-          { x: size.width, y: mirror.offset - size.width },
-          { x: mirror.offset, y: 0 },
-          { x: mirror.offset - size.height, y: size.height },
+          { x: 0, y: diagonalSum },
+          { x: size.width, y: diagonalSum - size.width },
+          { x: diagonalSum, y: 0 },
+          { x: diagonalSum - size.height, y: size.height },
         ],
         size,
       );
