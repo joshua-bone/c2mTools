@@ -221,25 +221,25 @@ function cycleSelectionMode(current: SelectionMode): SelectionMode {
   return SELECTION_MODE_ORDER[(currentIndex + 1) % SELECTION_MODE_ORDER.length]!;
 }
 
-function getSelectionModeBadge(mode: SelectionMode): "S" | "C" | "T" {
+function getSelectionModeBadge(mode: SelectionMode): "R" | "C" | "A" {
   switch (mode) {
     case "rect":
-      return "S";
+      return "R";
     case "contiguous":
       return "C";
     case "tile":
-      return "T";
+      return "A";
   }
 }
 
 function getSelectionModeLabel(mode: SelectionMode): string {
   switch (mode) {
     case "rect":
-      return "Select";
+      return "Select Rectangle";
     case "contiguous":
       return "Select Contiguous";
     case "tile":
-      return "Select Tile";
+      return "Select All Tile";
   }
 }
 
@@ -4865,11 +4865,13 @@ export default function App() {
                   <div className="toolButtonGroup toolButtonGroupSeparated">
                     <button
                       type="button"
-                      className={`toolButton ${tool === "select" ? "active" : ""}`}
+                      className={`toolButton toolButtonSelectMode ${tool === "select" ? "active" : ""}`}
                       onClick={handleSelectToolButtonClick}
-                      title={`${getSelectionModeLabel(selectionMode)} (V)`}
+                      title={getSelectionModeLabel(selectionMode)}
                     >
-                      <span>Select</span>
+                      <span className="toolButtonLabel">
+                        {getSelectionModeLabel(selectionMode)}
+                      </span>
                       <span className="toolModeBadge">{getSelectionModeBadge(selectionMode)}</span>
                       <span className="toolShortcut">V</span>
                     </button>

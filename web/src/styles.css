@@ -492,6 +492,14 @@ canvas {
   font-size: 12px;
 }
 
+.toolButtonSelectMode {
+  min-width: 186px;
+}
+
+.toolButtonLabel {
+  white-space: nowrap;
+}
+
 .boardToolGroups {
   display: flex;
   align-items: center;
