@@ -857,12 +857,12 @@ function resolveMirrorButtonTransform(kind: MirrorKind, edge: "top" | "left" | "
       return "translate(calc(-100% - 44px), -50%) rotate(-90deg)";
     case "diag-desc":
       return edge === "top"
-        ? "translate(-78%, calc(-100% - 44px)) rotate(-45deg)"
-        : "translate(calc(-100% - 44px), -78%) rotate(-45deg)";
+        ? "translate(-50%, calc(-100% - 56px)) rotate(-45deg)"
+        : "translate(calc(-100% - 56px), -50%) rotate(-45deg)";
     case "diag-asc":
       return edge === "top"
-        ? "translate(-22%, calc(-100% - 44px)) rotate(45deg)"
-        : "translate(44px, -78%) rotate(45deg)";
+        ? "translate(-50%, calc(-100% - 56px)) rotate(45deg)"
+        : "translate(56px, -50%) rotate(45deg)";
   }
 }
 
