@@ -22,7 +22,7 @@
   "dependencies": {
     "buffer": "^6.0.3",
     "commander": "^14.0.2",
-    "dattools": "git+https://github.com/joshua-bone/DATTools.git#00f83ad",
+    "dattools": "git+https://github.com/joshua-bone/DATTools.git#6fe85c0",
     "pngjs": "^7.0.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
