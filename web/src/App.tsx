@@ -4946,6 +4946,7 @@ export default function App() {
               <div
                 ref={boardViewportRef}
                 className={`boardViewport ${boardStatus.isPanning ? "panning" : ""}`}
+                style={boardCanvasCursor ? { cursor: boardCanvasCursor } : undefined}
                 onContextMenu={(event) => event.preventDefault()}
                 onPointerDown={onBoardPointerDown}
                 onPointerMove={onBoardPointerMove}
