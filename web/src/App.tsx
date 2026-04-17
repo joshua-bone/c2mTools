@@ -267,7 +267,7 @@ function buildSelectionCursor(mode: SelectionMode, operation: SelectionOperation
   const modeBadge = getSelectionModeBadge(mode);
   const operationBadge = getSelectionOperationBadge(operation);
   return `url("data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path fill="rgba(248,252,255,0.98)" stroke="rgba(28,42,51,0.96)" stroke-width="1.3" d="M5.5 3.5v18.9l4.48-4.22 2.87 7.43 3.17-1.24-2.88-7.43 6.38-.1z"/><rect x="16.5" y="18.5" width="11" height="9" rx="3" fill="rgba(20,33,42,0.94)"/><text x="22" y="24.3" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="7.8" font-weight="700" fill="rgba(248,252,255,0.98)">${modeBadge}</text>${operationBadge ? `<text x="26.6" y="26.7" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="6.6" font-weight="700" fill="rgba(129, 215, 255, 0.98)">${operationBadge}</text>` : ""}</svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path fill="rgba(248,252,255,0.98)" stroke="rgba(28,42,51,0.96)" stroke-width="1.3" d="M5.5 3.5v18.9l4.48-4.22 2.87 7.43 3.17-1.24-2.88-7.43 6.38-.1z"/><rect x="16.5" y="18.5" width="11" height="9" rx="3" fill="rgba(20,33,42,0.94)"/><text x="22" y="24.3" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="7.8" font-weight="700" fill="rgba(248,252,255,0.98)">${modeBadge}</text>${operationBadge ? `<circle cx="27.2" cy="19.4" r="3.3" fill="rgba(129, 215, 255, 0.98)"/><text x="27.2" y="21.8" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="6.7" font-weight="800" fill="rgba(20,33,42,0.98)">${operationBadge}</text>` : ""}</svg>`,
   )}") 2 2, crosshair`;
 }
 
@@ -1636,6 +1636,29 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!pastePreviewActive) return;
+
+    const dismissPastePreview = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+
+      const interactiveTarget =
+        target instanceof Element
+          ? target.closest('button, input, select, textarea, a, [role="button"]')
+          : null;
+
+      if (interactiveTarget || !boardViewportRef.current?.contains(target)) {
+        setPastePreviewActive(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", dismissPastePreview, true);
+    return () => {
+      document.removeEventListener("pointerdown", dismissPastePreview, true);
+    };
+  }, [pastePreviewActive]);
+
+  useEffect(() => {
     if (viewMode !== "board" || !activeMap) {
       clearKeyboardPan();
       return;
@@ -2079,6 +2102,7 @@ export default function App() {
 
   const assignPaletteBrush = useCallback(
     (brush: TileSpecJson, target: PaletteAssignmentTarget) => {
+      setPastePreviewActive(false);
       setLastPaletteAssignmentTarget(target);
       if (tool === "wire") setTool("brush");
       const logicModifier = getTileModifier(toTileSpecObj(brush), "LOGIC");
@@ -2249,7 +2273,9 @@ export default function App() {
         boardStatus.hoverPoint ??
         (selection ? { x: selection.x, y: selection.y } : { x: 0, y: 0 });
       const nextMap = pasteMapRegion(map, anchor, clipboard);
-      const nextSelection = resolveClipboardPreviewRect(map, anchor, clipboard);
+      const nextSelection =
+        buildC2mPastePreviewSelection(map, anchor, clipboard) ??
+        createSelectionFromRect(resolveClipboardPreviewRect(map, anchor, clipboard));
 
       if (commitMapChange(nextMap)) {
         setSelection({
@@ -2257,7 +2283,6 @@ export default function App() {
           mode: selectionMode,
         });
       }
-      setPastePreviewActive(false);
     },
     [
       boardStatus.hoverPoint,
@@ -3539,6 +3564,8 @@ export default function App() {
   const onBoardPointerMove = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (!activeMap || !boardRect) return;
+      if (event.altKey !== isAltPressed) setIsAltPressed(event.altKey);
+      if (event.shiftKey !== isShiftPressed) setIsShiftPressed(event.shiftKey);
 
       const panState = dragPanRef.current;
       if (panState && panState.pointerId === event.pointerId) {
@@ -3669,6 +3696,8 @@ export default function App() {
       boardStatus.boardZoom,
       dragState,
       hasActiveMirrors,
+      isAltPressed,
+      isShiftPressed,
       mirrorState,
       replaceMapChangeLive,
       resolveBoardCellAtClientPoint,
@@ -4744,10 +4773,10 @@ export default function App() {
                 <button
                   type="button"
                   className="secondaryButton"
-                  onClick={pastePreviewActive ? () => commitPastePreview() : beginPastePreview}
-                  disabled={!clipboard || (pastePreviewActive && !canMutateBoard)}
+                  onClick={beginPastePreview}
+                  disabled={!clipboard}
                 >
-                  {pastePreviewActive ? "Commit Paste" : "Paste"}
+                  Paste
                 </button>
                 <button
                   type="button"
