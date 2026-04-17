@@ -1679,9 +1679,7 @@ select.textField.compactField {
 }
 
 .generatePreviewGrid {
-  display: grid;
-  grid-template-columns: repeat(32, 4px);
-  grid-template-rows: repeat(32, 4px);
+  display: block;
   width: 128px;
   height: 128px;
   border-radius: 4px;
@@ -1689,17 +1687,16 @@ select.textField.compactField {
   box-shadow: 0 0 0 1px rgba(47, 70, 81, 0.08);
 }
 
-.generatePreviewCell {
-  width: 4px;
-  height: 4px;
-}
-
-.generatePreviewCell.floor {
+.generatePreviewPlaceholder {
   background: #d8d8d8;
 }
 
-.generatePreviewCell.wall {
-  background: #4e4e4e;
+.generatePreviewFloor {
+  fill: #d8d8d8;
+}
+
+.generatePreviewWall {
+  fill: #4e4e4e;
 }
 
 .generateCardMeta {
