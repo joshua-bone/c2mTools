@@ -571,7 +571,7 @@ canvas {
 
 .textBrushPanel {
   display: grid;
-  grid-template-columns: minmax(220px, 1.7fr) repeat(2, minmax(140px, 0.8fr));
+  grid-template-columns: minmax(220px, 1.7fr) repeat(3, minmax(110px, 0.7fr));
   gap: 8px;
   align-items: start;
   margin-top: 10px;
@@ -589,6 +589,10 @@ canvas {
 
 .textBrushFieldSize {
   max-width: 120px;
+}
+
+.textBrushFieldAlign {
+  max-width: 132px;
 }
 
 .textBrushPanel select,
@@ -619,6 +623,22 @@ canvas {
   font-family: "SFMono-Regular", "Menlo", "Monaco", monospace;
   font-size: 12px;
   line-height: 1.35;
+}
+
+.textBrushSample {
+  grid-column: 1 / -1;
+}
+
+.textBrushSamplePreview {
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 1px solid rgba(57, 75, 66, 0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.05;
 }
 
 .panelBanner {

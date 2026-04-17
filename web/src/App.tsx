@@ -160,13 +160,16 @@ import {
   type EditorToolMode,
 } from "./editor/shortcuts";
 import {
+  DEFAULT_TEXT_BRUSH_ALIGN,
   DEFAULT_TEXT_BRUSH_FONT_FAMILY,
   DEFAULT_TEXT_BRUSH_FONT_SIZE,
   DEFAULT_TEXT_BRUSH_TEXT,
+  TEXT_BRUSH_ALIGN_CHOICES,
   TEXT_BRUSH_FONT_CHOICES,
   TEXT_BRUSH_SIZE_CHOICES,
   rasterizeTextBrush,
   type RasterizedTextBrush,
+  type TextBrushAlign,
 } from "./editor/textBrush";
 import { describeTileSpec, formatTileDisplayName, getTileSpecName } from "./editor/tileDisplay";
 import { loadCc2Tileset } from "./loadCc2Tileset";
@@ -621,6 +624,7 @@ type TextBrushConfig = Readonly<{
   text: string;
   fontFamily: string;
   fontSize: number;
+  align: TextBrushAlign;
 }>;
 type SelectionArea = GridRect &
   Readonly<{
@@ -1281,6 +1285,7 @@ export default function App() {
   const [textBrushText, setTextBrushText] = useState(DEFAULT_TEXT_BRUSH_TEXT);
   const [textBrushFontFamily, setTextBrushFontFamily] = useState(DEFAULT_TEXT_BRUSH_FONT_FAMILY);
   const [textBrushFontSize, setTextBrushFontSize] = useState(DEFAULT_TEXT_BRUSH_FONT_SIZE);
+  const [textBrushAlign, setTextBrushAlign] = useState<TextBrushAlign>(DEFAULT_TEXT_BRUSH_ALIGN);
   const [paletteQuery, setPaletteQuery] = useState("");
   const [tool, setTool] = useState<ToolMode>("brush");
   const [selectionMode, setSelectionMode] = useState<SelectionMode>(DEFAULT_SELECTION_MODE);
@@ -1457,8 +1462,9 @@ export default function App() {
       text: textBrushText,
       fontFamily: textBrushFontFamily,
       fontSize: textBrushFontSize,
+      align: textBrushAlign,
     }),
-    [textBrushFontFamily, textBrushFontSize, textBrushText],
+    [textBrushAlign, textBrushFontFamily, textBrushFontSize, textBrushText],
   );
   const textBrushRaster = useMemo(
     () =>
@@ -1466,6 +1472,7 @@ export default function App() {
         textBrushConfig.text,
         textBrushConfig.fontFamily,
         textBrushConfig.fontSize,
+        textBrushConfig.align,
       ),
     [textBrushConfig],
   );
@@ -5052,6 +5059,12 @@ export default function App() {
                     className="textBrushTextarea"
                     spellCheck={false}
                     value={textBrushConfig.text}
+                    style={{
+                      fontFamily: textBrushConfig.fontFamily,
+                      fontSize: `${Math.min(Math.max(textBrushConfig.fontSize * 2.25, 14), 40)}px`,
+                      lineHeight: 1.1,
+                      textAlign: textBrushConfig.align,
+                    }}
                     onChange={(event) => setTextBrushText(event.target.value)}
                   />
                 </div>
@@ -5086,6 +5099,35 @@ export default function App() {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div className="textBrushField textBrushFieldAlign">
+                  <label className="fieldLabel" htmlFor="c2m-text-brush-align">
+                    Align
+                  </label>
+                  <select
+                    id="c2m-text-brush-align"
+                    value={textBrushConfig.align}
+                    onChange={(event) => setTextBrushAlign(event.target.value as TextBrushAlign)}
+                  >
+                    {TEXT_BRUSH_ALIGN_CHOICES.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="textBrushSample">
+                  <div className="fieldLabel">Font Preview</div>
+                  <div
+                    className="textBrushSamplePreview"
+                    style={{
+                      fontFamily: textBrushConfig.fontFamily,
+                      fontSize: `${Math.min(Math.max(textBrushConfig.fontSize * 2.5, 16), 56)}px`,
+                      textAlign: textBrushConfig.align,
+                    }}
+                  >
+                    {textBrushConfig.text.length > 0 ? textBrushConfig.text : " "}
+                  </div>
                 </div>
               </div>
             ) : null}
