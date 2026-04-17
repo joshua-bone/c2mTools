@@ -1,11 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  buildTextBrushPreviewLayout,
   DEFAULT_TEXT_BRUSH_FONT_FAMILY,
   DEFAULT_TEXT_BRUSH_FONT_SIZE,
   TEXT_BRUSH_FONT_CHOICES,
   formatTextBrushFontSizeLabel,
+  getTextBrushPreviewCaretRect,
   getTextBrushPreviewFontSize,
+  getTextBrushPreviewSelectionRects,
   getTextBrushSizeChoices,
   normalizeTextBrushFontSize,
   rasterizeTextBrush,
@@ -259,5 +262,25 @@ describe("text brush font presets", () => {
     expect(preview!.height).toBe(brush!.height * PREVIEW_SCALE);
     expect(rasterToRows(preview!)).toEqual(scaleRows(rasterToRows(brush!), PREVIEW_SCALE));
     expect(getTextBrushPreviewFontSize(tiny5Family, 5)).toBe(20);
+  });
+
+  it("tracks pixel preview caret and selection geometry from the same raster layout", () => {
+    const tiny5Family = TEXT_BRUSH_FONT_CHOICES[0]!.family;
+    const layout = buildTextBrushPreviewLayout("TEXT", tiny5Family, 5, "left");
+
+    expect(layout).not.toBeNull();
+    const caretStart = getTextBrushPreviewCaretRect(layout!, 0);
+    const caretMid = getTextBrushPreviewCaretRect(layout!, 2);
+    const selection = getTextBrushPreviewSelectionRects(layout!, 0, 2);
+    const fullSelection = getTextBrushPreviewSelectionRects(layout!, 0, 4);
+
+    expect(caretStart).toEqual({ x: 0, y: 0, width: 0, height: layout!.raster.height });
+    expect(caretMid?.x).toBeGreaterThan(caretStart!.x);
+    expect(selection).toHaveLength(1);
+    expect(selection[0]?.x).toBe(caretStart?.x);
+    expect(selection[0]?.width).toBe(caretMid?.x);
+    expect(fullSelection).toEqual([
+      { x: 0, y: 0, width: layout!.raster.width, height: layout!.raster.height },
+    ]);
   });
 });

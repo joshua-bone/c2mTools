@@ -16,6 +16,28 @@ export type RasterizedTextBrush = Readonly<{
   indices: ReadonlyArray<number>;
 }>;
 
+export type TextBrushPreviewRect = Readonly<{
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}>;
+
+export type TextBrushPreviewLayout = Readonly<{
+  raster: RasterizedTextBrush;
+  lines: ReadonlyArray<
+    Readonly<{
+      startOffset: number;
+      endOffset: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }>
+  >;
+  carets: ReadonlyArray<TextBrushPreviewRect>;
+}>;
+
 const TEXT_BRUSH_PADDING = 2;
 const DEFAULT_ASCENT_RATIO = 0.8;
 const DEFAULT_DESCENT_RATIO = 0.2;
@@ -504,19 +526,34 @@ function rasterizePixelFontGlyph(
   return scaleRasterizedTextBrush(nativeRaster, outputScale);
 }
 
-function composeRasterizedTextBrush(
-  lines: ReadonlyArray<ReadonlyArray<RasterizedTextBrush>>,
+type PixelPreviewLineInput = Readonly<{
+  startOffset: number;
+  endOffset: number;
+  glyphs: ReadonlyArray<
+    Readonly<{
+      textIndex: number;
+      raster: RasterizedTextBrush;
+    }>
+  >;
+}>;
+
+function composeRasterizedTextBrushLayout(
+  lines: ReadonlyArray<PixelPreviewLineInput>,
   align: TextBrushAlign,
   glyphGap: number,
   lineGap: number,
-): RasterizedTextBrush | null {
+  defaultLineHeight: number,
+): TextBrushPreviewLayout | null {
   if (lines.length === 0) return null;
 
   const lineWidths = lines.map((line) =>
-    line.reduce((total, glyph, index) => total + glyph.width + (index > 0 ? glyphGap : 0), 0),
+    line.glyphs.reduce(
+      (total, glyph, index) => total + glyph.raster.width + (index > 0 ? glyphGap : 0),
+      0,
+    ),
   );
   const lineHeights = lines.map((line) =>
-    Math.max(1, ...line.map((glyph) => glyph.height), line.length === 0 ? 1 : 0),
+    Math.max(defaultLineHeight, ...line.glyphs.map((glyph) => glyph.raster.height)),
   );
   const width = Math.max(1, ...lineWidths);
   const height = Math.max(
@@ -524,10 +561,18 @@ function composeRasterizedTextBrush(
     lineHeights.reduce((total, value) => total + value, 0) + lineGap * (lines.length - 1),
   );
   const indices: number[] = [];
+  const previewLines: Array<TextBrushPreviewLayout["lines"][number]> = [];
+  const carets = Array.from({ length: lines.at(-1)!.endOffset + 1 }, () => ({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: defaultLineHeight,
+  }));
 
   let cursorY = 0;
   lines.forEach((line, lineIndex) => {
     const lineWidth = lineWidths[lineIndex] ?? 0;
+    const lineHeight = lineHeights[lineIndex] ?? defaultLineHeight;
     const xOffset =
       align === "center"
         ? Math.floor((width - lineWidth) / 2)
@@ -535,39 +580,132 @@ function composeRasterizedTextBrush(
           ? width - lineWidth
           : 0;
     let cursorX = xOffset;
-    line.forEach((glyph, glyphIndex) => {
+    carets[line.startOffset] = { x: xOffset, y: cursorY, width: 0, height: lineHeight };
+    line.glyphs.forEach((glyph, glyphIndex) => {
       if (glyphIndex > 0) {
         cursorX += glyphGap;
       }
-      for (const index of glyph.indices) {
-        const x = cursorX + (index % glyph.width);
-        const y = cursorY + Math.floor(index / glyph.width);
+      for (const index of glyph.raster.indices) {
+        const x = cursorX + (index % glyph.raster.width);
+        const y = cursorY + Math.floor(index / glyph.raster.width);
         indices.push(y * width + x);
       }
-      cursorX += glyph.width;
+      cursorX += glyph.raster.width;
+      carets[glyph.textIndex + 1] = { x: cursorX, y: cursorY, width: 0, height: lineHeight };
     });
-    cursorY += (lineHeights[lineIndex] ?? 1) + lineGap;
+    previewLines.push({
+      startOffset: line.startOffset,
+      endOffset: line.endOffset,
+      x: xOffset,
+      y: cursorY,
+      width: lineWidth,
+      height: lineHeight,
+    });
+    cursorY += lineHeight + lineGap;
   });
 
-  return { width, height, indices };
+  return {
+    raster: { width, height, indices },
+    lines: previewLines,
+    carets,
+  };
 }
 
-function rasterizePixelFontText(
+function rasterizePixelFontTextLayout(
   text: string,
   fontFamily: string,
   fontSize: number,
   align: TextBrushAlign,
-): RasterizedTextBrush | null {
+): TextBrushPreviewLayout | null {
   const normalizedText = text.replace(/\r\n?/g, "\n");
   if (normalizedText.trim().length === 0) return null;
   const baseSize = getTextBrushFontChoice(fontFamily).sizeStepBase ?? fontSize;
   const outputScale = Math.max(1, Math.round(fontSize / baseSize));
-  const lines = normalizedText
-    .split("\n")
-    .map((line) =>
-      Array.from(line).map((char) => rasterizePixelFontGlyph(char, fontFamily, fontSize)),
-    );
-  return composeRasterizedTextBrush(lines, align, GLYPH_GAP * outputScale, LINE_GAP * outputScale);
+  let offset = 0;
+  const lines = normalizedText.split("\n").map((line) => {
+    const startOffset = offset;
+    const glyphs = Array.from(line).map((char, index) => ({
+      textIndex: startOffset + index,
+      raster: rasterizePixelFontGlyph(char, fontFamily, fontSize),
+    }));
+    offset += line.length + 1;
+    return {
+      startOffset,
+      endOffset: startOffset + line.length,
+      glyphs,
+    };
+  });
+  return composeRasterizedTextBrushLayout(
+    lines,
+    align,
+    GLYPH_GAP * outputScale,
+    LINE_GAP * outputScale,
+    fontSize,
+  );
+}
+
+function scalePreviewRect(rect: TextBrushPreviewRect, factor: number): TextBrushPreviewRect {
+  return {
+    x: rect.x * factor,
+    y: rect.y * factor,
+    width: rect.width * factor,
+    height: rect.height * factor,
+  };
+}
+
+export function buildTextBrushPreviewLayout(
+  text: string,
+  fontFamily: string,
+  fontSize: number,
+  align: TextBrushAlign,
+): TextBrushPreviewLayout | null {
+  if (!isTextBrushPixelFont(fontFamily)) return null;
+  const nativeLayout = rasterizePixelFontTextLayout(text, fontFamily, fontSize, align);
+  if (!nativeLayout) return null;
+  const previewFontSize = getTextBrushPreviewFontSize(fontFamily, fontSize);
+  const previewScale = Math.max(1, Math.round(previewFontSize / fontSize));
+  return {
+    raster: scaleRasterizedTextBrush(nativeLayout.raster, previewScale),
+    lines: nativeLayout.lines.map((line) => ({
+      startOffset: line.startOffset,
+      endOffset: line.endOffset,
+      ...scalePreviewRect(line, previewScale),
+    })),
+    carets: nativeLayout.carets.map((caret) => scalePreviewRect(caret, previewScale)),
+  };
+}
+
+export function getTextBrushPreviewSelectionRects(
+  layout: TextBrushPreviewLayout,
+  selectionStart: number,
+  selectionEnd: number,
+): ReadonlyArray<TextBrushPreviewRect> {
+  const start = Math.max(0, Math.min(selectionStart, selectionEnd));
+  const end = Math.max(0, Math.max(selectionStart, selectionEnd));
+  if (start === end) return [];
+  const rects: TextBrushPreviewRect[] = [];
+  for (const line of layout.lines) {
+    const lineStart = Math.max(start, line.startOffset);
+    const lineEnd = Math.min(end, line.endOffset);
+    if (lineStart >= lineEnd) continue;
+    const startCaret = layout.carets[lineStart];
+    const endCaret = layout.carets[lineEnd];
+    if (!startCaret || !endCaret) continue;
+    rects.push({
+      x: startCaret.x,
+      y: line.y,
+      width: Math.max(1, endCaret.x - startCaret.x),
+      height: line.height,
+    });
+  }
+  return rects;
+}
+
+export function getTextBrushPreviewCaretRect(
+  layout: TextBrushPreviewLayout,
+  caretIndex: number,
+): TextBrushPreviewRect | null {
+  return layout.carets[caretIndex] ?? null;
 }
 
 export function rasterizeTextBrushPreviewModel(
@@ -576,13 +714,9 @@ export function rasterizeTextBrushPreviewModel(
   fontSize: number,
   align: TextBrushAlign,
 ): RasterizedTextBrush | null {
-  const brush = rasterizeTextBrush(text, fontFamily, fontSize, align);
-  if (!brush) return null;
-  const choice = getTextBrushFontChoice(fontFamily);
-  if (!choice.sizeStepBase) return brush;
-  const previewFontSize = getTextBrushPreviewFontSize(fontFamily, fontSize);
-  const previewScale = Math.max(1, Math.round(previewFontSize / fontSize));
-  return scaleRasterizedTextBrush(brush, previewScale);
+  const layout = buildTextBrushPreviewLayout(text, fontFamily, fontSize, align);
+  if (layout) return layout.raster;
+  return rasterizeTextBrush(text, fontFamily, fontSize, align);
 }
 
 export function rasterizeTextBrush(
@@ -593,7 +727,7 @@ export function rasterizeTextBrush(
 ): RasterizedTextBrush | null {
   const choice = getTextBrushFontChoice(fontFamily);
   if (choice.sizeStepBase) {
-    return rasterizePixelFontText(text, fontFamily, fontSize, align);
+    return rasterizePixelFontTextLayout(text, fontFamily, fontSize, align)?.raster ?? null;
   }
 
   const alphaMask = renderTextAlphaMask(

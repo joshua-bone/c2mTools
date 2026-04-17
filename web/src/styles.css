@@ -639,12 +639,19 @@ canvas {
 
 .textBrushTextarea.pixelPreviewActive {
   color: transparent;
+  -webkit-text-fill-color: transparent;
   text-shadow: none;
+  caret-color: transparent;
+}
+
+.textBrushTextarea.pixelPreviewActive::selection {
+  background: transparent;
+  color: transparent;
 }
 
 .textBrushPreviewOverlay {
   position: absolute;
-  inset: 8px 10px;
+  inset: 7px 10px;
   overflow: hidden;
   pointer-events: none;
   z-index: 2;
@@ -652,8 +659,32 @@ canvas {
 
 .textBrushPreviewRaster {
   display: block;
-  fill: var(--ink);
   shape-rendering: crispEdges;
+}
+
+.textBrushPreviewRaster rect {
+  fill: var(--ink);
+}
+
+.textBrushPreviewSelection {
+  fill: rgba(111, 165, 233, 0.45);
+}
+
+.textBrushPreviewCaret {
+  fill: var(--ink);
+  animation: textBrushCaretBlink 1s steps(1, end) infinite;
+}
+
+@keyframes textBrushCaretBlink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .panelBanner {

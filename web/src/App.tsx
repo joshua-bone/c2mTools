@@ -164,18 +164,21 @@ import {
   DEFAULT_TEXT_BRUSH_FONT_FAMILY,
   DEFAULT_TEXT_BRUSH_FONT_SIZE,
   DEFAULT_TEXT_BRUSH_TEXT,
+  buildTextBrushPreviewLayout,
   formatTextBrushFontSizeLabel,
+  getTextBrushPreviewCaretRect,
   getTextBrushPreviewFontSize,
+  getTextBrushPreviewSelectionRects,
   getTextBrushSizeChoices,
   isTextBrushPixelFont,
   loadTextBrushFont,
   normalizeTextBrushFontSize,
-  rasterizeTextBrushPreviewModel,
   TEXT_BRUSH_ALIGN_CHOICES,
   TEXT_BRUSH_FONT_CHOICES,
   rasterizeTextBrush,
   type RasterizedTextBrush,
   type TextBrushAlign,
+  type TextBrushPreviewRect,
 } from "./editor/textBrush";
 import { describeTileSpec, formatTileDisplayName, getTileSpecName } from "./editor/tileDisplay";
 import { loadCc2Tileset } from "./loadCc2Tileset";
@@ -1506,9 +1509,9 @@ export default function App() {
       ),
     [textBrushConfig, textBrushFontLoadTick],
   );
-  const textBrushPreviewRaster = useMemo(
+  const textBrushPreviewLayout = useMemo(
     () =>
-      rasterizeTextBrushPreviewModel(
+      buildTextBrushPreviewLayout(
         textBrushConfig.text,
         textBrushConfig.fontFamily,
         textBrushConfig.fontSize,
@@ -1516,13 +1519,68 @@ export default function App() {
       ),
     [textBrushConfig, textBrushFontLoadTick],
   );
+  const textBrushPreviewRaster = textBrushPreviewLayout?.raster ?? null;
   const [textBrushPreviewScroll, setTextBrushPreviewScroll] = useState({ left: 0, top: 0 });
+  const [textBrushSelection, setTextBrushSelection] = useState({
+    start: 0,
+    end: 0,
+    focused: false,
+  });
   const textBrushSizeChoices = getTextBrushSizeChoices(textBrushConfig.fontFamily);
   const textBrushPreviewFontSize = getTextBrushPreviewFontSize(
     textBrushConfig.fontFamily,
     textBrushConfig.fontSize,
   );
   const showTextBrushPixelPreview = isTextBrushPixelFont(textBrushConfig.fontFamily);
+  useEffect(() => {
+    setTextBrushSelection((selection) => {
+      const max = textBrushConfig.text.length;
+      return {
+        ...selection,
+        start: Math.min(selection.start, max),
+        end: Math.min(selection.end, max),
+      };
+    });
+  }, [textBrushConfig.text]);
+  const syncTextBrushSelection = (textarea: HTMLTextAreaElement, focused: boolean): void => {
+    setTextBrushSelection({
+      start: textarea.selectionStart ?? 0,
+      end: textarea.selectionEnd ?? 0,
+      focused,
+    });
+  };
+  const textBrushSelectionRects = useMemo(
+    () =>
+      showTextBrushPixelPreview && textBrushPreviewLayout
+        ? getTextBrushPreviewSelectionRects(
+            textBrushPreviewLayout,
+            textBrushSelection.start,
+            textBrushSelection.end,
+          )
+        : ([] as ReadonlyArray<TextBrushPreviewRect>),
+    [
+      showTextBrushPixelPreview,
+      textBrushPreviewLayout,
+      textBrushSelection.end,
+      textBrushSelection.start,
+    ],
+  );
+  const textBrushCaretRect = useMemo(
+    () =>
+      showTextBrushPixelPreview &&
+      textBrushPreviewLayout &&
+      textBrushSelection.focused &&
+      textBrushSelection.start === textBrushSelection.end
+        ? getTextBrushPreviewCaretRect(textBrushPreviewLayout, textBrushSelection.end)
+        : null,
+    [
+      showTextBrushPixelPreview,
+      textBrushPreviewLayout,
+      textBrushSelection.end,
+      textBrushSelection.focused,
+      textBrushSelection.start,
+    ],
+  );
   const textPreviewBaseIndices = useMemo(
     () =>
       tool === "text" && !dragState
@@ -5116,6 +5174,16 @@ export default function App() {
                           height={textBrushPreviewRaster.height}
                           viewBox={`0 0 ${textBrushPreviewRaster.width} ${textBrushPreviewRaster.height}`}
                         >
+                          {textBrushSelectionRects.map((rect, index) => (
+                            <rect
+                              key={`selection-${index}`}
+                              className="textBrushPreviewSelection"
+                              x={rect.x}
+                              y={rect.y}
+                              width={rect.width}
+                              height={rect.height}
+                            />
+                          ))}
                           {textBrushPreviewRaster.indices.map((index) => (
                             <rect
                               key={index}
@@ -5125,6 +5193,15 @@ export default function App() {
                               height="1"
                             />
                           ))}
+                          {textBrushCaretRect ? (
+                            <rect
+                              className="textBrushPreviewCaret"
+                              x={textBrushCaretRect.x}
+                              y={textBrushCaretRect.y}
+                              width="2"
+                              height={textBrushCaretRect.height}
+                            />
+                          ) : null}
                         </svg>
                       </div>
                     ) : null}
@@ -5139,13 +5216,19 @@ export default function App() {
                         lineHeight: 1.1,
                         textAlign: textBrushConfig.align,
                       }}
-                      onChange={(event) => setTextBrushText(event.target.value)}
+                      onChange={(event) => {
+                        setTextBrushText(event.target.value);
+                        syncTextBrushSelection(event.currentTarget, true);
+                      }}
                       onScroll={(event) =>
                         setTextBrushPreviewScroll({
                           left: event.currentTarget.scrollLeft,
                           top: event.currentTarget.scrollTop,
                         })
                       }
+                      onSelect={(event) => syncTextBrushSelection(event.currentTarget, true)}
+                      onFocus={(event) => syncTextBrushSelection(event.currentTarget, true)}
+                      onBlur={(event) => syncTextBrushSelection(event.currentTarget, false)}
                     />
                   </div>
                 </div>
