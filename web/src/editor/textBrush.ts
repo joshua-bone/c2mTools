@@ -16,6 +16,18 @@ export type RasterizedTextBrush = Readonly<{
   indices: ReadonlyArray<number>;
 }>;
 
+export type TextBrushPreviewModel = Readonly<{
+  width: number;
+  height: number;
+  cells: ReadonlyArray<
+    Readonly<{
+      x: number;
+      y: number;
+      size: number;
+    }>
+  >;
+}>;
+
 const TEXT_BRUSH_PADDING = 2;
 const DEFAULT_ASCENT_RATIO = 0.8;
 const DEFAULT_DESCENT_RATIO = 0.2;
@@ -155,6 +167,26 @@ export function getTextBrushPreviewFontSize(fontFamily: string, fontSize: number
     return Math.min(fontSize * 4, 96);
   }
   return Math.min(Math.max(fontSize * 2.25, 14), 40);
+}
+
+export function getTextBrushPreviewPixelSize(fontFamily: string, fontSize: number): number {
+  return Math.max(1, Math.floor(getTextBrushPreviewFontSize(fontFamily, fontSize) / fontSize));
+}
+
+export function buildTextBrushPreviewModel(
+  raster: RasterizedTextBrush | null,
+  pixelSize: number,
+): TextBrushPreviewModel | null {
+  if (!raster) return null;
+  return {
+    width: raster.width * pixelSize,
+    height: raster.height * pixelSize,
+    cells: raster.indices.map((index) => ({
+      x: (index % raster.width) * pixelSize,
+      y: Math.floor(index / raster.width) * pixelSize,
+      size: pixelSize,
+    })),
+  };
 }
 
 export async function loadTextBrushFont(

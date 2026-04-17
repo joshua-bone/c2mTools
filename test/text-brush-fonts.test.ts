@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildTextBrushPreviewModel,
   DEFAULT_TEXT_BRUSH_FONT_FAMILY,
   DEFAULT_TEXT_BRUSH_FONT_SIZE,
   TEXT_BRUSH_FONT_CHOICES,
@@ -21,5 +22,26 @@ describe("text brush font presets", () => {
     expect(getTextBrushSizeChoices(tiny5Family)).toEqual([5, 10, 15, 20]);
     expect(formatTextBrushFontSizeLabel(tiny5Family, 15)).toBe("15px (3x)");
     expect(normalizeTextBrushFontSize(tiny5Family, 6)).toBe(5);
+  });
+
+  it("builds preview geometry directly from the brush raster", () => {
+    const preview = buildTextBrushPreviewModel(
+      {
+        width: 3,
+        height: 2,
+        indices: [0, 2, 4, 5],
+      },
+      4,
+    );
+    expect(preview).toEqual({
+      width: 12,
+      height: 8,
+      cells: [
+        { x: 0, y: 0, size: 4 },
+        { x: 8, y: 0, size: 4 },
+        { x: 4, y: 4, size: 4 },
+        { x: 8, y: 4, size: 4 },
+      ],
+    });
   });
 });

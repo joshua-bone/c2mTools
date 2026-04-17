@@ -160,12 +160,14 @@ import {
   type EditorToolMode,
 } from "./editor/shortcuts";
 import {
+  buildTextBrushPreviewModel,
   DEFAULT_TEXT_BRUSH_ALIGN,
   DEFAULT_TEXT_BRUSH_FONT_FAMILY,
   DEFAULT_TEXT_BRUSH_FONT_SIZE,
   DEFAULT_TEXT_BRUSH_TEXT,
   formatTextBrushFontSizeLabel,
   getTextBrushPreviewFontSize,
+  getTextBrushPreviewPixelSize,
   getTextBrushSizeChoices,
   loadTextBrushFont,
   normalizeTextBrushFontSize,
@@ -1508,6 +1510,14 @@ export default function App() {
   const textBrushPreviewFontSize = getTextBrushPreviewFontSize(
     textBrushConfig.fontFamily,
     textBrushConfig.fontSize,
+  );
+  const textBrushPreviewPixelSize = getTextBrushPreviewPixelSize(
+    textBrushConfig.fontFamily,
+    textBrushConfig.fontSize,
+  );
+  const textBrushPreviewModel = useMemo(
+    () => buildTextBrushPreviewModel(textBrushRaster, textBrushPreviewPixelSize),
+    [textBrushPreviewPixelSize, textBrushRaster],
   );
   const textPreviewBaseIndices = useMemo(
     () =>
@@ -5087,19 +5097,48 @@ export default function App() {
                   <label className="fieldLabel" htmlFor="c2m-text-brush-text">
                     Text
                   </label>
-                  <textarea
-                    id="c2m-text-brush-text"
-                    className="textBrushTextarea"
-                    spellCheck={false}
-                    value={textBrushConfig.text}
-                    style={{
-                      fontFamily: textBrushConfig.fontFamily,
-                      fontSize: `${textBrushPreviewFontSize}px`,
-                      lineHeight: 1.1,
-                      textAlign: textBrushConfig.align,
-                    }}
-                    onChange={(event) => setTextBrushText(event.target.value)}
-                  />
+                  <div className="textBrushTextareaWrap">
+                    {textBrushPreviewModel ? (
+                      <div
+                        className={`textBrushTextareaPreview textBrushTextareaPreview-${textBrushConfig.align}`}
+                        aria-hidden="true"
+                      >
+                        <svg
+                          className="textBrushTextareaPreviewSvg"
+                          width={textBrushPreviewModel.width}
+                          height={textBrushPreviewModel.height}
+                          viewBox={`0 0 ${textBrushPreviewModel.width} ${textBrushPreviewModel.height}`}
+                        >
+                          {textBrushPreviewModel.cells.map((cell) => (
+                            <rect
+                              key={`${cell.x}:${cell.y}`}
+                              x={cell.x}
+                              y={cell.y}
+                              width={cell.size}
+                              height={cell.size}
+                              rx={0}
+                              ry={0}
+                              fill="currentColor"
+                            />
+                          ))}
+                        </svg>
+                      </div>
+                    ) : null}
+                    <textarea
+                      id="c2m-text-brush-text"
+                      className={`textBrushTextarea${textBrushPreviewModel ? " textBrushTextareaRasterized" : ""}`}
+                      spellCheck={false}
+                      value={textBrushConfig.text}
+                      style={{
+                        fontFamily: textBrushConfig.fontFamily,
+                        fontSize: `${textBrushPreviewFontSize}px`,
+                        lineHeight: 1.1,
+                        textAlign: textBrushConfig.align,
+                        minHeight: `${Math.max(72, (textBrushPreviewModel?.height ?? 0) + 20)}px`,
+                      }}
+                      onChange={(event) => setTextBrushText(event.target.value)}
+                    />
+                  </div>
                 </div>
                 <div className="textBrushField">
                   <label className="fieldLabel" htmlFor="c2m-text-brush-font">
