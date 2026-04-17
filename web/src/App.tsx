@@ -852,17 +852,17 @@ function applyMirroredMapFill(
 function resolveMirrorButtonTransform(kind: MirrorKind, edge: "top" | "left" | "right"): string {
   switch (kind) {
     case "vertical":
-      return "translate(-50%, calc(-100% - 10px))";
+      return "translate(-50%, calc(-100% - 44px))";
     case "horizontal":
-      return "translate(calc(-100% - 10px), -50%) rotate(-90deg)";
+      return "translate(calc(-100% - 44px), -50%) rotate(-90deg)";
     case "diag-desc":
       return edge === "top"
-        ? "translate(-78%, calc(-100% - 10px)) rotate(-45deg)"
-        : "translate(calc(-100% - 10px), -78%) rotate(-45deg)";
+        ? "translate(-78%, calc(-100% - 44px)) rotate(-45deg)"
+        : "translate(calc(-100% - 44px), -78%) rotate(-45deg)";
     case "diag-asc":
       return edge === "top"
-        ? "translate(-22%, calc(-100% - 10px)) rotate(45deg)"
-        : "translate(10px, -78%) rotate(45deg)";
+        ? "translate(-22%, calc(-100% - 44px)) rotate(45deg)"
+        : "translate(44px, -78%) rotate(45deg)";
   }
 }
 
@@ -2349,6 +2349,11 @@ export default function App() {
 
       if (moved) {
         updateMirrorOffset(event.clientX, event.clientY);
+        setMirrorState((current) =>
+          current[mirrorDragState.kind].active
+            ? current
+            : toggleMirrorActive(current, mirrorDragState.kind),
+        );
       } else {
         setMirrorState((current) => toggleMirrorActive(current, mirrorDragState.kind));
       }
