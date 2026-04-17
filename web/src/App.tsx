@@ -167,8 +167,10 @@ import {
   formatTextBrushFontSizeLabel,
   getTextBrushPreviewFontSize,
   getTextBrushSizeChoices,
+  isTextBrushPixelFont,
   loadTextBrushFont,
   normalizeTextBrushFontSize,
+  rasterizeTextBrushPreviewModel,
   TEXT_BRUSH_ALIGN_CHOICES,
   TEXT_BRUSH_FONT_CHOICES,
   rasterizeTextBrush,
@@ -1504,11 +1506,23 @@ export default function App() {
       ),
     [textBrushConfig, textBrushFontLoadTick],
   );
+  const textBrushPreviewRaster = useMemo(
+    () =>
+      rasterizeTextBrushPreviewModel(
+        textBrushConfig.text,
+        textBrushConfig.fontFamily,
+        textBrushConfig.fontSize,
+        textBrushConfig.align,
+      ),
+    [textBrushConfig, textBrushFontLoadTick],
+  );
+  const [textBrushPreviewScroll, setTextBrushPreviewScroll] = useState({ left: 0, top: 0 });
   const textBrushSizeChoices = getTextBrushSizeChoices(textBrushConfig.fontFamily);
   const textBrushPreviewFontSize = getTextBrushPreviewFontSize(
     textBrushConfig.fontFamily,
     textBrushConfig.fontSize,
   );
+  const showTextBrushPixelPreview = isTextBrushPixelFont(textBrushConfig.fontFamily);
   const textPreviewBaseIndices = useMemo(
     () =>
       tool === "text" && !dragState
@@ -5087,19 +5101,53 @@ export default function App() {
                   <label className="fieldLabel" htmlFor="c2m-text-brush-text">
                     Text
                   </label>
-                  <textarea
-                    id="c2m-text-brush-text"
-                    className="textBrushTextarea"
-                    spellCheck={false}
-                    value={textBrushConfig.text}
-                    style={{
-                      fontFamily: textBrushConfig.fontFamily,
-                      fontSize: `${textBrushPreviewFontSize}px`,
-                      lineHeight: 1.1,
-                      textAlign: textBrushConfig.align,
-                    }}
-                    onChange={(event) => setTextBrushText(event.target.value)}
-                  />
+                  <div className="textBrushTextareaWrap">
+                    {showTextBrushPixelPreview && textBrushPreviewRaster ? (
+                      <div
+                        className="textBrushPreviewOverlay"
+                        aria-hidden="true"
+                        style={{
+                          transform: `translate(${-textBrushPreviewScroll.left}px, ${-textBrushPreviewScroll.top}px)`,
+                        }}
+                      >
+                        <svg
+                          className="textBrushPreviewRaster"
+                          width={textBrushPreviewRaster.width}
+                          height={textBrushPreviewRaster.height}
+                          viewBox={`0 0 ${textBrushPreviewRaster.width} ${textBrushPreviewRaster.height}`}
+                        >
+                          {textBrushPreviewRaster.indices.map((index) => (
+                            <rect
+                              key={index}
+                              x={index % textBrushPreviewRaster.width}
+                              y={Math.floor(index / textBrushPreviewRaster.width)}
+                              width="1"
+                              height="1"
+                            />
+                          ))}
+                        </svg>
+                      </div>
+                    ) : null}
+                    <textarea
+                      id="c2m-text-brush-text"
+                      className={`textBrushTextarea ${showTextBrushPixelPreview ? "pixelPreviewActive" : ""}`}
+                      spellCheck={false}
+                      value={textBrushConfig.text}
+                      style={{
+                        fontFamily: textBrushConfig.fontFamily,
+                        fontSize: `${textBrushPreviewFontSize}px`,
+                        lineHeight: 1.1,
+                        textAlign: textBrushConfig.align,
+                      }}
+                      onChange={(event) => setTextBrushText(event.target.value)}
+                      onScroll={(event) =>
+                        setTextBrushPreviewScroll({
+                          left: event.currentTarget.scrollLeft,
+                          top: event.currentTarget.scrollTop,
+                        })
+                      }
+                    />
+                  </div>
                 </div>
                 <div className="textBrushField">
                   <label className="fieldLabel" htmlFor="c2m-text-brush-font">

@@ -592,6 +592,10 @@ canvas {
   min-width: 0;
 }
 
+.textBrushTextareaWrap {
+  position: relative;
+}
+
 .textBrushFieldSize {
   max-width: 120px;
 }
@@ -628,6 +632,28 @@ canvas {
   font-family: "SFMono-Regular", "Menlo", "Monaco", monospace;
   font-size: 12px;
   line-height: 1.35;
+  position: relative;
+  z-index: 1;
+  caret-color: var(--ink);
+}
+
+.textBrushTextarea.pixelPreviewActive {
+  color: transparent;
+  text-shadow: none;
+}
+
+.textBrushPreviewOverlay {
+  position: absolute;
+  inset: 8px 10px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.textBrushPreviewRaster {
+  display: block;
+  fill: var(--ink);
+  shape-rendering: crispEdges;
 }
 
 .panelBanner {
