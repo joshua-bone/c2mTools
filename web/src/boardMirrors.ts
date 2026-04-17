@@ -49,8 +49,12 @@ const MIRROR_TRANSFORMS: Readonly<Record<MirrorKind, MirrorTransformKind>> = {
   "diag-asc": "FLIP_DIAG_NESW",
 };
 
-function clampInteger(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, Math.round(value)));
+function normalizeMirrorOffset(kind: MirrorKind, offset: number): number {
+  if (kind === "vertical" || kind === "horizontal") {
+    return Math.round(offset * 2) / 2;
+  }
+
+  return Math.round(offset);
 }
 
 function pointsEqual(a: MirrorPoint, b: MirrorPoint): boolean {
@@ -96,9 +100,9 @@ export function getMirrorOffsetRange(
 export function getDefaultMirrorOffset(kind: MirrorKind, size: MirrorBoardSize): number {
   switch (kind) {
     case "vertical":
-      return clampMirrorOffset(kind, Math.floor(size.width / 2), size);
+      return clampMirrorOffset(kind, size.width / 2, size);
     case "horizontal":
-      return clampMirrorOffset(kind, Math.floor(size.height / 2), size);
+      return clampMirrorOffset(kind, size.height / 2, size);
     case "diag-desc":
       return clampMirrorOffset(kind, Math.round((size.height - size.width) / 2), size);
     case "diag-asc":
@@ -108,7 +112,7 @@ export function getDefaultMirrorOffset(kind: MirrorKind, size: MirrorBoardSize):
 
 export function clampMirrorOffset(kind: MirrorKind, offset: number, size: MirrorBoardSize): number {
   const range = getMirrorOffsetRange(kind, size);
-  return clampInteger(offset, range.min, range.max);
+  return Math.min(range.max, Math.max(range.min, normalizeMirrorOffset(kind, offset)));
 }
 
 export function createDefaultMirrorState(size: MirrorBoardSize): MirrorState {
