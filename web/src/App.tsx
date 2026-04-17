@@ -381,6 +381,59 @@ function resolveTileMatchSelection(map: MapJson, origin: GridPoint): number[] {
   return matches;
 }
 
+function buildC2mPastePreviewSelection(
+  map: MapJson,
+  anchor: GridPoint,
+  clipboard: C2mClipboard,
+): SelectionArea | null {
+  const indices: number[] = [];
+
+  for (let y = 0; y < clipboard.height; y += 1) {
+    for (let x = 0; x < clipboard.width; x += 1) {
+      const absoluteX = anchor.x + x;
+      const absoluteY = anchor.y + y;
+      if (absoluteX < 0 || absoluteY < 0 || absoluteX >= map.width || absoluteY >= map.height) {
+        continue;
+      }
+      const relativeIndex = y * clipboard.width + x;
+      if (clipboard.mask && !clipboard.mask[relativeIndex]) continue;
+      indices.push(pointToIndex({ x: absoluteX, y: absoluteY }, map));
+    }
+  }
+
+  return buildSelectionFromIndices(indices, map, "rect");
+}
+
+function rotateC2mClipboard(
+  clipboard: C2mClipboard,
+  kind: "ROTATE_90" | "ROTATE_270",
+): C2mClipboard {
+  const nextWidth = clipboard.height;
+  const nextHeight = clipboard.width;
+  const cellCount = nextWidth * nextHeight;
+  const cells = new Array<TileSpecJson>(cellCount).fill("FLOOR");
+  const mask = clipboard.mask ? new Array<boolean>(cellCount).fill(false) : null;
+
+  for (let index = 0; index < clipboard.width * clipboard.height; index += 1) {
+    const x = index % clipboard.width;
+    const y = Math.floor(index / clipboard.width);
+    const nextPoint =
+      kind === "ROTATE_90"
+        ? { x: clipboard.height - 1 - y, y: x }
+        : { x: y, y: clipboard.width - 1 - x };
+    const nextIndex = nextPoint.y * nextWidth + nextPoint.x;
+    cells[nextIndex] = transformTileSpec(clipboard.cells[index] ?? "FLOOR", kind);
+    if (mask) mask[nextIndex] = clipboard.mask?.[index] ?? true;
+  }
+
+  return {
+    width: nextWidth,
+    height: nextHeight,
+    cells,
+    ...(mask ? { mask } : {}),
+  };
+}
+
 const TRANSFORMS: Array<{ label: string; op: LevelTransformKind }> = [
   { label: "Rot 90", op: "ROTATE_90" },
   { label: "Rot 180", op: "ROTATE_180" },
@@ -1398,7 +1451,7 @@ export default function App() {
 
   const pastePreviewRect = useMemo(() => {
     if (!activeMap || !clipboard || !pastePreviewActive || !pasteAnchor) return null;
-    return resolveClipboardPreviewRect(activeMap, pasteAnchor, clipboard);
+    return buildC2mPastePreviewSelection(activeMap, pasteAnchor, clipboard);
   }, [activeMap, clipboard, pasteAnchor, pastePreviewActive]);
 
   const transientDirtyCells = useMemo(
@@ -2153,6 +2206,18 @@ export default function App() {
       });
     },
     [canMutateBoard, commitMapChange, map, selection, tool],
+  );
+
+  const rotatePastePreviewClipboard = useCallback(
+    (direction: "clockwise" | "counterclockwise") => {
+      if (!clipboard || !pastePreviewActive || tool !== "select") return;
+      setClipboard((current) =>
+        current
+          ? rotateC2mClipboard(current, direction === "clockwise" ? "ROTATE_90" : "ROTATE_270")
+          : current,
+      );
+    },
+    [clipboard, pastePreviewActive, tool],
   );
 
   const clearActiveMap = useCallback(() => {
@@ -3015,14 +3080,18 @@ export default function App() {
       if (!event.altKey && !event.ctrlKey && !event.metaKey) {
         if (event.key === "," || event.key === "<") {
           event.preventDefault();
-          if (tool === "select" && selection) rotateSelectedSelection("counterclockwise");
+          if (tool === "select" && pastePreviewActive && clipboard) {
+            rotatePastePreviewClipboard("counterclockwise");
+          } else if (tool === "select" && selection) rotateSelectedSelection("counterclockwise");
           else rotateSelectedPaletteBrush("counterclockwise");
           return;
         }
 
         if (event.key === "." || event.key === ">") {
           event.preventDefault();
-          if (tool === "select" && selection) rotateSelectedSelection("clockwise");
+          if (tool === "select" && pastePreviewActive && clipboard) {
+            rotatePastePreviewClipboard("clockwise");
+          } else if (tool === "select" && selection) rotateSelectedSelection("clockwise");
           else rotateSelectedPaletteBrush("clockwise");
           return;
         }
@@ -3096,6 +3165,7 @@ export default function App() {
     onRedo,
     onUndo,
     pastePreviewActive,
+    rotatePastePreviewClipboard,
     resetBoardTransientState,
     rotateSelectedSelection,
     rotateSelectedPaletteBrush,
@@ -5089,29 +5159,51 @@ export default function App() {
                           : null}
 
                         {pastePreviewRect
-                          ? (() => {
-                              const rect = resolveRectScreenRect(
-                                pastePreviewRect,
-                                activeMap,
-                                boardRect,
-                              );
+                          ? pastePreviewRect.indices
+                            ? resolveSelectionIndices(pastePreviewRect, activeMap).map((index) => {
+                                const cellPoint = indexToPoint(index, activeMap);
+                                const rect = resolveBoardCellScreenRect(
+                                  cellPoint,
+                                  activeMap,
+                                  boardRect,
+                                );
+                                return (
+                                  <rect
+                                    key={`paste-preview-${index}`}
+                                    x={rect.x}
+                                    y={rect.y}
+                                    width={rect.width}
+                                    height={rect.height}
+                                    fill="rgba(73, 138, 97, 0.12)"
+                                    stroke="rgba(73, 138, 97, 0.9)"
+                                    strokeWidth={Math.max(1.2, rect.width / 10)}
+                                    strokeDasharray={`${Math.max(6, rect.width / 2)} ${Math.max(4, rect.width / 3)}`}
+                                  />
+                                );
+                              })
+                            : (() => {
+                                const rect = resolveRectScreenRect(
+                                  pastePreviewRect,
+                                  activeMap,
+                                  boardRect,
+                                );
 
-                              return (
-                                <rect
-                                  x={rect.x}
-                                  y={rect.y}
-                                  width={rect.width}
-                                  height={rect.height}
-                                  fill="rgba(73, 138, 97, 0.12)"
-                                  stroke="rgba(73, 138, 97, 0.9)"
-                                  strokeWidth={Math.max(
-                                    1.5,
-                                    rect.width / Math.max(10, pastePreviewRect.width * 6),
-                                  )}
-                                  strokeDasharray={`${Math.max(6, rect.width / 8)} ${Math.max(4, rect.width / 12)}`}
-                                />
-                              );
-                            })()
+                                return (
+                                  <rect
+                                    x={rect.x}
+                                    y={rect.y}
+                                    width={rect.width}
+                                    height={rect.height}
+                                    fill="rgba(73, 138, 97, 0.12)"
+                                    stroke="rgba(73, 138, 97, 0.9)"
+                                    strokeWidth={Math.max(
+                                      1.5,
+                                      rect.width / Math.max(10, pastePreviewRect.width * 6),
+                                    )}
+                                    strokeDasharray={`${Math.max(6, rect.width / 8)} ${Math.max(4, rect.width / 12)}`}
+                                  />
+                                );
+                              })()
                           : null}
                       </svg>
                     ) : null}
