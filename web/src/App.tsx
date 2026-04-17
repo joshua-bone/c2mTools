@@ -61,6 +61,7 @@ import {
   setMirrorOffset,
   toggleMirrorActive,
   type MirrorKind,
+  type MirrorTransformKind,
   type MirrorState,
 } from "./boardMirrors";
 import {
@@ -158,6 +159,15 @@ import {
   resolveEditorShortcut,
   type EditorToolMode,
 } from "./editor/shortcuts";
+import {
+  DEFAULT_TEXT_BRUSH_FONT_FAMILY,
+  DEFAULT_TEXT_BRUSH_FONT_SIZE,
+  DEFAULT_TEXT_BRUSH_TEXT,
+  TEXT_BRUSH_FONT_CHOICES,
+  TEXT_BRUSH_SIZE_CHOICES,
+  rasterizeTextBrush,
+  type RasterizedTextBrush,
+} from "./editor/textBrush";
 import { describeTileSpec, formatTileDisplayName, getTileSpecName } from "./editor/tileDisplay";
 import { loadCc2Tileset } from "./loadCc2Tileset";
 import { getPaletteSections } from "./paletteSections";
@@ -404,6 +414,40 @@ function buildC2mPastePreviewSelection(
   return buildSelectionFromIndices(indices, map, "rect");
 }
 
+function resolveTextBrushPlacementIndices(
+  raster: RasterizedTextBrush | null,
+  center: GridPoint | null,
+  map: MapJson | null,
+): number[] {
+  if (!raster || !center || !map) return [];
+
+  const originX = center.x - Math.floor(raster.width / 2);
+  const originY = center.y - Math.floor(raster.height / 2);
+  const indices: number[] = [];
+
+  for (const relativeIndex of raster.indices) {
+    const x = originX + (relativeIndex % raster.width);
+    const y = originY + Math.floor(relativeIndex / raster.width);
+    if (x < 0 || y < 0 || x >= map.width || y >= map.height) continue;
+    indices.push(pointToIndex({ x, y }, map));
+  }
+
+  return uniqueSortedIndices(indices);
+}
+
+function flattenMirroredIndices(
+  groups: Readonly<Record<MirrorTransformKind | "SELF", ReadonlyArray<number>>>,
+): number[] {
+  return uniqueSortedIndices([
+    ...groups.SELF,
+    ...groups.FLIP_H,
+    ...groups.FLIP_V,
+    ...groups.FLIP_DIAG_NWSE,
+    ...groups.FLIP_DIAG_NESW,
+    ...groups.ROTATE_180,
+  ]);
+}
+
 function rotateC2mClipboard(
   clipboard: C2mClipboard,
   kind: "ROTATE_90" | "ROTATE_270",
@@ -573,6 +617,11 @@ type GeneratedWallLayoutRecord = Parameters<GenerateWallsDialogProps["onImport"]
 type ToolMode = EditorToolMode;
 type SelectionMode = "rect" | "contiguous" | "tile";
 type SelectionOperation = "replace" | "add" | "subtract";
+type TextBrushConfig = Readonly<{
+  text: string;
+  fontFamily: string;
+  fontSize: number;
+}>;
 type SelectionArea = GridRect &
   Readonly<{
     indices?: ReadonlyArray<number>;
@@ -1229,6 +1278,9 @@ export default function App() {
   const [secondaryBrush, setSecondaryBrush] = useState<TileSpecJson>(() =>
     createDefaultBrushTileSpec("FLOOR"),
   );
+  const [textBrushText, setTextBrushText] = useState(DEFAULT_TEXT_BRUSH_TEXT);
+  const [textBrushFontFamily, setTextBrushFontFamily] = useState(DEFAULT_TEXT_BRUSH_FONT_FAMILY);
+  const [textBrushFontSize, setTextBrushFontSize] = useState(DEFAULT_TEXT_BRUSH_FONT_SIZE);
   const [paletteQuery, setPaletteQuery] = useState("");
   const [tool, setTool] = useState<ToolMode>("brush");
   const [selectionMode, setSelectionMode] = useState<SelectionMode>(DEFAULT_SELECTION_MODE);
@@ -1400,6 +1452,54 @@ export default function App() {
       : isAltPressed || tool === "eyedropper"
         ? EYEDROPPER_CURSOR
         : undefined;
+  const textBrushConfig = useMemo<TextBrushConfig>(
+    () => ({
+      text: textBrushText,
+      fontFamily: textBrushFontFamily,
+      fontSize: textBrushFontSize,
+    }),
+    [textBrushFontFamily, textBrushFontSize, textBrushText],
+  );
+  const textBrushRaster = useMemo(
+    () =>
+      rasterizeTextBrush(
+        textBrushConfig.text,
+        textBrushConfig.fontFamily,
+        textBrushConfig.fontSize,
+      ),
+    [textBrushConfig],
+  );
+  const textPreviewBaseIndices = useMemo(
+    () =>
+      tool === "text" && !dragState
+        ? resolveTextBrushPlacementIndices(textBrushRaster, boardStatus.hoverPoint, activeMap)
+        : [],
+    [activeMap, boardStatus.hoverPoint, dragState, textBrushRaster, tool],
+  );
+  const textPreviewRect = useMemo(() => {
+    if (!activeMap || textPreviewBaseIndices.length === 0) return null;
+    const previewIndices = hasActiveMirrors
+      ? flattenMirroredIndices(
+          resolveMirroredIndexGroups(textPreviewBaseIndices, mirrorState, mirrorBoardSize),
+        )
+      : textPreviewBaseIndices;
+    return buildSelectionFromIndices(previewIndices, activeMap, "rect");
+  }, [activeMap, hasActiveMirrors, mirrorBoardSize, mirrorState, textPreviewBaseIndices]);
+  const textPreviewMap = useMemo(() => {
+    if (!activeMap || tool !== "text" || textPreviewBaseIndices.length === 0) return null;
+    return hasActiveMirrors
+      ? applyMirroredMapPaint(activeMap, textPreviewBaseIndices, primaryBrush, mirrorState)
+      : paintMapCells(activeMap, textPreviewBaseIndices, primaryBrush);
+  }, [
+    activeMap,
+    hasActiveMirrors,
+    mirrorBoardSize,
+    mirrorState,
+    primaryBrush,
+    textPreviewBaseIndices,
+    tool,
+  ]);
+  const displayMap = transientMap ?? textPreviewMap ?? map;
 
   const selectionPreviewRect = useMemo(() => {
     if (!activeMap) return null;
@@ -2492,7 +2592,7 @@ export default function App() {
       return;
     }
 
-    if (!activeMap) {
+    if (!displayMap) {
       lastRenderedMapRef.current = null;
       lastRenderedTilesetRef.current = null;
       lastWireSpoolOverlayPointRef.current = null;
@@ -2518,26 +2618,26 @@ export default function App() {
       const previousMap = lastRenderedMapRef.current;
       const previousWireSpoolOverlayPoint = lastWireSpoolOverlayPointRef.current;
       const sizeChanged =
-        canvas.width !== activeMap.width * BOARD_TILE_PIXEL_SIZE ||
-        canvas.height !== activeMap.height * BOARD_TILE_PIXEL_SIZE;
+        canvas.width !== displayMap.width * BOARD_TILE_PIXEL_SIZE ||
+        canvas.height !== displayMap.height * BOARD_TILE_PIXEL_SIZE;
       const cache = getSharedCc2CanvasCellCache(tileset);
-      const redrawPlan = resolveBoardMapRedrawPlan(previousMap, activeMap, {
+      const redrawPlan = resolveBoardMapRedrawPlan(previousMap, displayMap, {
         canReuseCanvas: !sizeChanged && lastRenderedTilesetRef.current === tileset,
         partialThreshold: Math.min(
           MAX_PARTIAL_REDRAW_CELLS,
-          Math.max(32, Math.ceil(activeMap.tiles.length * PARTIAL_REDRAW_RATIO)),
+          Math.max(32, Math.ceil(displayMap.tiles.length * PARTIAL_REDRAW_RATIO)),
         ),
       });
       const overlayIndices = new Set<number>();
-      if (pointWithinMap(previousWireSpoolOverlayPoint, activeMap)) {
-        overlayIndices.add(pointToIndex(previousWireSpoolOverlayPoint, activeMap));
+      if (pointWithinMap(previousWireSpoolOverlayPoint, displayMap)) {
+        overlayIndices.add(pointToIndex(previousWireSpoolOverlayPoint, displayMap));
       }
-      if (pointWithinMap(currentWireSpoolOverlayPoint, activeMap)) {
-        overlayIndices.add(pointToIndex(currentWireSpoolOverlayPoint, activeMap));
+      if (pointWithinMap(currentWireSpoolOverlayPoint, displayMap)) {
+        overlayIndices.add(pointToIndex(currentWireSpoolOverlayPoint, displayMap));
       }
       const ctx =
         redrawPlan.kind === "full"
-          ? drawCc2MapToCanvas(canvas, activeMap, cache)
+          ? drawCc2MapToCanvas(canvas, displayMap, cache)
           : canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas 2D context unavailable");
 
@@ -2547,11 +2647,11 @@ export default function App() {
           indices.add(index);
         }
         if (indices.size > 0) {
-          drawCc2CellsToContext(ctx, activeMap, [...indices], cache);
+          drawCc2CellsToContext(ctx, displayMap, [...indices], cache);
         }
       }
 
-      if (pointWithinMap(currentWireSpoolOverlayPoint, activeMap)) {
+      if (pointWithinMap(currentWireSpoolOverlayPoint, displayMap)) {
         let spoolCanvas = wireSpoolOverlayCanvasRef.current;
         if (!spoolCanvas || wireSpoolOverlayTilesetRef.current !== tileset) {
           spoolCanvas = document.createElement("canvas");
@@ -2571,7 +2671,7 @@ export default function App() {
       }
 
       setRenderError(null);
-      lastRenderedMapRef.current = activeMap;
+      lastRenderedMapRef.current = displayMap;
       lastRenderedTilesetRef.current = tileset;
       lastWireSpoolOverlayPointRef.current = currentWireSpoolOverlayPoint;
     } catch (err: unknown) {
@@ -2579,7 +2679,7 @@ export default function App() {
         `Board rendering failed. The document is still loaded and raw JSON remains available.\n${asErrorMessage(err)}`,
       );
     }
-  }, [activeMap, currentWireSpoolOverlayPoint, doc, tileset, tilesetError, viewMode]);
+  }, [currentWireSpoolOverlayPoint, displayMap, doc, tileset, tilesetError, viewMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3501,6 +3601,24 @@ export default function App() {
         return;
       }
 
+      if (tool === "text") {
+        const textIndices = resolveTextBrushPlacementIndices(textBrushRaster, point, activeMap);
+        if (textIndices.length === 0) return;
+        event.preventDefault();
+        commitMapChange(
+          hasActiveMirrors
+            ? applyMirroredMapPaint(
+                activeMap,
+                textIndices,
+                resolvePaintBrushForInput(event.button),
+                mirrorState,
+              )
+            : paintMapCells(activeMap, textIndices, resolvePaintBrushForInput(event.button)),
+        );
+        setPastePreviewActive(false);
+        return;
+      }
+
       if (tool === "line") {
         event.preventDefault();
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -3555,6 +3673,7 @@ export default function App() {
       resolveBoardCellAtClientPoint,
       resolvePaintBrushForInput,
       replaceMapChangeLive,
+      textBrushRaster,
       tool,
       updateHoverAtClientPoint,
       beginBoardPanGesture,
@@ -4880,6 +4999,7 @@ export default function App() {
                     {TOOL_SHORTCUTS.filter((entry) => entry.id !== "select").map((entry) => {
                       const mutatesBoard =
                         entry.id === "brush" ||
+                        entry.id === "text" ||
                         entry.id === "line" ||
                         entry.id === "fill" ||
                         entry.id === "erase" ||
@@ -4920,6 +5040,55 @@ export default function App() {
                 <span className="statusBadge">{`Clipboard ${clipboard.width}x${clipboard.height}`}</span>
               ) : null}
             </div>
+
+            {viewMode === "board" && tool === "text" ? (
+              <div className="textBrushPanel">
+                <div className="textBrushField textBrushFieldText">
+                  <label className="fieldLabel" htmlFor="c2m-text-brush-text">
+                    Text
+                  </label>
+                  <textarea
+                    id="c2m-text-brush-text"
+                    className="textBrushTextarea"
+                    spellCheck={false}
+                    value={textBrushConfig.text}
+                    onChange={(event) => setTextBrushText(event.target.value)}
+                  />
+                </div>
+                <div className="textBrushField">
+                  <label className="fieldLabel" htmlFor="c2m-text-brush-font">
+                    Font
+                  </label>
+                  <select
+                    id="c2m-text-brush-font"
+                    value={textBrushConfig.fontFamily}
+                    onChange={(event) => setTextBrushFontFamily(event.target.value)}
+                  >
+                    {TEXT_BRUSH_FONT_CHOICES.map((option) => (
+                      <option key={option.family} value={option.family}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="textBrushField textBrushFieldSize">
+                  <label className="fieldLabel" htmlFor="c2m-text-brush-size">
+                    Size
+                  </label>
+                  <select
+                    id="c2m-text-brush-size"
+                    value={String(textBrushConfig.fontSize)}
+                    onChange={(event) => setTextBrushFontSize(Number(event.target.value))}
+                  >
+                    {TEXT_BRUSH_SIZE_CHOICES.map((size) => (
+                      <option key={size} value={String(size)}>
+                        {size}px
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ) : null}
 
             {viewMode === "json" ? (
               <div className="hoverSummary">
@@ -5231,6 +5400,53 @@ export default function App() {
                                     strokeWidth={Math.max(
                                       1.5,
                                       rect.width / Math.max(10, pastePreviewRect.width * 6),
+                                    )}
+                                    strokeDasharray={`${Math.max(6, rect.width / 8)} ${Math.max(4, rect.width / 12)}`}
+                                  />
+                                );
+                              })()
+                          : null}
+
+                        {textPreviewRect
+                          ? textPreviewRect.indices
+                            ? resolveSelectionIndices(textPreviewRect, activeMap).map((index) => {
+                                const cellPoint = indexToPoint(index, activeMap);
+                                const rect = resolveBoardCellScreenRect(
+                                  cellPoint,
+                                  activeMap,
+                                  boardRect,
+                                );
+                                return (
+                                  <rect
+                                    key={`text-preview-${index}`}
+                                    x={rect.x}
+                                    y={rect.y}
+                                    width={rect.width}
+                                    height={rect.height}
+                                    fill="rgba(73, 138, 97, 0.1)"
+                                    stroke="rgba(73, 138, 97, 0.94)"
+                                    strokeWidth={Math.max(1.2, rect.width / 10)}
+                                    strokeDasharray={`${Math.max(6, rect.width / 2)} ${Math.max(4, rect.width / 3)}`}
+                                  />
+                                );
+                              })
+                            : (() => {
+                                const rect = resolveRectScreenRect(
+                                  textPreviewRect,
+                                  activeMap,
+                                  boardRect,
+                                );
+                                return (
+                                  <rect
+                                    x={rect.x}
+                                    y={rect.y}
+                                    width={rect.width}
+                                    height={rect.height}
+                                    fill="rgba(73, 138, 97, 0.1)"
+                                    stroke="rgba(73, 138, 97, 0.94)"
+                                    strokeWidth={Math.max(
+                                      1.5,
+                                      rect.width / Math.max(10, textPreviewRect.width * 6),
                                     )}
                                     strokeDasharray={`${Math.max(6, rect.width / 8)} ${Math.max(4, rect.width / 12)}`}
                                   />

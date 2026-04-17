@@ -111,6 +111,23 @@ describe("editor shortcuts", () => {
     expect(
       resolveEditorShortcut(
         {
+          key: "t",
+          metaKey: false,
+          ctrlKey: false,
+          shiftKey: false,
+          altKey: false,
+        },
+        {
+          hasSelection: false,
+          hasClipboard: false,
+          pastePreviewActive: false,
+        },
+      ),
+    ).toEqual({ type: "set-tool", tool: "text" });
+
+    expect(
+      resolveEditorShortcut(
+        {
           key: "Delete",
           metaKey: false,
           ctrlKey: false,

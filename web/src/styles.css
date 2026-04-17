@@ -549,6 +549,14 @@ canvas {
   color: var(--muted);
 }
 
+.fieldLabel {
+  display: inline-block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+}
+
 .stackedInfo {
   display: grid;
   gap: 8px;
@@ -559,6 +567,58 @@ canvas {
   gap: 6px;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.textBrushPanel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.7fr) repeat(2, minmax(140px, 0.8fr));
+  gap: 8px;
+  align-items: start;
+  margin-top: 10px;
+}
+
+.textBrushField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.textBrushFieldText {
+  min-width: 0;
+}
+
+.textBrushFieldSize {
+  max-width: 120px;
+}
+
+.textBrushPanel select,
+.textBrushTextarea {
+  width: 100%;
+  border: 1px solid rgba(57, 75, 66, 0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  padding: 7px 10px;
+  outline: none;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background 120ms ease;
+}
+
+.textBrushPanel select:focus,
+.textBrushTextarea:focus {
+  border-color: rgba(35, 95, 122, 0.5);
+  box-shadow: 0 0 0 4px rgba(35, 95, 122, 0.12);
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.textBrushTextarea {
+  min-height: 72px;
+  resize: vertical;
+  font-family: "SFMono-Regular", "Menlo", "Monaco", monospace;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .panelBanner {
@@ -2109,6 +2169,16 @@ select.textField.compactField {
 
   .generateDetailSidebar {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1100px) {
+  .textBrushPanel {
+    grid-template-columns: minmax(220px, 1fr);
+  }
+
+  .textBrushFieldSize {
+    max-width: none;
   }
 }
 

@@ -1,4 +1,12 @@
-export type EditorToolMode = "brush" | "line" | "fill" | "select" | "erase" | "wire" | "eyedropper";
+export type EditorToolMode =
+  | "brush"
+  | "text"
+  | "line"
+  | "fill"
+  | "select"
+  | "erase"
+  | "wire"
+  | "eyedropper";
 
 export type EditorShortcutCommand =
   | Readonly<{ type: "undo" }>
@@ -32,6 +40,7 @@ export const TOOL_SHORTCUTS: ReadonlyArray<
   }>
 > = Object.freeze([
   { id: "brush", label: "Brush", shortcut: "B" },
+  { id: "text", label: "Text", shortcut: "T" },
   { id: "line", label: "Line", shortcut: "L" },
   { id: "fill", label: "Bucket", shortcut: "F" },
   { id: "select", label: "Select", shortcut: "V" },
@@ -75,6 +84,7 @@ export function resolveEditorShortcut(
     return { type: "erase-selection" };
   }
   if (key === "b") return { type: "set-tool", tool: "brush" };
+  if (key === "t") return { type: "set-tool", tool: "text" };
   if (key === "l") return { type: "set-tool", tool: "line" };
   if (key === "f") return { type: "set-tool", tool: "fill" };
   if (key === "v") return { type: "set-tool", tool: "select" };
