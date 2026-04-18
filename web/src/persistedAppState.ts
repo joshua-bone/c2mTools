@@ -1,4 +1,10 @@
-import { parseC2mJsonV1, stringifyC2mJsonV1, type C2mJsonV1 } from "../../src/c2m/c2mJsonV1.js";
+import { parseC2mJsonV1 } from "../../src/c2m/c2mJsonV1.js";
+import {
+  createSingleLevelset,
+  parseC2mLevelsetJsonV1,
+  stringifyC2mLevelsetJsonV1,
+  type C2mLevelsetJsonV1,
+} from "../../src/c2g/c2gLevelsetJsonV1.js";
 
 export type AppViewMode = "board" | "json";
 
@@ -6,7 +12,8 @@ export const APP_PREFERENCES_STORAGE_KEY = "c2mtools-app-preferences";
 export const EDITOR_SESSION_STORAGE_KEY = "c2mtools-editor-session";
 
 const PERSISTED_APP_PREFERENCES_SCHEMA = "c2mTools.web.appPreferences.v1";
-const PERSISTED_EDITOR_SESSION_SCHEMA = "c2mTools.web.editorSession.v1";
+const PERSISTED_EDITOR_SESSION_SCHEMA_V1 = "c2mTools.web.editorSession.v1";
+const PERSISTED_EDITOR_SESSION_SCHEMA_V2 = "c2mTools.web.editorSession.v2";
 
 export type PersistedAppPreferences = Readonly<{
   viewMode: AppViewMode;
@@ -15,7 +22,8 @@ export type PersistedAppPreferences = Readonly<{
 }>;
 
 export type PersistedEditorSession = Readonly<{
-  doc: C2mJsonV1;
+  levelset: C2mLevelsetJsonV1;
+  selectedLevelIndex: number;
   fileName: string;
 }>;
 
@@ -71,15 +79,36 @@ export function parsePersistedEditorSession(value: string | null): PersistedEdit
 
   try {
     const parsed = JSON.parse(value);
-    if (!isRecord(parsed) || parsed.schema !== PERSISTED_EDITOR_SESSION_SCHEMA) {
-      return null;
-    }
-
-    if (typeof parsed.documentJson !== "string") return null;
+    if (!isRecord(parsed)) return null;
     if (typeof parsed.fileName !== "string" || parsed.fileName.trim().length === 0) return null;
 
+    if (parsed.schema === PERSISTED_EDITOR_SESSION_SCHEMA_V2) {
+      if (typeof parsed.levelsetJson !== "string") return null;
+      const selectedLevelIndex =
+        typeof parsed.selectedLevelIndex === "number" && Number.isInteger(parsed.selectedLevelIndex)
+          ? parsed.selectedLevelIndex
+          : 0;
+
+      return {
+        levelset: parseC2mLevelsetJsonV1(JSON.parse(parsed.levelsetJson)),
+        selectedLevelIndex,
+        fileName: parsed.fileName,
+      };
+    }
+
+    if (parsed.schema !== PERSISTED_EDITOR_SESSION_SCHEMA_V1) {
+      return null;
+    }
+    if (typeof parsed.documentJson !== "string") return null;
+
+    const doc = parseC2mJsonV1(JSON.parse(parsed.documentJson));
+
     return {
-      doc: parseC2mJsonV1(JSON.parse(parsed.documentJson)),
+      levelset: createSingleLevelset(doc, {
+        fileName: parsed.fileName,
+        source: "existing",
+      }),
+      selectedLevelIndex: 0,
       fileName: parsed.fileName,
     };
   } catch {
@@ -89,8 +118,9 @@ export function parsePersistedEditorSession(value: string | null): PersistedEdit
 
 export function serializePersistedEditorSession(session: PersistedEditorSession): string {
   return JSON.stringify({
-    schema: PERSISTED_EDITOR_SESSION_SCHEMA,
+    schema: PERSISTED_EDITOR_SESSION_SCHEMA_V2,
     fileName: session.fileName,
-    documentJson: stringifyC2mJsonV1(session.doc),
+    selectedLevelIndex: session.selectedLevelIndex,
+    levelsetJson: stringifyC2mLevelsetJsonV1(session.levelset),
   });
 }

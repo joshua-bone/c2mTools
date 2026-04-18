@@ -25,6 +25,12 @@ import {
   stringifyC2mJsonV1,
 } from "../../src/c2m/c2mJsonV1";
 import {
+  createSingleLevelset,
+  getSelectedLevelEntry,
+  replaceLevelsetEntryDoc,
+  type C2mLevelsetJsonV1,
+} from "../../src/c2g/c2gLevelsetJsonV1";
+import {
   transformLevelJson,
   transformTileSpec,
   type LevelTransformKind,
@@ -1216,16 +1222,16 @@ function createInitialAppState(): InitialAppState {
     };
   }
 
-  const activeRecentLevelId = findMatchingRecentLevelId(
-    recentLevels,
-    session.doc,
-    session.fileName,
-  );
+  const selectedLevelEntry = getSelectedLevelEntry(session.levelset, session.selectedLevelIndex);
+  const selectedDoc = selectedLevelEntry?.doc ?? null;
+  const activeRecentLevelId = selectedDoc
+    ? findMatchingRecentLevelId(recentLevels, selectedDoc, session.fileName)
+    : null;
 
   return {
-    history: createEditorHistory(session.doc),
+    history: createEditorHistory(session.levelset, session.selectedLevelIndex),
     fileName: session.fileName,
-    jsonText: stringifyC2mJsonV1(session.doc),
+    jsonText: selectedDoc ? stringifyC2mJsonV1(selectedDoc) : "",
     preferences,
     recentLevels,
     activeRecentLevelId,
@@ -1252,18 +1258,22 @@ export default function App() {
   const wireSpoolOverlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const wireSpoolOverlayTilesetRef = useRef<CC2Tileset | null>(null);
   const [initialAppState] = useState(() => createInitialAppState());
+  const initialSelectedLevelEntry = initialAppState.history
+    ? getSelectedLevelEntry(initialAppState.history.doc, initialAppState.history.selectedLevelIndex)
+    : null;
   const syncedJsonTextRef = useRef(initialAppState.jsonText);
   const recentLevelsRef = useRef<ReadonlyArray<PersistedRecentLevelEntry>>(
     initialAppState.recentLevels,
   );
   const activeRecentLevelIdRef = useRef<string | null>(initialAppState.activeRecentLevelId);
-  const latestAutosaveDocRef = useRef<C2mJsonV1 | null>(initialAppState.history?.doc ?? null);
+  const latestAutosaveDocRef = useRef<C2mJsonV1 | null>(initialSelectedLevelEntry?.doc ?? null);
   const latestAutosaveFileNameRef = useRef<string | null>(initialAppState.fileName);
   const latestAutosaveTilesetRef = useRef<CC2Tileset | null>(null);
   const latestSessionSnapshotRef = useRef<PersistedEditorSession | null>(
     initialAppState.history && initialAppState.fileName
       ? {
-          doc: initialAppState.history.doc,
+          levelset: initialAppState.history.doc,
+          selectedLevelIndex: initialAppState.history.selectedLevelIndex,
           fileName: initialAppState.fileName,
         }
       : null,
@@ -1333,8 +1343,8 @@ export default function App() {
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [mirrorState, setMirrorState] = useState<MirrorState>(() =>
     createDefaultMirrorState({
-      width: history?.doc?.map?.width ?? 32,
-      height: history?.doc?.map?.height ?? 32,
+      width: initialSelectedLevelEntry?.doc.map?.width ?? 32,
+      height: initialSelectedLevelEntry?.doc.map?.height ?? 32,
     }),
   );
   const [mirrorDragState, setMirrorDragState] = useState<MirrorDragState | null>(null);
@@ -1378,7 +1388,10 @@ export default function App() {
     boardStatusStoreRef.current.getSnapshot,
   );
 
-  const doc = history?.doc ?? null;
+  const levelset = history?.doc ?? null;
+  const selectedLevelIndex = history?.selectedLevelIndex ?? 0;
+  const selectedLevelEntry = getSelectedLevelEntry(levelset, selectedLevelIndex);
+  const doc = selectedLevelEntry?.doc ?? null;
   const map = doc?.map ?? null;
   const activeMap = transientMap ?? map;
   const boardPixelWidth = activeMap ? activeMap.width * BOARD_TILE_PIXEL_SIZE : 0;
@@ -1960,18 +1973,23 @@ export default function App() {
     }
   }, [tool]);
 
-  const loadDocument = useCallback(
+  const loadLevelset = useCallback(
     (
-      nextDoc: C2mJsonV1,
+      nextLevelset: C2mLevelsetJsonV1,
       options: Readonly<{
         fileName?: string | null;
         warnings?: ReadonlyArray<string>;
         recentLevelId?: string | null;
+        selectedLevelIndex?: number;
       }> = {},
     ) => {
-      const nextJsonText = stringifyC2mJsonV1(nextDoc);
+      const nextSelectedLevelIndex = options.selectedLevelIndex ?? 0;
+      const nextSelectedLevelEntry = getSelectedLevelEntry(nextLevelset, nextSelectedLevelIndex);
+      const nextJsonText = nextSelectedLevelEntry
+        ? stringifyC2mJsonV1(nextSelectedLevelEntry.doc)
+        : "";
       syncedJsonTextRef.current = nextJsonText;
-      setHistory(createEditorHistory(nextDoc));
+      setHistory(createEditorHistory(nextLevelset, nextSelectedLevelIndex));
       setJsonText(nextJsonText);
       setFileName(options.fileName ?? DEFAULT_C2M_FILE_NAME);
       setActiveRecentLevelId(options.recentLevelId ?? null);
@@ -1983,28 +2001,64 @@ export default function App() {
     [],
   );
 
-  const applyDocumentChange = useCallback((nextDoc: C2mJsonV1, commitHistory: boolean) => {
-    const nextJsonText = stringifyC2mJsonV1(nextDoc);
-    syncedJsonTextRef.current = nextJsonText;
-    setHistory((current) =>
-      current
-        ? commitHistory
-          ? commitHistoryEvent(current, {
-              type: "replace-doc",
-              doc: nextDoc,
-            })
-          : {
-              ...current,
-              doc: nextDoc,
-            }
-        : createEditorHistory(nextDoc),
-    );
-    setJsonText(nextJsonText);
-    setWarnings([]);
-    setError(null);
-    setParseError(null);
-    setRenderError(null);
-  }, []);
+  const loadDocument = useCallback(
+    (
+      nextDoc: C2mJsonV1,
+      options: Readonly<{
+        fileName?: string | null;
+        warnings?: ReadonlyArray<string>;
+        recentLevelId?: string | null;
+      }> = {},
+    ) => {
+      loadLevelset(
+        createSingleLevelset(nextDoc, {
+          fileName: options.fileName ?? DEFAULT_C2M_FILE_NAME,
+          ...(options.warnings ? { warnings: options.warnings } : {}),
+          source: "existing",
+        }),
+        options,
+      );
+    },
+    [loadLevelset],
+  );
+
+  const applyDocumentChange = useCallback(
+    (nextDoc: C2mJsonV1, commitHistory: boolean) => {
+      const nextJsonText = stringifyC2mJsonV1(nextDoc);
+      syncedJsonTextRef.current = nextJsonText;
+      setHistory((current) =>
+        current
+          ? (() => {
+              const nextLevelset = replaceLevelsetEntryDoc(
+                current.doc,
+                current.selectedLevelIndex,
+                nextDoc,
+              );
+              return commitHistory
+                ? commitHistoryEvent(current, {
+                    type: "replace-levelset",
+                    levelset: nextLevelset,
+                  })
+                : {
+                    ...current,
+                    doc: nextLevelset,
+                  };
+            })()
+          : createEditorHistory(
+              createSingleLevelset(nextDoc, {
+                fileName: fileName ?? DEFAULT_C2M_FILE_NAME,
+                source: "generated",
+              }),
+            ),
+      );
+      setJsonText(nextJsonText);
+      setWarnings([]);
+      setError(null);
+      setParseError(null);
+      setRenderError(null);
+    },
+    [fileName],
+  );
 
   const commitDocumentChange = useCallback(
     (nextDoc: C2mJsonV1) => {
@@ -2200,7 +2254,13 @@ export default function App() {
   );
 
   const applyHistoryState = useCallback((nextHistory: C2mEditorHistory) => {
-    const nextJsonText = stringifyC2mJsonV1(nextHistory.doc);
+    const nextSelectedLevelEntry = getSelectedLevelEntry(
+      nextHistory.doc,
+      nextHistory.selectedLevelIndex,
+    );
+    const nextJsonText = nextSelectedLevelEntry
+      ? stringifyC2mJsonV1(nextSelectedLevelEntry.doc)
+      : "";
     syncedJsonTextRef.current = nextJsonText;
     setHistory(nextHistory);
     setJsonText(nextJsonText);
@@ -2684,10 +2744,19 @@ export default function App() {
         setHistory((current) =>
           current
             ? commitHistoryEvent(current, {
-                type: "replace-doc",
-                doc: parsedDoc,
+                type: "replace-levelset",
+                levelset: replaceLevelsetEntryDoc(
+                  current.doc,
+                  current.selectedLevelIndex,
+                  parsedDoc,
+                ),
               })
-            : createEditorHistory(parsedDoc),
+            : createEditorHistory(
+                createSingleLevelset(parsedDoc, {
+                  fileName: fileName ?? DEFAULT_C2M_FILE_NAME,
+                  source: "generated",
+                }),
+              ),
         );
         setWarnings([]);
         setError(null);
@@ -2698,7 +2767,7 @@ export default function App() {
     }, 400);
 
     return () => window.clearTimeout(handle);
-  }, [doc, jsonText, jsonTextPresent]);
+  }, [doc, fileName, jsonText, jsonTextPresent]);
 
   useEffect(() => {
     if (viewMode !== "board") return;
@@ -3016,13 +3085,14 @@ export default function App() {
 
   useEffect(() => {
     latestSessionSnapshotRef.current =
-      doc && fileName
+      history && fileName
         ? {
-            doc,
+            levelset: history.doc,
+            selectedLevelIndex: history.selectedLevelIndex,
             fileName,
           }
         : null;
-  }, [doc, fileName]);
+  }, [fileName, history]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3072,7 +3142,7 @@ export default function App() {
       window.clearTimeout(sessionPersistTimeoutRef.current);
     }
 
-    if (!doc) {
+    if (!history) {
       removeLocalStorage(EDITOR_SESSION_STORAGE_KEY);
       return;
     }
@@ -3081,7 +3151,8 @@ export default function App() {
       writeLocalStorage(
         EDITOR_SESSION_STORAGE_KEY,
         serializePersistedEditorSession({
-          doc,
+          levelset: history.doc,
+          selectedLevelIndex: history.selectedLevelIndex,
           fileName: fileName ?? DEFAULT_C2M_FILE_NAME,
         }),
       );
@@ -3098,7 +3169,7 @@ export default function App() {
         window.clearTimeout(sessionPersistTimeoutRef.current);
       }
     };
-  }, [doc, fileName]);
+  }, [fileName, history]);
 
   useEffect(() => {
     const viewport = boardViewportRef.current;

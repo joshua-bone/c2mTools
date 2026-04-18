@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { createSingleLevelset } from "../src/c2g/c2gLevelsetJsonV1.js";
 import { createEmptyC2mDoc } from "../web/src/editor/createEmptyC2mDoc.js";
 import {
   DEFAULT_PERSISTED_APP_PREFERENCES,
@@ -53,21 +54,50 @@ describe("persisted app preferences", () => {
 });
 
 describe("persisted editor session", () => {
-  it("round-trips the current document snapshot", () => {
+  it("round-trips the current levelset snapshot", () => {
     const doc = {
       ...createEmptyC2mDoc(),
       title: "Session Title",
     };
+    const levelset = createSingleLevelset(doc, {
+      fileName: "session.c2m",
+      source: "existing",
+    });
 
     const encoded = serializePersistedEditorSession({
-      doc,
+      levelset,
+      selectedLevelIndex: 0,
       fileName: "session.c2m",
     });
 
     expect(parsePersistedEditorSession(encoded)).toEqual({
-      doc,
+      levelset,
+      selectedLevelIndex: 0,
       fileName: "session.c2m",
     });
+  });
+
+  it("migrates the legacy single-document session shape", () => {
+    const doc = {
+      ...createEmptyC2mDoc(),
+      title: "Legacy Session",
+    };
+    const parsed = parsePersistedEditorSession(
+      JSON.stringify({
+        schema: "c2mTools.web.editorSession.v1",
+        fileName: "legacy.c2m",
+        documentJson: JSON.stringify(doc),
+      }),
+    );
+
+    expect(parsed?.fileName).toBe("legacy.c2m");
+    expect(parsed?.selectedLevelIndex).toBe(0);
+    expect(parsed?.levelset.setName).toBe("Legacy Session");
+    expect(parsed?.levelset.c2g.entries.map((entry) => entry.relativePath)).toEqual(["legacy.c2m"]);
+    expect(parsed?.levelset.levels).toHaveLength(1);
+    expect(parsed?.levelset.levels[0]?.relativePath).toBe("legacy.c2m");
+    expect(parsed?.levelset.levels[0]?.source).toBe("existing");
+    expect(parsed?.levelset.levels[0]?.doc).toEqual(doc);
   });
 
   it("rejects invalid stored session blobs", () => {
@@ -75,9 +105,9 @@ describe("persisted editor session", () => {
     expect(
       parsePersistedEditorSession(
         JSON.stringify({
-          schema: "c2mTools.web.editorSession.v1",
+          schema: "c2mTools.web.editorSession.v2",
           fileName: "",
-          documentJson: "{}",
+          levelsetJson: "{}",
         }),
       ),
     ).toBeNull();
