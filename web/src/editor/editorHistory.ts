@@ -7,6 +7,7 @@ export type C2mEditorEvent =
   | Readonly<{
       type: "replace-levelset";
       levelset: C2mLevelsetJsonV1;
+      selectedLevelIndex?: number;
     }>
   | Readonly<{
       type: "select-level";
@@ -33,7 +34,10 @@ function applyEditorEvent(
     case "replace-levelset":
       return {
         doc: event.levelset,
-        selectedLevelIndex: clampSelectedLevelIndex(event.levelset, selectedLevelIndex),
+        selectedLevelIndex: clampSelectedLevelIndex(
+          event.levelset,
+          event.selectedLevelIndex ?? selectedLevelIndex,
+        ),
       };
     case "select-level":
       return {

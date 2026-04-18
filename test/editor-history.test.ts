@@ -107,4 +107,38 @@ describe("editor history", () => {
     expect(getSelectedLevelEntry(history.doc, history.selectedLevelIndex)?.doc.title).toBe("Third");
     expect(redoEditorHistory(history)).toBe(history);
   });
+
+  it("lets replace-levelset update the selected level in the same undo step", () => {
+    const firstDoc = {
+      ...createEmptyC2mDoc(),
+      title: "First",
+    };
+    const secondDoc = {
+      ...createEmptyC2mDoc(),
+      title: "Second",
+    };
+
+    const baseLevelset = {
+      schema: C2M_LEVELSET_JSON_V1_SCHEMA,
+      setName: "History Set",
+      c2gFileName: "set.c2g",
+      levels: [
+        createLevelsetEntry(firstDoc, { relativePath: "001_first.c2m", source: "existing" }),
+        createLevelsetEntry(secondDoc, { relativePath: "002_second.c2m", source: "existing" }),
+      ],
+      c2g: parseC2gText(createMinimalC2gText("History Set", ["001_first.c2m", "002_second.c2m"])),
+    } as const;
+
+    let history = createEditorHistory(baseLevelset);
+    history = commitHistoryEvent(history, {
+      type: "replace-levelset",
+      levelset: baseLevelset,
+      selectedLevelIndex: 1,
+    });
+
+    expect(history.selectedLevelIndex).toBe(1);
+
+    history = undoEditorHistory(history);
+    expect(history.selectedLevelIndex).toBe(0);
+  });
 });

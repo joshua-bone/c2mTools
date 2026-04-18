@@ -290,7 +290,7 @@ Tests:
 - reordered levels rewrite C2G map order
 - save/open/save is stable for untouched sets
 
-### PR5: DAT-style level manager UI
+### PR5: DAT-style level manager UI ✅
 
 Migrate `c2mTools` shell to the DATTools level-manager layout.
 

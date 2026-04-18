@@ -207,6 +207,13 @@ import {
 import { renderRecentLevelThumbnail } from "./recentLevelThumbnail";
 import { buildSavedLevelsetArchive } from "./saveLevelset";
 import {
+  addLevelAfterSelection,
+  deleteLevelAtIndex,
+  duplicateLevelAtIndex,
+  moveLevelToIndex,
+  resequenceGeneratedLevelEntries,
+} from "./levelsetEditing";
+import {
   RECENT_LEVELS_STORAGE_KEY,
   createPersistedRecentLevelEntry,
   createRecentLevelId,
@@ -628,7 +635,7 @@ const BLOB_PATTERN_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
 ]);
 
 type InspectorTab = "palette" | "inspect";
-type LeftPanelTab = "document" | "controls";
+type LeftPanelTab = "levels" | "controls";
 type BoardMenuId = "file" | "view" | "transform" | "ideas";
 type PaletteAssignmentTarget = "primary" | "secondary";
 type IdeasDialogId = "browse-walls" | "generate-walls";
@@ -669,6 +676,11 @@ type LayoutResizeState = Readonly<{
   startClientX: number;
   startWidth: number;
 }>;
+
+type LevelDropState = Readonly<{
+  index: number;
+  position: "before" | "after";
+}> | null;
 
 type DragPanState = Readonly<{
   pointerId: number;
@@ -1319,7 +1331,7 @@ export default function App() {
   const [globalDirection, setGlobalDirection] = useState<Dir>("N");
   const [logicCounterValue, setLogicCounterValue] = useState(0);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("palette");
-  const [leftPanelTab, setLeftPanelTab] = useState<LeftPanelTab>("document");
+  const [leftPanelTab, setLeftPanelTab] = useState<LeftPanelTab>("levels");
   const [boardMenuOpen, setBoardMenuOpen] = useState<BoardMenuId | null>(null);
   const [boardMenuDropdownShift, setBoardMenuDropdownShift] = useState(0);
   const [lastPaletteAssignmentTarget, setLastPaletteAssignmentTarget] =
@@ -1328,6 +1340,8 @@ export default function App() {
   const [clipboard, setClipboard] = useState<C2mClipboard | null>(null);
   const [pastePreviewActive, setPastePreviewActive] = useState(false);
   const [layoutResizeState, setLayoutResizeState] = useState<LayoutResizeState | null>(null);
+  const [draggedLevelIndex, setDraggedLevelIndex] = useState<number | null>(null);
+  const [levelDropState, setLevelDropState] = useState<LevelDropState>(null);
   const [leftPanelWidth, setLeftPanelWidth] = useState(() =>
     clampNumber(
       initialAppState.preferences.leftPanelWidth,
@@ -1705,6 +1719,11 @@ export default function App() {
     describeTileSpec(secondaryBrush) ?? formatTileDisplayName(getTileSpecName(secondaryBrush));
   const primaryBrushKey = tileSpecKey(primaryBrush);
   const secondaryBrushKey = tileSpecKey(secondaryBrush);
+  const displayedLevelCount = levelset?.levels.length ?? 0;
+  const canDeleteSelectedLevel = displayedLevelCount > 1;
+  const canMoveDisplayedLevelUp = selectedLevelIndex > 0;
+  const canMoveDisplayedLevelDown =
+    selectedLevelIndex >= 0 && selectedLevelIndex < displayedLevelCount - 1;
   const activeToolLabel =
     tool === "select"
       ? getSelectionModeLabel(selectionMode)
@@ -1718,6 +1737,7 @@ export default function App() {
   const documentTitle = metadataDraft
     ? metadataDraft.title || "Untitled Level"
     : (doc?.title ?? "Untitled Level");
+  const levelsetTitle = levelset?.setName?.trim() || "Untitled Set";
   const hoverSummaryText = describeHoverSummary(boardStatus.hoverCellSummary);
   const displayFileName = fileName ?? DEFAULT_C2M_FILE_NAME;
   const currentWireSpoolOverlayPoint = tool === "wire" ? pendingWirePoint : null;
@@ -2032,10 +2052,8 @@ export default function App() {
       setHistory((current) =>
         current
           ? (() => {
-              const nextLevelset = replaceLevelsetEntryDoc(
-                current.doc,
-                current.selectedLevelIndex,
-                nextDoc,
+              const nextLevelset = resequenceGeneratedLevelEntries(
+                replaceLevelsetEntryDoc(current.doc, current.selectedLevelIndex, nextDoc),
               );
               return commitHistory
                 ? commitHistoryEvent(current, {
@@ -2299,6 +2317,155 @@ export default function App() {
     },
     [loadLevelset, resetBoardTransientState],
   );
+
+  const selectLevelAt = useCallback(
+    (index: number) => {
+      if (!history) return;
+      if (index === history.selectedLevelIndex) return;
+      resetBoardTransientState({ clearSelection: true });
+      setBoardMenuOpen(null);
+      applyHistoryState(
+        commitHistoryEvent(history, {
+          type: "select-level",
+          selectedLevelIndex: index,
+        }),
+      );
+    },
+    [applyHistoryState, history, resetBoardTransientState],
+  );
+
+  const commitLevelsetUpdate = useCallback(
+    (nextLevelset: C2mLevelsetJsonV1, nextSelectedLevelIndex: number) => {
+      if (!history) return;
+      resetBoardTransientState({ clearSelection: true });
+      setBoardMenuOpen(null);
+      applyHistoryState(
+        commitHistoryEvent(history, {
+          type: "replace-levelset",
+          levelset: nextLevelset,
+          selectedLevelIndex: nextSelectedLevelIndex,
+        }),
+      );
+    },
+    [applyHistoryState, history, resetBoardTransientState],
+  );
+
+  const addLevelAfterCurrentSelection = useCallback(() => {
+    if (!levelset) return;
+    const nextState = addLevelAfterSelection(levelset, selectedLevelIndex);
+    commitLevelsetUpdate(nextState.levelset, nextState.selectedLevelIndex);
+  }, [commitLevelsetUpdate, levelset, selectedLevelIndex]);
+
+  const duplicateSelectedLevel = useCallback(() => {
+    if (!levelset || displayedLevelCount <= 0) return;
+    const nextState = duplicateLevelAtIndex(levelset, selectedLevelIndex);
+    commitLevelsetUpdate(nextState.levelset, nextState.selectedLevelIndex);
+  }, [commitLevelsetUpdate, displayedLevelCount, levelset, selectedLevelIndex]);
+
+  const deleteSelectedLevel = useCallback(() => {
+    if (!levelset || !canDeleteSelectedLevel) return;
+    const nextState = deleteLevelAtIndex(levelset, selectedLevelIndex);
+    commitLevelsetUpdate(nextState.levelset, nextState.selectedLevelIndex);
+  }, [canDeleteSelectedLevel, commitLevelsetUpdate, levelset, selectedLevelIndex]);
+
+  const moveDisplayedLevelBy = useCallback(
+    (offset: -1 | 1) => {
+      if (!levelset) return;
+      const targetIndex = selectedLevelIndex + offset;
+      if (targetIndex < 0 || targetIndex >= displayedLevelCount) return;
+      const nextState = moveLevelToIndex(levelset, selectedLevelIndex, targetIndex);
+      commitLevelsetUpdate(nextState.levelset, nextState.selectedLevelIndex);
+    },
+    [commitLevelsetUpdate, displayedLevelCount, levelset, selectedLevelIndex],
+  );
+
+  const getDropInsertionIndex = useCallback((): number | null => {
+    if (draggedLevelIndex === null || !levelDropState) return null;
+    return Math.max(
+      0,
+      Math.min(
+        levelDropState.index + (levelDropState.position === "after" ? 1 : 0),
+        displayedLevelCount,
+      ),
+    );
+  }, [displayedLevelCount, draggedLevelIndex, levelDropState]);
+
+  const getReorderedTargetIndex = useCallback(
+    (insertionIndex: number): number => {
+      if (draggedLevelIndex === null) return 0;
+      const adjusted = insertionIndex > draggedLevelIndex ? insertionIndex - 1 : insertionIndex;
+      return Math.max(0, Math.min(adjusted, Math.max(0, displayedLevelCount - 1)));
+    },
+    [displayedLevelCount, draggedLevelIndex],
+  );
+
+  const getLevelDropStateFromList = useCallback(
+    (listElement: HTMLDivElement, clientY: number): LevelDropState => {
+      const items = Array.from(listElement.querySelectorAll<HTMLElement>(".levelListItem"));
+      if (items.length === 0) return null;
+
+      let bestMatch: LevelDropState = { index: 0, position: "before" };
+      let bestDistance = Number.POSITIVE_INFINITY;
+
+      items.forEach((item, index) => {
+        const rect = item.getBoundingClientRect();
+        const beforeDistance = Math.abs(clientY - rect.top);
+        if (beforeDistance < bestDistance) {
+          bestDistance = beforeDistance;
+          bestMatch = { index, position: "before" };
+        }
+
+        const afterDistance = Math.abs(clientY - rect.bottom);
+        if (afterDistance < bestDistance) {
+          bestDistance = afterDistance;
+          bestMatch = { index, position: "after" };
+        }
+      });
+
+      return bestMatch;
+    },
+    [],
+  );
+
+  const handleLevelDragStart = useCallback((index: number) => {
+    setDraggedLevelIndex(index);
+    setLevelDropState(null);
+    setBoardMenuOpen(null);
+  }, []);
+
+  const handleLevelDragOver = useCallback(
+    (event: React.DragEvent<HTMLButtonElement | HTMLDivElement>, index: number) => {
+      event.preventDefault();
+      const target = event.currentTarget.getBoundingClientRect();
+      const position = event.clientY < target.top + target.height / 2 ? "before" : "after";
+      setLevelDropState((current) =>
+        current?.index === index && current.position === position ? current : { index, position },
+      );
+    },
+    [],
+  );
+
+  const handleLevelDrop = useCallback(() => {
+    if (!levelset) return;
+    const insertionIndex = getDropInsertionIndex();
+    if (draggedLevelIndex === null || insertionIndex === null || displayedLevelCount <= 0) return;
+
+    const targetIndex = getReorderedTargetIndex(insertionIndex);
+    if (draggedLevelIndex !== targetIndex) {
+      const nextState = moveLevelToIndex(levelset, draggedLevelIndex, targetIndex);
+      commitLevelsetUpdate(nextState.levelset, nextState.selectedLevelIndex);
+    }
+
+    setDraggedLevelIndex(null);
+    setLevelDropState(null);
+  }, [
+    commitLevelsetUpdate,
+    displayedLevelCount,
+    draggedLevelIndex,
+    getDropInsertionIndex,
+    getReorderedTargetIndex,
+    levelset,
+  ]);
 
   const resolveBoardCellAtClientPoint = useCallback(
     (clientX: number, clientY: number): GridPoint | null => {
@@ -2739,10 +2906,8 @@ export default function App() {
           current
             ? commitHistoryEvent(current, {
                 type: "replace-levelset",
-                levelset: replaceLevelsetEntryDoc(
-                  current.doc,
-                  current.selectedLevelIndex,
-                  parsedDoc,
+                levelset: resequenceGeneratedLevelEntries(
+                  replaceLevelsetEntryDoc(current.doc, current.selectedLevelIndex, parsedDoc),
                 ),
               })
             : createEditorHistory(
@@ -3287,6 +3452,10 @@ export default function App() {
   useEffect(() => {
     setCellEditError(null);
   }, [inspectableCell?.index, map]);
+
+  useEffect(() => {
+    setFileName(selectedLevelEntry?.fileName ?? null);
+  }, [selectedLevelEntry?.fileName, selectedLevelEntry?.id]);
 
   useEffect(() => {
     if (dragState?.tool === "brush") return;
@@ -5013,11 +5182,11 @@ export default function App() {
             <button
               type="button"
               role="tab"
-              aria-selected={leftPanelTab === "document"}
-              className={`inspectorTab ${leftPanelTab === "document" ? "active" : ""}`}
-              onClick={() => setLeftPanelTab("document")}
+              aria-selected={leftPanelTab === "levels"}
+              className={`inspectorTab ${leftPanelTab === "levels" ? "active" : ""}`}
+              onClick={() => setLeftPanelTab("levels")}
             >
-              Document
+              Levels
             </button>
             <button
               type="button"
@@ -5030,13 +5199,14 @@ export default function App() {
             </button>
           </div>
 
-          {leftPanelTab === "document" ? (
+          {leftPanelTab === "levels" ? (
             <section className="panelSection leftPanelTabBody levelManagerSection">
               <div className="sectionHeader">
                 <div className="levelManagerHeaderCopy">
-                  <div className="sectionEyebrow">Document</div>
-                  <h2 className="sectionTitle">{documentTitle}</h2>
+                  <div className="sectionEyebrow">Levels Manager</div>
+                  <h2 className="sectionTitle">{levelsetTitle}</h2>
                 </div>
+                <span className="statusBadge">{`${displayedLevelCount} levels`}</span>
               </div>
 
               <div className="boardControlRow boardCommandRow">
@@ -5072,12 +5242,134 @@ export default function App() {
                 </button>
               </div>
 
-              {!doc ? (
+              <div className="levelManagerHint">
+                Drag to reorder. Selecting a level switches the active board, JSON view, and save
+                target.
+              </div>
+
+              <div className="boardControlRow boardCommandRow">
+                <button
+                  type="button"
+                  className="actionButton"
+                  onClick={addLevelAfterCurrentSelection}
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={displayedLevelCount <= 0}
+                  onClick={duplicateSelectedLevel}
+                >
+                  Duplicate
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!canDeleteSelectedLevel}
+                  onClick={deleteSelectedLevel}
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!canMoveDisplayedLevelUp}
+                  onClick={() => moveDisplayedLevelBy(-1)}
+                >
+                  Move Up
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!canMoveDisplayedLevelDown}
+                  onClick={() => moveDisplayedLevelBy(1)}
+                >
+                  Move Down
+                </button>
+              </div>
+
+              {displayedLevelCount > 0 ? (
+                <div
+                  className="levelList"
+                  role="list"
+                  aria-label="Level list"
+                  onDragOver={(event) => {
+                    if (event.target !== event.currentTarget) return;
+                    event.preventDefault();
+                    const nextDropState = getLevelDropStateFromList(
+                      event.currentTarget,
+                      event.clientY,
+                    );
+                    if (!nextDropState) return;
+                    setLevelDropState((current) =>
+                      current?.index === nextDropState.index &&
+                      current.position === nextDropState.position
+                        ? current
+                        : nextDropState,
+                    );
+                  }}
+                  onDrop={(event) => {
+                    if (event.target !== event.currentTarget) return;
+                    event.preventDefault();
+                    handleLevelDrop();
+                  }}
+                >
+                  {levelset?.levels.map((entry, index) => {
+                    const isSelected = index === selectedLevelIndex;
+                    const showsDropBefore =
+                      draggedLevelIndex !== null &&
+                      levelDropState?.index === index &&
+                      levelDropState.position === "before";
+                    const showsDropAfter =
+                      draggedLevelIndex !== null &&
+                      levelDropState?.index === index &&
+                      levelDropState.position === "after";
+
+                    return (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        draggable
+                        className={`levelListItem ${isSelected ? "selected" : ""} ${draggedLevelIndex === index ? "dragging" : ""} ${showsDropBefore ? "dropBefore" : ""} ${showsDropAfter ? "dropAfter" : ""}`}
+                        onClick={() => selectLevelAt(index)}
+                        onDragStart={() => handleLevelDragStart(index)}
+                        onDragOver={(event) => {
+                          event.stopPropagation();
+                          handleLevelDragOver(event, index);
+                        }}
+                        onDrop={(event) => {
+                          event.stopPropagation();
+                          event.preventDefault();
+                          handleLevelDrop();
+                        }}
+                        onDragEnd={() => {
+                          setDraggedLevelIndex(null);
+                          setLevelDropState(null);
+                        }}
+                      >
+                        <span className="levelDragGrip" aria-hidden="true">
+                          ::
+                        </span>
+                        <span className="levelListNumber">
+                          {String(index + 1).padStart(
+                            Math.max(2, String(displayedLevelCount).length),
+                            "0",
+                          )}
+                        </span>
+                        <span className="levelListTitle">
+                          {entry.doc.title?.trim() || `Level ${index + 1}`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
                 <div className="emptyState">
                   Create a blank level or open an existing `.c2m`, `.json`, folder, or `.zip` set to
                   start editing.
                 </div>
-              ) : null}
+              )}
 
               {doc ? documentMetadataPanel : null}
               {doc ? documentResizePanel : null}

@@ -307,6 +307,80 @@ canvas {
   gap: 6px;
 }
 
+.levelManagerHint {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.levelList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.levelListItem {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(57, 75, 66, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(13, 24, 33, 0.04);
+}
+
+.levelListItem:hover {
+  border-color: rgba(35, 95, 122, 0.25);
+  box-shadow: 0 12px 26px rgba(13, 24, 33, 0.07);
+}
+
+.levelListItem.selected {
+  border-color: rgba(35, 95, 122, 0.55);
+  box-shadow: 0 0 0 2px rgba(35, 95, 122, 0.12);
+}
+
+.levelListItem.dragging {
+  opacity: 0.55;
+}
+
+.levelListItem.dropBefore {
+  box-shadow: inset 0 3px 0 rgba(35, 95, 122, 0.8);
+}
+
+.levelListItem.dropAfter {
+  box-shadow: inset 0 -3px 0 rgba(35, 95, 122, 0.8);
+}
+
+.levelDragGrip {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  user-select: none;
+}
+
+.levelListNumber {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.levelListTitle {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .leftPanelSubsection {
   display: flex;
   flex-direction: column;
