@@ -30,6 +30,7 @@ import {
   replaceLevelsetEntryDoc,
   type C2mLevelsetJsonV1,
 } from "../../src/c2g/c2gLevelsetJsonV1";
+import { serializeC2gText } from "../../src/c2g/c2gText";
 import {
   transformLevelJson,
   transformTileSpec,
@@ -206,6 +207,7 @@ import {
 } from "./persistedAppState";
 import { renderRecentLevelThumbnail } from "./recentLevelThumbnail";
 import { buildSavedLevelsetArchive } from "./saveLevelset";
+import { applyRawC2gTextToLevelset } from "./c2gEditing";
 import {
   addLevelAfterSelection,
   deleteLevelAtIndex,
@@ -1305,6 +1307,9 @@ export default function App() {
   );
   const [recentModalOpen, setRecentModalOpen] = useState(false);
   const [ideasDialogOpen, setIdeasDialogOpen] = useState<IdeasDialogId | null>(null);
+  const [c2gEditorOpen, setC2gEditorOpen] = useState(false);
+  const [c2gDraftText, setC2gDraftText] = useState("");
+  const [c2gDraftError, setC2gDraftError] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState<ViewportSize>({
     width: 0,
     height: 0,
@@ -2020,6 +2025,8 @@ export default function App() {
       setError(null);
       setParseError(null);
       setRenderError(null);
+      setC2gEditorOpen(false);
+      setC2gDraftError(null);
     },
     [],
   );
@@ -3689,6 +3696,27 @@ export default function App() {
     setRecentModalOpen(true);
   }, []);
 
+  const openC2gEditor = useCallback(() => {
+    if (!levelset) return;
+    setBoardMenuOpen(null);
+    setC2gDraftText(serializeC2gText(levelset.c2g));
+    setC2gDraftError(null);
+    setC2gEditorOpen(true);
+  }, [levelset]);
+
+  const saveC2gDraft = useCallback(() => {
+    if (!levelset) return;
+
+    try {
+      const nextState = applyRawC2gTextToLevelset(levelset, c2gDraftText, selectedLevelIndex);
+      commitLevelsetUpdate(nextState.levelset, nextState.selectedLevelIndex);
+      setC2gEditorOpen(false);
+      setC2gDraftError(null);
+    } catch (err: unknown) {
+      setC2gDraftError(asErrorMessage(err));
+    }
+  }, [c2gDraftText, commitLevelsetUpdate, levelset, selectedLevelIndex]);
+
   const openRecentLevel = useCallback(
     (entry: PersistedRecentLevelEntry) => {
       try {
@@ -4814,6 +4842,75 @@ export default function App() {
         />
       ) : null}
 
+      {c2gEditorOpen ? (
+        <div
+          className="modalBackdrop"
+          onPointerDown={() => setC2gEditorOpen(false)}
+          role="presentation"
+        >
+          <section
+            className="modalCard modalCardWide c2gEditorModal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-c2g-title"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <div className="modalHeader">
+              <div>
+                <div className="sectionEyebrow">Level Set</div>
+                <h2 id="edit-c2g-title" className="modalTitle">
+                  Edit C2G
+                </h2>
+                <div className="panelSubtext">
+                  Only `game` and `map` lines affect editor state. Other directives are preserved
+                  verbatim.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="modalCloseButton"
+                aria-label="Close edit C2G modal"
+                onClick={() => setC2gEditorOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modalBody c2gEditorModalBody">
+              <label className="fieldGroup">
+                <span className="fieldCaption">Raw {levelset?.c2gFileName ?? "set.c2g"}</span>
+                <textarea
+                  className="textField inspectorTextArea codeArea c2gEditorTextArea"
+                  spellCheck={false}
+                  value={c2gDraftText}
+                  onChange={(event) => {
+                    setC2gDraftText(event.target.value);
+                    if (c2gDraftError) setC2gDraftError(null);
+                  }}
+                />
+              </label>
+
+              {c2gDraftError ? (
+                <div className="panelInlineError documentInlineError">{c2gDraftError}</div>
+              ) : null}
+            </div>
+
+            <div className="modalActions">
+              <button
+                type="button"
+                className="secondaryButton"
+                onClick={() => setC2gEditorOpen(false)}
+              >
+                Cancel
+              </button>
+              <button type="button" className="actionButton" onClick={saveC2gDraft}>
+                Save C2G
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
       {recentModalOpen ? (
         <div
           className="modalBackdrop"
@@ -5231,6 +5328,14 @@ export default function App() {
                   onClick={onSaveSet}
                 >
                   Save Set
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!levelset}
+                  onClick={openC2gEditor}
+                >
+                  Edit C2G
                 </button>
                 <button
                   type="button"

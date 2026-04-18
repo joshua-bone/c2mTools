@@ -327,6 +327,8 @@ Tests:
 
 Add `Edit C2G` raw-text modal.
 
+Status: done
+
 Work:
 
 - open modal with current raw text

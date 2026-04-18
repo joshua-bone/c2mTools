@@ -1545,12 +1545,28 @@ select.textField.compactField {
 .modalActions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   padding: 0 18px 16px;
 }
 
 .fieldHint {
   color: var(--muted);
   font-size: 10px;
+}
+
+.c2gEditorModal {
+  width: min(960px, calc(100vw - 40px));
+}
+
+.c2gEditorModalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.c2gEditorTextArea {
+  min-height: 340px;
+  resize: vertical;
 }
 
 .wallsDialogCard {
