@@ -65,6 +65,8 @@ describe("c2m cell inspector helpers", () => {
     expect(resolveWireableDirections({ tile: "FLAME_JET_ON" })).toEqual(["N", "E", "S", "W"]);
     expect(resolveWireableDirections({ tile: "SWIVEL_DOOR_SE" })).toEqual(["N", "E", "S", "W"]);
     expect(resolveWireableDirections({ tile: "CLONE_MACHINE" })).toEqual(["N", "E", "S", "W"]);
+    expect(resolveWireableDirections({ tile: "GREEN_TOGGLE_FLOOR" })).toEqual(["N", "E", "S", "W"]);
+    expect(resolveWireableDirections({ tile: "PURPLE_TOGGLE_WALL" })).toEqual(["N", "E", "S", "W"]);
   });
 
   it("only allows railroad wires when a switch piece is present", () => {

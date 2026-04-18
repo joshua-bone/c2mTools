@@ -107,6 +107,8 @@ const WIRES_TILES = new Set<number>([
   0x0b, // Force east
   0x0c, // Force south
   0x0d, // Force west
+  0x0e, // Green toggle wall
+  0x0f, // Green toggle floor
   0x10, // Red teleport
   0x11, // Blue teleport
   0x42, // Trap
@@ -122,6 +124,8 @@ const WIRES_TILES = new Set<number>([
   0x5c, // Logic gate
   0x5f, // Flame jet off
   0x60, // Flame jet on
+  0x72, // Purple toggle floor
+  0x73, // Purple toggle wall
   0x88, // Switch off
   0x89, // Switch on
   0x5e, // Pink button

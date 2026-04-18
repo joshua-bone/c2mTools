@@ -338,6 +338,29 @@ describe("c2m level editing", () => {
     });
   });
 
+  it("connects pink buttons to toggle tiles as wireable terrain", () => {
+    const map = withTile(
+      withTile(createMap(), { x: 2, y: 2 }, "PINK_BUTTON"),
+      { x: 3, y: 2 },
+      "GREEN_TOGGLE_FLOOR",
+    );
+
+    const connected = connectWirePoints(
+      placeWireNode(placeWireNode(map, { x: 2, y: 2 }), { x: 3, y: 2 }),
+      { x: 2, y: 2 },
+      { x: 3, y: 2 },
+    );
+
+    expect(connected.tiles[pointToIndex({ x: 2, y: 2 }, connected)]).toEqual({
+      tile: "PINK_BUTTON",
+      modifiers: [{ kind: "WIRES", wires: ["E"], tunnels: [] }],
+    });
+    expect(connected.tiles[pointToIndex({ x: 3, y: 2 }, connected)]).toEqual({
+      tile: "GREEN_TOGGLE_FLOOR",
+      modifiers: [{ kind: "WIRES", wires: ["W"], tunnels: [] }],
+    });
+  });
+
   it("rejects wire connections that violate logic-gate direction rules", () => {
     const map = withTile(
       createMap(),

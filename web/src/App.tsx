@@ -2397,6 +2397,14 @@ export default function App() {
     setTool("select");
   }, [map, selection]);
 
+  const cutSelection = useCallback(() => {
+    if (!map || !selection || !canMutateBoard) return;
+    setClipboard(copyMapRegion(map, selection, resolveSelectionIndices(selection, map)));
+    setTool("select");
+    setPastePreviewActive(true);
+    commitMapChange(paintMapCells(map, resolveSelectionIndices(selection, map), ERASER_BRUSH));
+  }, [canMutateBoard, commitMapChange, map, selection]);
+
   const clearSelectionState = useCallback(() => {
     setSelection(null);
     setPastePreviewActive(false);
@@ -3352,6 +3360,11 @@ export default function App() {
           event.preventDefault();
           onRedo();
           return;
+        case "cut-selection":
+          if (!selection || !canMutateBoard) return;
+          event.preventDefault();
+          cutSelection();
+          return;
         case "copy-selection":
           if (!selection) return;
           event.preventDefault();
@@ -3397,6 +3410,7 @@ export default function App() {
     clearSelectionState,
     clipboard,
     commitPastePreview,
+    cutSelection,
     copySelection,
     eraseSelection,
     onRedo,
@@ -4996,6 +5010,14 @@ export default function App() {
                 <button
                   type="button"
                   className="secondaryButton"
+                  onClick={cutSelection}
+                  disabled={!selection || !canMutateBoard}
+                >
+                  Cut
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
                   onClick={copySelection}
                   disabled={!selection}
                 >
@@ -6476,6 +6498,10 @@ export default function App() {
                   <div className="shortcutRow">
                     <span className="shortcutKey">, .</span>
                     <span>Rotate or cycle active brush</span>
+                  </div>
+                  <div className="shortcutRow">
+                    <span className="shortcutKey">Cmd/Ctrl+X</span>
+                    <span>Cut selection</span>
                   </div>
                   <div className="shortcutRow">
                     <span className="shortcutKey">Cmd/Ctrl+C</span>

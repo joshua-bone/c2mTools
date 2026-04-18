@@ -59,4 +59,26 @@ describe("c2m wire rendering", () => {
 
     expect(Array.from(emptyWireNode.data)).toEqual(Array.from(plain.data));
   });
+
+  it("renders toggle tiles differently when wire modifiers are present", () => {
+    const renderer = new CC2RendererCore(new CC2Tileset(createFakeTilesetSheet()));
+
+    const plain = renderer.renderMap({
+      width: 1,
+      height: 1,
+      tiles: ["GREEN_TOGGLE_FLOOR"],
+    });
+    const wired = renderer.renderMap({
+      width: 1,
+      height: 1,
+      tiles: [
+        {
+          tile: "GREEN_TOGGLE_FLOOR",
+          modifiers: [{ kind: "WIRES", wires: ["E"], tunnels: [] }],
+        },
+      ],
+    });
+
+    expect(Array.from(wired.data)).not.toEqual(Array.from(plain.data));
+  });
 });

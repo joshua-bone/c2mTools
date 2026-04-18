@@ -310,11 +310,13 @@ function renderTerrain(ts: CC2Tileset, tile: TileSpecObjJson): RgbaImage {
   if (name === "RAILROAD_TRACK") return renderRailroadTrack(ts, tile);
   if (name === "LOGIC_GATE") return renderLogicGate(ts, tile);
 
-  if (name === "GREEN_TOGGLE_FLOOR") return ts.draw(0, 9);
-  if (name === "GREEN_TOGGLE_WALL") return ts.merge(ts.draw(8, 9), ts.draw(0, 9));
+  if (name === "GREEN_TOGGLE_FLOOR") return renderWireBackdrop(ts, tile, 0, 9);
+  if (name === "GREEN_TOGGLE_WALL")
+    return ts.merge(ts.draw(8, 9), renderWireBackdrop(ts, tile, 0, 9));
 
-  if (name === "PURPLE_TOGGLE_FLOOR") return ts.draw(4, 9);
-  if (name === "PURPLE_TOGGLE_WALL") return ts.merge(ts.draw(8, 9), ts.draw(4, 9));
+  if (name === "PURPLE_TOGGLE_FLOOR") return renderWireBackdrop(ts, tile, 4, 9);
+  if (name === "PURPLE_TOGGLE_WALL")
+    return ts.merge(ts.draw(8, 9), renderWireBackdrop(ts, tile, 4, 9));
 
   if (name === "CUSTOM_FLOOR" || name === "CUSTOM_WALL") {
     const m = getModifier(tile, "CUSTOM_STYLE");

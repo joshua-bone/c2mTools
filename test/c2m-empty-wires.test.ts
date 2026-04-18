@@ -53,4 +53,19 @@ describe("empty wire nodes", () => {
 
     expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(map);
   });
+
+  it("round-trips toggle wire modifiers", () => {
+    const map = {
+      width: 1,
+      height: 1,
+      tiles: [
+        {
+          tile: "GREEN_TOGGLE_FLOOR",
+          modifiers: [{ kind: "WIRES", wires: ["E"], tunnels: [] }],
+        },
+      ],
+    } as const;
+
+    expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(map);
+  });
 });

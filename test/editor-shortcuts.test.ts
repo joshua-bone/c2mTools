@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { isEditableShortcutTarget, resolveEditorShortcut } from "../web/src/editor/shortcuts.js";
 
 describe("editor shortcuts", () => {
-  it("resolves undo, redo, copy, and paste commands", () => {
+  it("resolves undo, redo, cut, copy, and paste commands", () => {
     expect(
       resolveEditorShortcut(
         {
@@ -37,6 +37,23 @@ describe("editor shortcuts", () => {
         },
       ),
     ).toEqual({ type: "redo" });
+
+    expect(
+      resolveEditorShortcut(
+        {
+          key: "x",
+          metaKey: true,
+          ctrlKey: false,
+          shiftKey: false,
+          altKey: false,
+        },
+        {
+          hasSelection: true,
+          hasClipboard: false,
+          pastePreviewActive: false,
+        },
+      ),
+    ).toEqual({ type: "cut-selection" });
 
     expect(
       resolveEditorShortcut(

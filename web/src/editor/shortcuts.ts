@@ -11,6 +11,7 @@ export type EditorToolMode =
 export type EditorShortcutCommand =
   | Readonly<{ type: "undo" }>
   | Readonly<{ type: "redo" }>
+  | Readonly<{ type: "cut-selection" }>
   | Readonly<{ type: "copy-selection" }>
   | Readonly<{ type: "start-paste-preview" }>
   | Readonly<{ type: "commit-paste-preview" }>
@@ -69,6 +70,7 @@ export function resolveEditorShortcut(
   if (meta && !event.altKey) {
     if (!event.shiftKey && key === "z") return { type: "undo" };
     if ((event.shiftKey && key === "z") || key === "y") return { type: "redo" };
+    if (key === "x" && context.hasSelection) return { type: "cut-selection" };
     if (key === "c" && context.hasSelection) return { type: "copy-selection" };
     if (key === "v" && context.hasClipboard) return { type: "start-paste-preview" };
     return null;
