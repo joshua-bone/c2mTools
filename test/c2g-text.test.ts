@@ -4,6 +4,7 @@ import {
   createMinimalC2gText,
   normalizeC2gRelativePath,
   parseC2gText,
+  rewriteC2gTextDocument,
   serializeC2gText,
 } from "../src/c2g/index.js";
 
@@ -119,6 +120,40 @@ describe("c2g helpers", () => {
   it("builds a minimal c2g manifest", () => {
     expect(createMinimalC2gText("Example", ["001_first.c2m", "002_second.c2m"])).toBe(
       'game "Example"\nmap "001_first.c2m"\nmap "002_second.c2m"\n',
+    );
+  });
+
+  it("rewrites game name and entry order while preserving opaque text", () => {
+    const parsed = parseC2gText(
+      [
+        'game "Old Name"',
+        "script",
+        '"opaque intro"',
+        'music "theme.ogg" map "002_second.c2m"',
+        "if flags",
+        'map "001_first.c2m"',
+        "endif",
+        "",
+      ].join("\n"),
+    );
+
+    const rewritten = rewriteC2gTextDocument(parsed, {
+      gameName: "New Name",
+      entryRelativePaths: ["001_first.c2m", "003_third.c2m", "002_second.c2m"],
+    });
+
+    expect(serializeC2gText(rewritten)).toBe(
+      [
+        'game "New Name"',
+        'map "001_first.c2m"',
+        "if flags",
+        'map "003_third.c2m"',
+        "script",
+        '"opaque intro"',
+        'music "theme.ogg" map "002_second.c2m"',
+        "endif",
+        "",
+      ].join("\n"),
     );
   });
 });

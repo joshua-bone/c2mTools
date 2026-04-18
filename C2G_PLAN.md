@@ -270,7 +270,7 @@ Tests:
 - open folder with no `.c2g`
 - open zip with nested levels
 
-### PR4: Save Level / Save Set
+### PR4: Save Level / Save Set ✅
 
 Split existing save behavior:
 

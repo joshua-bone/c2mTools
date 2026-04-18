@@ -173,6 +173,31 @@ function escapeC2gQuotedValue(value: string): string {
   return value;
 }
 
+function createGameSegment(name: string, lineEnding: "\r\n" | "\n" | "\r"): C2gGameStatement {
+  const statementPrefix = 'game "';
+  const statementSuffix = `"${lineEnding}`;
+  return {
+    type: "game",
+    rawText: `${statementPrefix}${escapeC2gQuotedValue(name)}${statementSuffix}`,
+    statementPrefix,
+    name,
+    statementSuffix,
+  };
+}
+
+function createEntrySegment(relativePath: string, lineEnding: "\r\n" | "\n" | "\r"): C2gEntryBlock {
+  const statementPrefix = 'map "';
+  const statementSuffix = `"${lineEnding}`;
+  return {
+    type: "entry",
+    rawText: `${statementPrefix}${escapeC2gQuotedValue(relativePath)}${statementSuffix}`,
+    leadingText: "",
+    statementPrefix,
+    relativePath,
+    statementSuffix,
+  };
+}
+
 function serializeSegment(segment: C2gTextSegment): string {
   switch (segment.type) {
     case "text":
@@ -292,4 +317,88 @@ export function parseC2gText(rawText: string): C2gTextDocument {
 
 export function serializeC2gText(doc: C2gTextDocument): string {
   return doc.segments.map(serializeSegment).join("");
+}
+
+export function rewriteC2gTextDocument(
+  doc: C2gTextDocument,
+  options: Readonly<{
+    gameName: string;
+    entryRelativePaths: ReadonlyArray<string>;
+  }>,
+): C2gTextDocument {
+  const lineEnding = doc.lineEnding;
+  const existingEntriesByPath = new Map<string, C2gEntryBlock[]>();
+  for (const entry of doc.entries) {
+    const normalizedPath = normalizeC2gRelativePath(entry.relativePath);
+    const bucket = existingEntriesByPath.get(normalizedPath);
+    if (bucket) bucket.push(entry);
+    else existingEntriesByPath.set(normalizedPath, [entry]);
+  }
+
+  const nextEntries = options.entryRelativePaths.map((relativePath) => {
+    const normalizedPath = normalizeC2gRelativePath(relativePath);
+    const existingEntry = existingEntriesByPath.get(normalizedPath)?.shift();
+    if (!existingEntry) {
+      return createEntrySegment(normalizedPath, lineEnding);
+    }
+    return {
+      ...existingEntry,
+      relativePath: normalizedPath,
+      rawText:
+        existingEntry.leadingText +
+        existingEntry.statementPrefix +
+        escapeC2gQuotedValue(normalizedPath) +
+        existingEntry.statementSuffix,
+    } satisfies C2gEntryBlock;
+  });
+  const segments: C2gTextSegment[] = [];
+  let nextEntryIndex = 0;
+  let sawGame = false;
+  let lastEntryInsertIndex = -1;
+
+  for (const segment of doc.segments) {
+    if (segment.type === "game") {
+      const nextGame = {
+        ...segment,
+        name: options.gameName,
+        rawText: `${segment.statementPrefix}${escapeC2gQuotedValue(options.gameName)}${segment.statementSuffix}`,
+      } satisfies C2gGameStatement;
+      segments.push(nextGame);
+      sawGame = true;
+      continue;
+    }
+
+    if (segment.type === "entry") {
+      if (nextEntryIndex < nextEntries.length) {
+        segments.push(nextEntries[nextEntryIndex]!);
+        lastEntryInsertIndex = segments.length - 1;
+        nextEntryIndex += 1;
+      }
+      continue;
+    }
+
+    segments.push(segment);
+  }
+
+  const remainingEntries = nextEntries.slice(nextEntryIndex);
+  if (remainingEntries.length > 0) {
+    const insertIndex = lastEntryInsertIndex >= 0 ? lastEntryInsertIndex + 1 : segments.length;
+    segments.splice(insertIndex, 0, ...remainingEntries);
+  }
+
+  if (!sawGame) {
+    segments.unshift(createGameSegment(options.gameName, lineEnding));
+  }
+
+  const nextDoc = {
+    ...doc,
+    segments,
+    gameName: options.gameName,
+    entries: segments.flatMap((segment) => (segment.type === "entry" ? [segment] : [])),
+  } satisfies C2gTextDocument;
+
+  return {
+    ...nextDoc,
+    rawText: serializeC2gText(nextDoc),
+  };
 }

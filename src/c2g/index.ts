@@ -2,6 +2,7 @@ export {
   createMinimalC2gText,
   normalizeC2gRelativePath,
   parseC2gText,
+  rewriteC2gTextDocument,
   serializeC2gText,
   type C2gEntryBlock,
   type C2gGameStatement,

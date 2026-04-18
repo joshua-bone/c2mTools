@@ -330,6 +330,19 @@ async function saveC2mFile(fileName: string, bytes: Uint8Array): Promise<void> {
   });
 }
 
+async function saveZipFile(fileName: string, bytes: Uint8Array): Promise<void> {
+  const ab = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+
+  await saveBlobLocally(fileName, new Blob([ab], { type: "application/zip" }), {
+    description: "CC2 level set archive",
+    mimeType: "application/zip",
+    extensions: [".zip"],
+  });
+}
+
 async function saveJsonFile(fileName: string, text: string): Promise<void> {
   await saveBlobLocally(fileName, new Blob([text], { type: "application/json" }), {
     description: "C2M JSON",
@@ -353,6 +366,7 @@ function openExternalUrl(url: string): void {
 export const browserPlatform: EditorPlatform = {
   openDocumentSource,
   saveC2mFile,
+  saveZipFile,
   saveJsonFile,
   openExternalUrl,
 };

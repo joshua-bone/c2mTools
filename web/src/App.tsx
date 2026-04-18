@@ -205,6 +205,7 @@ import {
   type PersistedEditorSession,
 } from "./persistedAppState";
 import { renderRecentLevelThumbnail } from "./recentLevelThumbnail";
+import { buildSavedLevelsetArchive } from "./saveLevelset";
 import {
   RECENT_LEVELS_STORAGE_KEY,
   createPersistedRecentLevelEntry,
@@ -1416,7 +1417,8 @@ export default function App() {
   const jsonTextPresent = jsonText.trim().length > 0;
   const jsonOk = doc !== null && parseError === null && jsonTextPresent;
   const canMutateBoard = map !== null && jsonOk;
-  const canSave = jsonOk;
+  const canSaveLevel = jsonOk;
+  const canSaveSet = levelset !== null && jsonOk;
   const canTestInNotcc = doc !== null && jsonOk;
   const canUndo = history !== null && history.cursor > 0 && jsonOk;
   const canRedo = history !== null && history.cursor < history.events.length && jsonOk;
@@ -3562,7 +3564,7 @@ export default function App() {
     });
   }, []);
 
-  const onSaveAsC2m = useCallback(() => {
+  const onSaveLevel = useCallback(() => {
     if (!doc || !jsonOk) return;
 
     setError(null);
@@ -3575,6 +3577,19 @@ export default function App() {
         setError(asErrorMessage(err));
       });
   }, [doc, fileName, jsonOk]);
+
+  const onSaveSet = useCallback(() => {
+    if (!levelset || !jsonOk) return;
+
+    setError(null);
+    setRenderError(null);
+
+    const archive = buildSavedLevelsetArchive(levelset);
+    void platform.saveZipFile(archive.fileName, archive.bytes).catch((err: unknown) => {
+      if (isAbortError(err)) return;
+      setError(asErrorMessage(err));
+    });
+  }, [jsonOk, levelset]);
 
   const onDownloadJson = useCallback(() => {
     if (!jsonOk) return;
@@ -4815,13 +4830,24 @@ export default function App() {
                     <button
                       type="button"
                       className="dropdownMenuItem"
-                      disabled={!canSave}
+                      disabled={!canSaveLevel}
                       onClick={() => {
                         setBoardMenuOpen(null);
-                        onSaveAsC2m();
+                        onSaveLevel();
                       }}
                     >
-                      Save C2M
+                      Save Level
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdownMenuItem"
+                      disabled={!canSaveSet}
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        onSaveSet();
+                      }}
+                    >
+                      Save Set
                     </button>
                     <button
                       type="button"
@@ -5023,10 +5049,18 @@ export default function App() {
                 <button
                   type="button"
                   className="secondaryButton"
-                  disabled={!canSave}
-                  onClick={onSaveAsC2m}
+                  disabled={!canSaveLevel}
+                  onClick={onSaveLevel}
                 >
-                  Save
+                  Save Level
+                </button>
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={!canSaveSet}
+                  onClick={onSaveSet}
+                >
+                  Save Set
                 </button>
                 <button
                   type="button"
@@ -5040,7 +5074,8 @@ export default function App() {
 
               {!doc ? (
                 <div className="emptyState">
-                  Create a blank level or open an existing `.c2m`/`.json` file to start editing.
+                  Create a blank level or open an existing `.c2m`, `.json`, folder, or `.zip` set to
+                  start editing.
                 </div>
               ) : null}
 
