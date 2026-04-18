@@ -190,8 +190,9 @@ import { describeTileSpec, formatTileDisplayName, getTileSpecName } from "./edit
 import { loadCc2Tileset } from "./loadCc2Tileset";
 import { getPaletteSections } from "./paletteSections";
 import { platform } from "./platform";
-import { readLocalDocumentFile } from "./platform/browser";
-import type { OpenedDocumentFile } from "./platform";
+import { readLocalDocumentSourceList } from "./platform/browser";
+import type { OpenedDocumentSource } from "./platform";
+import { loadLevelsetFromOpenedDocumentSource } from "./openDocumentSource";
 import {
   APP_PREFERENCES_STORAGE_KEY,
   EDITOR_SESSION_STORAGE_KEY,
@@ -2270,29 +2271,20 @@ export default function App() {
     setRenderError(null);
   }, []);
 
-  const loadOpenedDocument = useCallback(
-    (openedFile: OpenedDocumentFile) => {
+  const loadOpenedDocumentSource = useCallback(
+    (openedSource: OpenedDocumentSource) => {
       setError(null);
       setParseError(null);
       setRenderError(null);
 
       try {
         const recentLevelId = createRecentLevelId();
-        if (openedFile.kind === "c2m") {
-          const warnList: string[] = [];
-          const decoded = decodeC2mToJsonV1(openedFile.bytes, (message) => warnList.push(message));
-          loadDocument(decoded, {
-            fileName: openedFile.name,
-            warnings: warnList,
-            recentLevelId,
-          });
-        } else {
-          const parsedDoc = parseC2mJsonV1(JSON.parse(openedFile.text) as unknown);
-          loadDocument(parsedDoc, {
-            fileName: openedFile.name,
-            recentLevelId,
-          });
-        }
+        const loaded = loadLevelsetFromOpenedDocumentSource(openedSource);
+        loadLevelset(loaded.levelset, {
+          fileName: loaded.fileName,
+          warnings: loaded.warnings,
+          recentLevelId,
+        });
 
         resetBoardTransientState({
           clearSelection: true,
@@ -2303,7 +2295,7 @@ export default function App() {
         setError(asErrorMessage(err));
       }
     },
-    [loadDocument, resetBoardTransientState],
+    [loadLevelset, resetBoardTransientState],
   );
 
   const resolveBoardCellAtClientPoint = useCallback(
@@ -3512,15 +3504,15 @@ export default function App() {
   const onOpenClick = useCallback(() => {
     void (async () => {
       try {
-        const openedFile = await platform.openDocumentFile();
-        if (!openedFile) return;
-        loadOpenedDocument(openedFile);
+        const openedSource = await platform.openDocumentSource();
+        if (!openedSource) return;
+        loadOpenedDocumentSource(openedSource);
       } catch (err: unknown) {
         if (isAbortError(err)) return;
         setError(asErrorMessage(err));
       }
     })();
-  }, [loadOpenedDocument]);
+  }, [loadOpenedDocumentSource]);
 
   const onOpenRecentClick = useCallback(() => {
     setRecentModalOpen(true);
@@ -3645,18 +3637,19 @@ export default function App() {
       event.preventDefault();
       setIsDragOver(false);
 
-      const file = event.dataTransfer.files?.item(0) ?? null;
-      if (!file) return;
+      const files = event.dataTransfer.files ? Array.from(event.dataTransfer.files) : [];
+      if (files.length <= 0) return;
 
-      void readLocalDocumentFile(file)
-        .then((openedFile) => {
-          loadOpenedDocument(openedFile);
+      void readLocalDocumentSourceList(files, "Dropped Set")
+        .then((openedSource) => {
+          if (!openedSource) return;
+          loadOpenedDocumentSource(openedSource);
         })
         .catch((err: unknown) => {
           setError(asErrorMessage(err));
         });
     },
-    [loadOpenedDocument],
+    [loadOpenedDocumentSource],
   );
 
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {

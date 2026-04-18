@@ -211,7 +211,7 @@ My default is `File > Edit C2G`, because it is a manifest/document action rather
 
 ## PR Plan
 
-### PR1: C2G parser / serializer core
+### PR1: C2G parser / serializer core ✅
 
 Add a new `src/c2g/` module in `c2mTools`:
 
@@ -229,7 +229,7 @@ Tests:
 - preserves comments and unknown directives verbatim
 - treats advanced script/control lines as opaque text
 
-### PR2: Levelset document model and history
+### PR2: Levelset document model and history ✅
 
 Introduce `C2mLevelsetJsonV1` and convert editor state/history/session persistence from single-level to set-level.
 
@@ -246,7 +246,7 @@ Tests:
 - session serialization round-trip for sets
 - one-level adapter behavior
 
-### PR3: Set I/O core
+### PR3: Set I/O core ✅
 
 Expand the platform and file-loading layer to support:
 

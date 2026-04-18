@@ -1,18 +1,23 @@
-export type OpenedDocumentFile = Readonly<
+export type OpenedDocumentSourceEntry = Readonly<{
+  relativePath: string;
+  bytes: Uint8Array;
+}>;
+
+export type OpenedDocumentSource = Readonly<
   | {
-      kind: "c2m";
+      kind: "file";
       name: string;
       bytes: Uint8Array;
     }
   | {
-      kind: "json";
+      kind: "collection";
       name: string;
-      text: string;
+      entries: ReadonlyArray<OpenedDocumentSourceEntry>;
     }
 >;
 
 export type EditorPlatform = Readonly<{
-  openDocumentFile: () => Promise<OpenedDocumentFile | null>;
+  openDocumentSource: () => Promise<OpenedDocumentSource | null>;
   saveC2mFile: (fileName: string, bytes: Uint8Array) => Promise<void>;
   saveJsonFile: (fileName: string, text: string) => Promise<void>;
   openExternalUrl: (url: string) => void;

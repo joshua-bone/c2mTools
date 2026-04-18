@@ -2,4 +2,4 @@ import { browserPlatform } from "./browser";
 
 export const platform = browserPlatform;
 
-export type { EditorPlatform, OpenedDocumentFile } from "./types";
+export type { EditorPlatform, OpenedDocumentSource, OpenedDocumentSourceEntry } from "./types";
