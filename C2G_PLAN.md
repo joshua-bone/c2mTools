@@ -379,6 +379,10 @@ map "relative/path/to/level.c2m"
 ...
 ```
 
+Synthesized order rule:
+
+- use simple lexicographic order by relative path
+
 ### Zip structure
 
 `Save Set` should always emit:
@@ -386,6 +390,15 @@ map "relative/path/to/level.c2m"
 - root C2G
 - all referenced `.c2m` files
 - nested directories as required by relative paths
+
+Default generated path rule for new or duplicated levels:
+
+- keep filenames in sync with level title and level order
+- use a numeric prefix whose width expands with set size
+- sanitize the title into a stable slug
+- default shape: `014_level_14.c2m`
+- when the set grows enough to need more digits, renumber the generated prefixes for the whole set
+- preserve existing on-disk relative paths for levels that already came from disk unless the user explicitly renames or reorders into regenerated naming
 
 ## Main Risks
 
@@ -398,14 +411,15 @@ map "relative/path/to/level.c2m"
 3. **Browser folder APIs**
    Browser support is weaker than native file APIs, so the platform layer must hide those differences cleanly.
 
-## Open Questions / Clarifiers
+## Resolved Decisions
 
-1. When a folder has **no** `.c2g`, should synthesized level order be simple lexicographic order by relative path?
+1. When a folder has **no** `.c2g`, synthesized order is lexicographic by relative path.
 
-2. When the user **adds or duplicates** a level inside a set, what relative path do you want by default?
-   My default would be something deterministic like `levels/001.c2m`, `levels/002.c2m`, etc., while preserving existing paths for levels that already came from disk.
+2. When the user **adds or duplicates** a level inside a set, default relative paths should track level order and title using sanitized filenames with an automatically expanding numeric prefix width.
+   Example: `014_level_14.c2m`.
 
-3. For advanced/scripted C2Gs, is it acceptable that the level manager reflects and rewrites **textual map-entry order only**, with the raw `Edit C2G` modal as the escape hatch for anything more complicated?
+3. For advanced/scripted C2Gs, the level manager should care only about **textual level order**.
+   `Edit C2G` is the escape hatch for anything more complicated.
 
 ## Local Code References
 
