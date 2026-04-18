@@ -81,4 +81,34 @@ describe("c2m wire rendering", () => {
 
     expect(Array.from(wired.data)).not.toEqual(Array.from(plain.data));
   });
+
+  it("renders wired railroad tracks the same as unwired railroad tracks", () => {
+    const renderer = new CC2RendererCore(new CC2Tileset(createFakeTilesetSheet()));
+
+    const plain = renderer.renderMap({
+      width: 1,
+      height: 1,
+      tiles: [
+        {
+          tile: "RAILROAD_TRACK",
+          modifiers: [{ kind: "TRACKS", pieces: ["HORIZONTAL"], active: "H", entered: "E" }],
+        },
+      ],
+    });
+    const wired = renderer.renderMap({
+      width: 1,
+      height: 1,
+      tiles: [
+        {
+          tile: "RAILROAD_TRACK",
+          modifiers: [
+            { kind: "TRACKS", pieces: ["HORIZONTAL"], active: "H", entered: "E" },
+            { kind: "WIRES", wires: ["E"], tunnels: [] },
+          ],
+        },
+      ],
+    });
+
+    expect(Array.from(wired.data)).toEqual(Array.from(plain.data));
+  });
 });

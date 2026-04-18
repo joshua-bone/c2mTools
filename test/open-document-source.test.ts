@@ -108,4 +108,47 @@ describe("open document source", () => {
       "episodes/001_alpha.c2m",
     ]);
   });
+
+  it("uses the only .c2g in an archive even when it is not at the root", () => {
+    const zipBytes = zipSync({
+      "jbonemisfits/jbone_misfits.c2g": textEncoder.encode(
+        'game "Jbone Misfits"\nmap "levels/misfit.c2m"\n',
+      ),
+      "jbonemisfits/levels/misfit.c2m": encodeLevel("Misfit"),
+    });
+
+    const loaded = loadLevelsetFromOpenedDocumentSource({
+      kind: "file",
+      name: "jbonemisfits.zip",
+      bytes: zipBytes,
+    });
+
+    expect(loaded.fileName).toBe("jbonemisfits");
+    expect(loaded.levelset.setName).toBe("Jbone Misfits");
+    expect(loaded.levelset.c2gFileName).toBe("jbone_misfits.c2g");
+    expect(loaded.levelset.levels.map((level) => level.relativePath)).toEqual([
+      "levels/misfit.c2m",
+    ]);
+    expect(loaded.warnings).toEqual([]);
+  });
+
+  it("uses the first .c2g when multiple are present", () => {
+    const zipBytes = zipSync({
+      "pack/a.c2g": textEncoder.encode('game "Alpha"\nmap "levels/one.c2m"\n'),
+      "pack/b.c2g": textEncoder.encode('game "Beta"\nmap "levels/two.c2m"\n'),
+      "pack/levels/one.c2m": encodeLevel("One"),
+      "pack/levels/two.c2m": encodeLevel("Two"),
+    });
+
+    const loaded = loadLevelsetFromOpenedDocumentSource({
+      kind: "file",
+      name: "pack.zip",
+      bytes: zipBytes,
+    });
+
+    expect(loaded.levelset.setName).toBe("Alpha");
+    expect(loaded.levelset.c2gFileName).toBe("a.c2g");
+    expect(loaded.levelset.levels.map((level) => level.doc.title)).toEqual(["One", "Two"]);
+    expect(loaded.warnings).toContain("Multiple .c2g files found; using a.c2g.");
+  });
 });

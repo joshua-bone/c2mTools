@@ -194,7 +194,7 @@ function renderDirectionalBlock(ts: CC2Tileset, tile: TileSpecObjJson): RgbaImag
 
 function renderRailroadTrack(ts: CC2Tileset, tile: TileSpecObjJson): RgbaImage {
   // Mirrors your friend's TrainTrack.get_gfx approach.
-  let base = renderWireBackdrop(ts, tile, 9, 10);
+  let base = ts.draw(9, 10);
   const m = getModifier(tile, "TRACKS");
   if (!m || m.kind !== "TRACKS") return base;
 

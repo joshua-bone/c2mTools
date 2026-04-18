@@ -230,22 +230,26 @@ function loadCollectionSource(
     throw new Error("The opened folder or archive does not contain any .c2m levels.");
   }
 
-  const rootC2gEntries = normalizedEntries.filter(
-    (entry) =>
-      !entry.relativePath.includes("/") && resolveLowerExtension(entry.relativePath) === ".c2g",
+  const c2gEntries = normalizedEntries.filter(
+    (entry) => resolveLowerExtension(entry.relativePath) === ".c2g",
   );
-  if (rootC2gEntries.length > 1) {
-    throw new Error("The opened folder or archive contains multiple root .c2g files.");
-  }
 
-  if (rootC2gEntries.length === 1) {
-    const c2gEntry = rootC2gEntries[0]!;
-    return buildLevelsetFromEntries(
+  if (c2gEntries.length >= 1) {
+    const c2gEntry = c2gEntries[0]!;
+    const warnings =
+      c2gEntries.length > 1 ? [`Multiple .c2g files found; using ${c2gEntry.relativePath}.`] : [];
+    const loaded = buildLevelsetFromEntries(
       source.name,
       c2gEntry.relativePath,
       textDecoder.decode(c2gEntry.bytes),
       c2mEntries,
     );
+    return warnings.length > 0
+      ? {
+          ...loaded,
+          warnings: [...warnings, ...loaded.warnings],
+        }
+      : loaded;
   }
 
   const setName = normalizeSourceName(source.name);
