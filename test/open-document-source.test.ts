@@ -111,10 +111,12 @@ describe("open document source", () => {
 
   it("uses the only .c2g in an archive even when it is not at the root", () => {
     const zipBytes = zipSync({
+      "__MACOSX/jbonemisfits/._jbone_misfits.c2g": textEncoder.encode(""),
+      "jbonemisfits/.DS_Store": textEncoder.encode(""),
       "jbonemisfits/jbone_misfits.c2g": textEncoder.encode(
-        'game "Jbone Misfits"\nmap "levels/misfit.c2m"\n',
+        'game "Jbone Misfits"\nmap "misfit.c2m"\n',
       ),
-      "jbonemisfits/levels/misfit.c2m": encodeLevel("Misfit"),
+      "jbonemisfits/misfit.c2m": encodeLevel("Misfit"),
     });
 
     const loaded = loadLevelsetFromOpenedDocumentSource({
@@ -126,9 +128,7 @@ describe("open document source", () => {
     expect(loaded.fileName).toBe("jbonemisfits");
     expect(loaded.levelset.setName).toBe("Jbone Misfits");
     expect(loaded.levelset.c2gFileName).toBe("jbone_misfits.c2g");
-    expect(loaded.levelset.levels.map((level) => level.relativePath)).toEqual([
-      "levels/misfit.c2m",
-    ]);
+    expect(loaded.levelset.levels.map((level) => level.relativePath)).toEqual(["misfit.c2m"]);
     expect(loaded.warnings).toEqual([]);
   });
 

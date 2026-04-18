@@ -32,6 +32,12 @@ function stripExtension(fileName: string): string {
   return dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
 }
 
+function isIgnoredCollectionEntry(relativePath: string): boolean {
+  const parts = relativePath.split("/");
+  const baseName = parts[parts.length - 1] ?? relativePath;
+  return parts.includes("__MACOSX") || baseName === ".DS_Store" || baseName.startsWith("._");
+}
+
 function normalizeSourceName(name: string): string {
   const trimmed = stripExtension(name).trim();
   return trimmed.length > 0 ? trimmed : "Untitled Set";
@@ -66,6 +72,13 @@ function sortCollectionEntries(
   entries: ReadonlyArray<OpenedDocumentSourceEntry>,
 ): OpenedDocumentSourceEntry[] {
   return [...entries].sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+}
+
+function resolveC2gMapPath(c2gFileName: string, relativePath: string): string {
+  const normalizedPath = normalizeC2gRelativePath(relativePath);
+  const slashIndex = c2gFileName.lastIndexOf("/");
+  if (slashIndex < 0) return normalizedPath;
+  return normalizeC2gRelativePath(`${c2gFileName.slice(0, slashIndex)}/${normalizedPath}`);
 }
 
 function decodeC2mEntry(entry: OpenedDocumentSourceEntry, globalWarnings: string[]) {
@@ -144,6 +157,7 @@ function loadSingleFileSource(
     const archiveEntries = stripSingleRootDirectoryPrefix(
       Object.entries(unzipSync(source.bytes))
         .filter(([relativePath]) => !relativePath.endsWith("/"))
+        .filter(([relativePath]) => !isIgnoredCollectionEntry(relativePath))
         .map(([relativePath, bytes]) => ({
           relativePath,
           bytes,
@@ -174,7 +188,7 @@ function buildLevelsetFromEntries(
   const levels = [];
 
   for (const c2gEntry of c2g.entries) {
-    const relativePath = normalizeC2gRelativePath(c2gEntry.relativePath);
+    const relativePath = resolveC2gMapPath(c2gFileName, c2gEntry.relativePath);
     referencedPaths.add(relativePath);
     const entry = entriesByPath.get(relativePath);
     if (!entry) {
@@ -220,7 +234,7 @@ function loadCollectionSource(
         relativePath: normalizeC2gRelativePath(entry.relativePath),
         bytes: entry.bytes,
       }))
-      .filter((entry) => !entry.relativePath.startsWith("__MACOSX/")),
+      .filter((entry) => !isIgnoredCollectionEntry(entry.relativePath)),
   );
 
   const c2mEntries = normalizedEntries.filter(
