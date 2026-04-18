@@ -1213,6 +1213,15 @@ canvas {
   overflow: auto;
 }
 
+.levelInspectorTabBody {
+  padding: 10px;
+}
+
+.levelInspectorTabBody > .leftPanelSubsection:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
 .inspectorSection {
   padding: 14px;
 }

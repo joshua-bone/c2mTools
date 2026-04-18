@@ -634,7 +634,7 @@ const BLOB_PATTERN_CHOICES: ReadonlyArray<SelectChoice> = Object.freeze([
   { value: "2", label: "Extra random" },
 ]);
 
-type InspectorTab = "palette" | "inspect";
+type InspectorTab = "palette" | "level" | "inspect";
 type LeftPanelTab = "levels" | "controls";
 type BoardMenuId = "file" | "view" | "transform" | "ideas";
 type PaletteAssignmentTarget = "primary" | "secondary";
@@ -5370,9 +5370,6 @@ export default function App() {
                   start editing.
                 </div>
               )}
-
-              {doc ? documentMetadataPanel : null}
-              {doc ? documentResizePanel : null}
             </section>
           ) : null}
 
@@ -6097,9 +6094,14 @@ export default function App() {
         />
 
         <aside className="panel inspectorPanel">
-          <div className="inspectorTabs" role="tablist" aria-label="Inspector tabs">
+          <div
+            className="inspectorTabs inspectorTabsTri"
+            role="tablist"
+            aria-label="Inspector tabs"
+          >
             {[
               ["palette", "Palette"],
+              ["level", "Level"],
               ["inspect", "Inspect"],
             ].map(([id, label]) => (
               <button
@@ -6218,6 +6220,13 @@ export default function App() {
                 )}
               </div>
             </section>
+          ) : null}
+
+          {inspectorTab === "level" ? (
+            <div className="inspectorTabBody levelInspectorTabBody">
+              {documentMetadataPanel}
+              {documentResizePanel}
+            </div>
           ) : null}
 
           {inspectorTab === "inspect" ? (

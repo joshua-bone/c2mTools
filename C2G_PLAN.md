@@ -310,6 +310,8 @@ Tests:
 
 Move level metadata editing out of the left sidebar and into the right sidebar.
 
+Status: done
+
 Work:
 
 - metadata tab in right sidebar

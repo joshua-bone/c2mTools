@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createLevelsetEntry,
   createSingleLevelset,
   getSelectedLevelEntry,
   parseC2mLevelsetJsonV1,
   replaceLevelsetEntryDoc,
   stringifyC2mLevelsetJsonV1,
 } from "../src/c2g/c2gLevelsetJsonV1.js";
+import { createMinimalC2gText, parseC2gText } from "../src/c2g/c2gText.js";
 import { createEmptyC2mDoc } from "../web/src/editor/createEmptyC2mDoc.js";
 
 describe("c2g levelset json", () => {
@@ -58,5 +60,49 @@ describe("c2g levelset json", () => {
     expect(getSelectedLevelEntry(updated, 0)?.doc).toEqual(nextDoc);
     expect(updated.c2g).toEqual(levelset.c2g);
     expect(updated.levels[0]?.relativePath).toBe("001_base.c2m");
+  });
+
+  it("updates only the targeted level in a multi-level set", () => {
+    const alpha = {
+      ...createEmptyC2mDoc(),
+      title: "Alpha",
+      author: "One",
+    };
+    const beta = {
+      ...createEmptyC2mDoc(),
+      title: "Beta",
+      author: "Two",
+    };
+    const levelset = {
+      schema: "c2mTools.c2g.levelset.json.v1",
+      setName: "Set",
+      c2gFileName: "set.c2g",
+      levels: [
+        createLevelsetEntry(alpha, {
+          relativePath: "001_alpha.c2m",
+          source: "existing",
+        }),
+        createLevelsetEntry(beta, {
+          relativePath: "002_beta.c2m",
+          source: "existing",
+        }),
+      ],
+      c2g: parseC2gText(createMinimalC2gText("Set", ["001_alpha.c2m", "002_beta.c2m"])),
+    } as const;
+
+    const updated = replaceLevelsetEntryDoc(levelset, 1, {
+      ...beta,
+      title: "Gamma",
+      author: "Three",
+    });
+
+    expect(updated.levels[0]?.doc.title).toBe("Alpha");
+    expect(updated.levels[0]?.doc.author).toBe("One");
+    expect(updated.levels[1]?.doc.title).toBe("Gamma");
+    expect(updated.levels[1]?.doc.author).toBe("Three");
+    expect(updated.levels.map((entry) => entry.relativePath)).toEqual([
+      "001_alpha.c2m",
+      "002_beta.c2m",
+    ]);
   });
 });
