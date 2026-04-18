@@ -216,17 +216,17 @@ import {
   resequenceGeneratedLevelEntries,
 } from "./levelsetEditing";
 import {
-  RECENT_LEVELS_STORAGE_KEY,
-  createPersistedRecentLevelEntry,
-  createRecentLevelId,
-  decodePersistedRecentLevelEntry,
-  findMatchingRecentLevelId,
-  parsePersistedRecentLevels,
-  removeRecentLevelEntry,
-  serializePersistedRecentLevels,
-  upsertRecentLevelEntry,
-  type PersistedRecentLevelEntry,
-} from "./recentLevelStorage";
+  RECENT_SETS_STORAGE_KEY,
+  createPersistedRecentSetEntry,
+  createRecentSetId,
+  decodePersistedRecentSetEntry,
+  findMatchingRecentSetId,
+  parsePersistedRecentSets,
+  removeRecentSetEntry,
+  serializePersistedRecentSets,
+  upsertRecentSetEntry,
+  type PersistedRecentSetEntry,
+} from "./recentSetStorage";
 import { applyBankWallMask32ToC2mMap, applyGeneratedWallGridToC2mMap } from "./wallsC2m";
 import { loadWallsBank } from "./wallsBank";
 
@@ -663,8 +663,8 @@ type InitialAppState = Readonly<{
   fileName: string | null;
   jsonText: string;
   preferences: PersistedAppPreferences;
-  recentLevels: ReadonlyArray<PersistedRecentLevelEntry>;
-  activeRecentLevelId: string | null;
+  recentSets: ReadonlyArray<PersistedRecentSetEntry>;
+  activeRecentSetId: string | null;
 }>;
 
 type ViewportSize = Readonly<{
@@ -1218,13 +1218,13 @@ function createInitialAppState(): InitialAppState {
       fileName: null,
       jsonText: "",
       preferences: parsePersistedAppPreferences(null),
-      recentLevels: [],
-      activeRecentLevelId: null,
+      recentSets: [],
+      activeRecentSetId: null,
     };
   }
 
   const preferences = parsePersistedAppPreferences(readLocalStorage(APP_PREFERENCES_STORAGE_KEY));
-  const recentLevels = parsePersistedRecentLevels(readLocalStorage(RECENT_LEVELS_STORAGE_KEY));
+  const recentSets = parsePersistedRecentSets(readLocalStorage(RECENT_SETS_STORAGE_KEY));
   const session = parsePersistedEditorSession(readLocalStorage(EDITOR_SESSION_STORAGE_KEY));
 
   if (!session) {
@@ -1233,15 +1233,15 @@ function createInitialAppState(): InitialAppState {
       fileName: null,
       jsonText: "",
       preferences,
-      recentLevels,
-      activeRecentLevelId: null,
+      recentSets,
+      activeRecentSetId: null,
     };
   }
 
   const selectedLevelEntry = getSelectedLevelEntry(session.levelset, session.selectedLevelIndex);
   const selectedDoc = selectedLevelEntry?.doc ?? null;
-  const activeRecentLevelId = selectedDoc
-    ? findMatchingRecentLevelId(recentLevels, selectedDoc, session.fileName)
+  const activeRecentSetId = selectedDoc
+    ? findMatchingRecentSetId(recentSets, session.levelset, session.fileName)
     : null;
 
   return {
@@ -1249,8 +1249,8 @@ function createInitialAppState(): InitialAppState {
     fileName: session.fileName,
     jsonText: selectedDoc ? stringifyC2mJsonV1(selectedDoc) : "",
     preferences,
-    recentLevels,
-    activeRecentLevelId,
+    recentSets,
+    activeRecentSetId,
   };
 }
 
@@ -1278,12 +1278,8 @@ export default function App() {
     ? getSelectedLevelEntry(initialAppState.history.doc, initialAppState.history.selectedLevelIndex)
     : null;
   const syncedJsonTextRef = useRef(initialAppState.jsonText);
-  const recentLevelsRef = useRef<ReadonlyArray<PersistedRecentLevelEntry>>(
-    initialAppState.recentLevels,
-  );
-  const activeRecentLevelIdRef = useRef<string | null>(initialAppState.activeRecentLevelId);
-  const latestAutosaveDocRef = useRef<C2mJsonV1 | null>(initialSelectedLevelEntry?.doc ?? null);
-  const latestAutosaveFileNameRef = useRef<string | null>(initialAppState.fileName);
+  const recentSetsRef = useRef<ReadonlyArray<PersistedRecentSetEntry>>(initialAppState.recentSets);
+  const activeRecentSetIdRef = useRef<string | null>(initialAppState.activeRecentSetId);
   const latestAutosaveTilesetRef = useRef<CC2Tileset | null>(null);
   const latestSessionSnapshotRef = useRef<PersistedEditorSession | null>(
     initialAppState.history && initialAppState.fileName
@@ -1299,11 +1295,11 @@ export default function App() {
   const [history, setHistory] = useState<C2mEditorHistory | null>(initialAppState.history);
   const [fileName, setFileName] = useState<string | null>(initialAppState.fileName);
   const [jsonText, setJsonText] = useState<string>(initialAppState.jsonText);
-  const [recentLevels, setRecentLevels] = useState<ReadonlyArray<PersistedRecentLevelEntry>>(
-    initialAppState.recentLevels,
+  const [recentSets, setRecentSets] = useState<ReadonlyArray<PersistedRecentSetEntry>>(
+    initialAppState.recentSets,
   );
-  const [activeRecentLevelId, setActiveRecentLevelId] = useState<string | null>(
-    initialAppState.activeRecentLevelId,
+  const [activeRecentSetId, setActiveRecentSetId] = useState<string | null>(
+    initialAppState.activeRecentSetId,
   );
   const [recentModalOpen, setRecentModalOpen] = useState(false);
   const [ideasDialogOpen, setIdeasDialogOpen] = useState<IdeasDialogId | null>(null);
@@ -2007,7 +2003,7 @@ export default function App() {
       options: Readonly<{
         fileName?: string | null;
         warnings?: ReadonlyArray<string>;
-        recentLevelId?: string | null;
+        recentSetId?: string | null;
         selectedLevelIndex?: number;
       }> = {},
     ) => {
@@ -2020,7 +2016,7 @@ export default function App() {
       setHistory(createEditorHistory(nextLevelset, nextSelectedLevelIndex));
       setJsonText(nextJsonText);
       setFileName(options.fileName ?? DEFAULT_C2M_FILE_NAME);
-      setActiveRecentLevelId(options.recentLevelId ?? null);
+      setActiveRecentSetId(options.recentSetId ?? null);
       setWarnings([...(options.warnings ?? [])]);
       setError(null);
       setParseError(null);
@@ -2037,7 +2033,7 @@ export default function App() {
       options: Readonly<{
         fileName?: string | null;
         warnings?: ReadonlyArray<string>;
-        recentLevelId?: string | null;
+        recentSetId?: string | null;
       }> = {},
     ) => {
       loadLevelset(
@@ -2305,12 +2301,12 @@ export default function App() {
       setRenderError(null);
 
       try {
-        const recentLevelId = createRecentLevelId();
+        const recentSetId = createRecentSetId();
         const loaded = loadLevelsetFromOpenedDocumentSource(openedSource);
         loadLevelset(loaded.levelset, {
           fileName: loaded.fileName,
           warnings: loaded.warnings,
-          recentLevelId,
+          recentSetId,
         });
 
         resetBoardTransientState({
@@ -2831,67 +2827,70 @@ export default function App() {
     };
   }, []);
 
-  const persistRecentLevelsToStorage = useCallback(
-    (
-      entries: ReadonlyArray<PersistedRecentLevelEntry>,
-    ): ReadonlyArray<PersistedRecentLevelEntry> => {
+  const persistRecentSetsToStorage = useCallback(
+    (entries: ReadonlyArray<PersistedRecentSetEntry>): ReadonlyArray<PersistedRecentSetEntry> => {
       let candidate = [...entries];
       while (candidate.length > 0) {
-        if (
-          writeLocalStorage(RECENT_LEVELS_STORAGE_KEY, serializePersistedRecentLevels(candidate))
-        ) {
-          recentLevelsRef.current = candidate;
-          setRecentLevels(candidate);
+        if (writeLocalStorage(RECENT_SETS_STORAGE_KEY, serializePersistedRecentSets(candidate))) {
+          recentSetsRef.current = candidate;
+          setRecentSets(candidate);
           return candidate;
         }
         candidate = candidate.slice(0, -1);
       }
 
-      const fallback = recentLevelsRef.current;
+      const fallback = recentSetsRef.current;
       if (
         fallback.length > 0 &&
-        writeLocalStorage(RECENT_LEVELS_STORAGE_KEY, serializePersistedRecentLevels(fallback))
+        writeLocalStorage(RECENT_SETS_STORAGE_KEY, serializePersistedRecentSets(fallback))
       ) {
-        setRecentLevels(fallback);
+        setRecentSets(fallback);
         return fallback;
       }
 
-      removeLocalStorage(RECENT_LEVELS_STORAGE_KEY);
-      recentLevelsRef.current = [];
-      setRecentLevels([]);
+      removeLocalStorage(RECENT_SETS_STORAGE_KEY);
+      recentSetsRef.current = [];
+      setRecentSets([]);
       return [];
     },
     [],
   );
 
-  const flushAutosavedRecentLevel = useCallback(() => {
-    const nextDoc = latestAutosaveDocRef.current;
-    if (!nextDoc) return;
+  const flushAutosavedRecentSet = useCallback(() => {
+    const snapshot = latestSessionSnapshotRef.current;
+    if (!snapshot) return;
 
-    let nextRecentLevelId = activeRecentLevelIdRef.current;
-    if (!nextRecentLevelId) {
-      nextRecentLevelId = createRecentLevelId();
-      activeRecentLevelIdRef.current = nextRecentLevelId;
-      setActiveRecentLevelId(nextRecentLevelId);
+    let nextRecentSetId = activeRecentSetIdRef.current;
+    if (!nextRecentSetId) {
+      nextRecentSetId = createRecentSetId();
+      activeRecentSetIdRef.current = nextRecentSetId;
+      setActiveRecentSetId(nextRecentSetId);
     }
 
-    const persistedEntries = persistRecentLevelsToStorage(
-      upsertRecentLevelEntry(
-        recentLevelsRef.current,
-        createPersistedRecentLevelEntry({
-          id: nextRecentLevelId,
-          doc: nextDoc,
-          fileName: latestAutosaveFileNameRef.current ?? DEFAULT_C2M_FILE_NAME,
-          thumbnailDataUrl: renderRecentLevelThumbnail(nextDoc, latestAutosaveTilesetRef.current),
+    const selectedLevelEntry = getSelectedLevelEntry(
+      snapshot.levelset,
+      snapshot.selectedLevelIndex,
+    );
+    const persistedEntries = persistRecentSetsToStorage(
+      upsertRecentSetEntry(
+        recentSetsRef.current,
+        createPersistedRecentSetEntry({
+          id: nextRecentSetId,
+          levelset: snapshot.levelset,
+          fileName: snapshot.fileName,
+          selectedLevelIndex: snapshot.selectedLevelIndex,
+          thumbnailDataUrl: selectedLevelEntry
+            ? renderRecentLevelThumbnail(selectedLevelEntry.doc, latestAutosaveTilesetRef.current)
+            : null,
         }),
       ),
     );
 
-    if (!persistedEntries.some((entry) => entry.id === nextRecentLevelId)) {
-      activeRecentLevelIdRef.current = null;
-      setActiveRecentLevelId(null);
+    if (!persistedEntries.some((entry) => entry.id === nextRecentSetId)) {
+      activeRecentSetIdRef.current = null;
+      setActiveRecentSetId(null);
     }
-  }, [persistRecentLevelsToStorage]);
+  }, [persistRecentSetsToStorage]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3236,18 +3235,16 @@ export default function App() {
   }
 
   useEffect(() => {
-    recentLevelsRef.current = recentLevels;
-  }, [recentLevels]);
+    recentSetsRef.current = recentSets;
+  }, [recentSets]);
 
   useEffect(() => {
-    activeRecentLevelIdRef.current = activeRecentLevelId;
-  }, [activeRecentLevelId]);
+    activeRecentSetIdRef.current = activeRecentSetId;
+  }, [activeRecentSetId]);
 
   useEffect(() => {
-    latestAutosaveDocRef.current = doc;
-    latestAutosaveFileNameRef.current = fileName;
     latestAutosaveTilesetRef.current = tileset;
-  }, [doc, fileName, tileset]);
+  }, [tileset]);
 
   useEffect(() => {
     latestSessionSnapshotRef.current =
@@ -3264,7 +3261,7 @@ export default function App() {
     if (typeof window === "undefined") return;
 
     const flushPersistedSession = () => {
-      flushAutosavedRecentLevel();
+      flushAutosavedRecentSet();
       const snapshot = latestSessionSnapshotRef.current;
       if (!snapshot) {
         removeLocalStorage(EDITOR_SESSION_STORAGE_KEY);
@@ -3278,7 +3275,7 @@ export default function App() {
     return () => {
       window.removeEventListener("pagehide", flushPersistedSession);
     };
-  }, [flushAutosavedRecentLevel]);
+  }, [flushAutosavedRecentSet]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3287,10 +3284,10 @@ export default function App() {
       window.clearTimeout(recentPersistTimeoutRef.current);
     }
 
-    if (!doc) return;
+    if (!history) return;
 
     recentPersistTimeoutRef.current = window.setTimeout(() => {
-      flushAutosavedRecentLevel();
+      flushAutosavedRecentSet();
       recentPersistTimeoutRef.current = null;
     }, DOCUMENT_PERSIST_DEBOUNCE_MS);
 
@@ -3299,7 +3296,7 @@ export default function App() {
         window.clearTimeout(recentPersistTimeoutRef.current);
       }
     };
-  }, [doc, fileName, flushAutosavedRecentLevel, tileset]);
+  }, [fileName, flushAutosavedRecentSet, history, tileset]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3670,7 +3667,7 @@ export default function App() {
   const onNewClick = useCallback(() => {
     loadDocument(createEmptyC2mDoc(), {
       fileName: DEFAULT_C2M_FILE_NAME,
-      recentLevelId: createRecentLevelId(),
+      recentSetId: createRecentSetId(),
     });
     resetBoardTransientState({
       clearSelection: true,
@@ -3717,14 +3714,14 @@ export default function App() {
     }
   }, [c2gDraftText, commitLevelsetUpdate, levelset, selectedLevelIndex]);
 
-  const openRecentLevel = useCallback(
-    (entry: PersistedRecentLevelEntry) => {
+  const openRecentSet = useCallback(
+    (entry: PersistedRecentSetEntry) => {
       try {
-        const restored = decodePersistedRecentLevelEntry(entry);
-        loadDocument(restored.doc, {
+        const restored = decodePersistedRecentSetEntry(entry);
+        loadLevelset(restored.levelset, {
           fileName: restored.fileName,
-          warnings: restored.warnings,
-          recentLevelId: entry.id,
+          recentSetId: entry.id,
+          selectedLevelIndex: restored.selectedLevelIndex,
         });
         resetBoardTransientState({
           clearSelection: true,
@@ -3737,19 +3734,19 @@ export default function App() {
         setError(asErrorMessage(err));
       }
     },
-    [loadDocument, resetBoardTransientState],
+    [loadLevelset, resetBoardTransientState],
   );
 
-  const deleteRecentLevel = useCallback(
+  const deleteRecentSet = useCallback(
     (id: string) => {
-      if (recentPersistTimeoutRef.current !== null && activeRecentLevelIdRef.current === id) {
+      if (recentPersistTimeoutRef.current !== null && activeRecentSetIdRef.current === id) {
         window.clearTimeout(recentPersistTimeoutRef.current);
         recentPersistTimeoutRef.current = null;
       }
 
-      persistRecentLevelsToStorage(removeRecentLevelEntry(recentLevelsRef.current, id));
+      persistRecentSetsToStorage(removeRecentSetEntry(recentSetsRef.current, id));
     },
-    [persistRecentLevelsToStorage],
+    [persistRecentSetsToStorage],
   );
 
   const scrollRecentCarousel = useCallback((direction: -1 | 1) => {
@@ -4932,7 +4929,7 @@ export default function App() {
                 </h2>
               </div>
               <div className="sectionActions">
-                {recentLevels.length > 1 ? (
+                {recentSets.length > 1 ? (
                   <>
                     <button
                       type="button"
@@ -4960,18 +4957,18 @@ export default function App() {
               </div>
             </div>
 
-            {recentLevels.length === 0 ? (
+            {recentSets.length === 0 ? (
               <div className="emptyState largeEmptyState">
-                Recent levels will appear here after you create, open, or edit a map.
+                Recent sets will appear here after you create, open, or edit a set.
               </div>
             ) : (
               <div ref={recentCarouselRef} className="recentLevelsCarousel">
-                {recentLevels.map((entry) => (
+                {recentSets.map((entry) => (
                   <article key={entry.id} className="recentLevelCard">
                     <button
                       type="button"
                       className="recentLevelPreviewButton"
-                      onClick={() => openRecentLevel(entry)}
+                      onClick={() => openRecentSet(entry)}
                     >
                       {entry.thumbnailDataUrl ? (
                         <img
@@ -4993,6 +4990,10 @@ export default function App() {
                       <div className="recentLevelTitle">{entry.title}</div>
                       <div className="recentLevelMeta">{entry.fileName}</div>
                       <div className="recentLevelMeta">
+                        {`${entry.levelCount} ${entry.levelCount === 1 ? "level" : "levels"}`} ·{" "}
+                        {entry.selectedLevelTitle}
+                      </div>
+                      <div className="recentLevelMeta">
                         {entry.width && entry.height ? `${entry.width}x${entry.height}` : "No map"}{" "}
                         · {formatRecentLevelUpdatedAt(entry.updatedAt)}
                       </div>
@@ -5001,14 +5002,14 @@ export default function App() {
                       <button
                         type="button"
                         className="actionButton"
-                        onClick={() => openRecentLevel(entry)}
+                        onClick={() => openRecentSet(entry)}
                       >
                         Open
                       </button>
                       <button
                         type="button"
                         className="secondaryButton"
-                        onClick={() => deleteRecentLevel(entry.id)}
+                        onClick={() => deleteRecentSet(entry.id)}
                       >
                         Delete
                       </button>

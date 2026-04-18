@@ -109,7 +109,7 @@ function loadSingleFileSource(
 
     return {
       levelset,
-      fileName: levelset.levels[0]!.fileName,
+      fileName: source.name,
       warnings,
     };
   }
@@ -135,7 +135,7 @@ function loadSingleFileSource(
 
     return {
       levelset,
-      fileName: levelset.levels[0]!.fileName,
+      fileName: source.name,
       warnings,
     };
   }
@@ -206,7 +206,7 @@ function buildLevelsetFromEntries(
       levels,
       c2g,
     },
-    fileName: levels[0]!.fileName,
+    fileName: collectionName,
     warnings,
   };
 }
@@ -264,7 +264,7 @@ function loadCollectionSource(
       levels,
       c2g: parseC2gText(c2gText),
     },
-    fileName: levels[0]!.fileName,
+    fileName: source.name,
     warnings,
   };
 }

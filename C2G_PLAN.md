@@ -346,6 +346,8 @@ Tests:
 
 Finish the migration edges:
 
+Status: done
+
 - recent files become recent sets
 - folder/set file naming
 - selection reset behavior on level change

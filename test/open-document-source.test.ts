@@ -52,6 +52,7 @@ describe("open document source", () => {
       ],
     });
 
+    expect(loaded.fileName).toBe("Episode Pack");
     expect(loaded.levelset.c2gFileName).toBe("set.c2g");
     expect(loaded.levelset.levels.map((level) => level.relativePath)).toEqual([
       "levels/002_beta.c2m",
@@ -76,6 +77,7 @@ describe("open document source", () => {
       ],
     });
 
+    expect(loaded.fileName).toBe("No Order Yet");
     expect(loaded.levelset.c2gFileName).toBe("set.c2g");
     expect(loaded.levelset.levels.map((level) => level.relativePath)).toEqual([
       "a/010_alpha.c2m",
@@ -99,6 +101,7 @@ describe("open document source", () => {
       bytes: zipBytes,
     });
 
+    expect(loaded.fileName).toBe("pack");
     expect(loaded.levelset.setName).toBe("Packed Set");
     expect(loaded.levelset.levels.map((level) => level.relativePath)).toEqual([
       "episodes/002_beta.c2m",
