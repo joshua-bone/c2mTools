@@ -3744,6 +3744,11 @@ export default function App() {
         recentPersistTimeoutRef.current = null;
       }
 
+      if (activeRecentSetIdRef.current === id) {
+        activeRecentSetIdRef.current = null;
+        setActiveRecentSetId(null);
+      }
+
       persistRecentSetsToStorage(removeRecentSetEntry(recentSetsRef.current, id));
     },
     [persistRecentSetsToStorage],
