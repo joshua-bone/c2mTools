@@ -1997,57 +1997,6 @@ export default function App() {
     }
   }, [tool]);
 
-  const loadLevelset = useCallback(
-    (
-      nextLevelset: C2mLevelsetJsonV1,
-      options: Readonly<{
-        fileName?: string | null;
-        warnings?: ReadonlyArray<string>;
-        recentSetId?: string | null;
-        selectedLevelIndex?: number;
-      }> = {},
-    ) => {
-      const nextSelectedLevelIndex = options.selectedLevelIndex ?? 0;
-      const nextSelectedLevelEntry = getSelectedLevelEntry(nextLevelset, nextSelectedLevelIndex);
-      const nextJsonText = nextSelectedLevelEntry
-        ? stringifyC2mJsonV1(nextSelectedLevelEntry.doc)
-        : "";
-      syncedJsonTextRef.current = nextJsonText;
-      setHistory(createEditorHistory(nextLevelset, nextSelectedLevelIndex));
-      setJsonText(nextJsonText);
-      setFileName(options.fileName ?? DEFAULT_C2M_FILE_NAME);
-      setActiveRecentSetId(options.recentSetId ?? null);
-      setWarnings([...(options.warnings ?? [])]);
-      setError(null);
-      setParseError(null);
-      setRenderError(null);
-      setC2gEditorOpen(false);
-      setC2gDraftError(null);
-    },
-    [],
-  );
-
-  const loadDocument = useCallback(
-    (
-      nextDoc: C2mJsonV1,
-      options: Readonly<{
-        fileName?: string | null;
-        warnings?: ReadonlyArray<string>;
-        recentSetId?: string | null;
-      }> = {},
-    ) => {
-      loadLevelset(
-        createSingleLevelset(nextDoc, {
-          fileName: options.fileName ?? DEFAULT_C2M_FILE_NAME,
-          ...(options.warnings ? { warnings: options.warnings } : {}),
-          source: "existing",
-        }),
-        options,
-      );
-    },
-    [loadLevelset],
-  );
-
   const applyDocumentChange = useCallback(
     (nextDoc: C2mJsonV1, commitHistory: boolean) => {
       const nextJsonText = stringifyC2mJsonV1(nextDoc);
@@ -2293,33 +2242,6 @@ export default function App() {
     setParseError(null);
     setRenderError(null);
   }, []);
-
-  const loadOpenedDocumentSource = useCallback(
-    (openedSource: OpenedDocumentSource) => {
-      setError(null);
-      setParseError(null);
-      setRenderError(null);
-
-      try {
-        const recentSetId = createRecentSetId();
-        const loaded = loadLevelsetFromOpenedDocumentSource(openedSource);
-        loadLevelset(loaded.levelset, {
-          fileName: loaded.fileName,
-          warnings: loaded.warnings,
-          recentSetId,
-        });
-
-        resetBoardTransientState({
-          clearSelection: true,
-          resetView: true,
-        });
-        setViewMode("board");
-      } catch (err: unknown) {
-        setError(asErrorMessage(err));
-      }
-    },
-    [loadLevelset, resetBoardTransientState],
-  );
 
   const selectLevelAt = useCallback(
     (index: number) => {
@@ -2856,41 +2778,142 @@ export default function App() {
     [],
   );
 
+  const persistRecentSetSnapshot = useCallback(
+    (
+      snapshot: Readonly<{
+        levelset: C2mLevelsetJsonV1;
+        fileName: string;
+        selectedLevelIndex: number;
+        recentSetId?: string | null;
+      }>,
+    ): string | null => {
+      const nextRecentSetId = snapshot.recentSetId ?? createRecentSetId();
+      const selectedLevelEntry = getSelectedLevelEntry(
+        snapshot.levelset,
+        snapshot.selectedLevelIndex,
+      );
+      const persistedEntries = persistRecentSetsToStorage(
+        upsertRecentSetEntry(
+          recentSetsRef.current,
+          createPersistedRecentSetEntry({
+            id: nextRecentSetId,
+            levelset: snapshot.levelset,
+            fileName: snapshot.fileName,
+            selectedLevelIndex: snapshot.selectedLevelIndex,
+            thumbnailDataUrl: selectedLevelEntry
+              ? renderRecentLevelThumbnail(selectedLevelEntry.doc, latestAutosaveTilesetRef.current)
+              : null,
+          }),
+        ),
+      );
+
+      return persistedEntries.some((entry) => entry.id === nextRecentSetId)
+        ? nextRecentSetId
+        : null;
+    },
+    [persistRecentSetsToStorage],
+  );
+
   const flushAutosavedRecentSet = useCallback(() => {
     const snapshot = latestSessionSnapshotRef.current;
     if (!snapshot) return;
 
-    let nextRecentSetId = activeRecentSetIdRef.current;
-    if (!nextRecentSetId) {
-      nextRecentSetId = createRecentSetId();
+    const nextRecentSetId = persistRecentSetSnapshot({
+      levelset: snapshot.levelset,
+      fileName: snapshot.fileName,
+      selectedLevelIndex: snapshot.selectedLevelIndex,
+      recentSetId: activeRecentSetIdRef.current,
+    });
+
+    activeRecentSetIdRef.current = nextRecentSetId;
+    setActiveRecentSetId(nextRecentSetId);
+  }, [persistRecentSetSnapshot]);
+
+  const loadLevelset = useCallback(
+    (
+      nextLevelset: C2mLevelsetJsonV1,
+      options: Readonly<{
+        fileName?: string | null;
+        warnings?: ReadonlyArray<string>;
+        recentSetId?: string | null;
+        selectedLevelIndex?: number;
+      }> = {},
+    ) => {
+      const nextSelectedLevelIndex = options.selectedLevelIndex ?? 0;
+      const nextFileName = options.fileName ?? DEFAULT_C2M_FILE_NAME;
+      const nextRecentSetId = persistRecentSetSnapshot({
+        levelset: nextLevelset,
+        fileName: nextFileName,
+        selectedLevelIndex: nextSelectedLevelIndex,
+        ...(options.recentSetId !== undefined ? { recentSetId: options.recentSetId } : {}),
+      });
+      const nextSelectedLevelEntry = getSelectedLevelEntry(nextLevelset, nextSelectedLevelIndex);
+      const nextJsonText = nextSelectedLevelEntry
+        ? stringifyC2mJsonV1(nextSelectedLevelEntry.doc)
+        : "";
+      syncedJsonTextRef.current = nextJsonText;
+      setHistory(createEditorHistory(nextLevelset, nextSelectedLevelIndex));
+      setJsonText(nextJsonText);
+      setFileName(nextFileName);
       activeRecentSetIdRef.current = nextRecentSetId;
       setActiveRecentSetId(nextRecentSetId);
-    }
+      setWarnings([...(options.warnings ?? [])]);
+      setError(null);
+      setParseError(null);
+      setRenderError(null);
+      setC2gEditorOpen(false);
+      setC2gDraftError(null);
+    },
+    [persistRecentSetSnapshot],
+  );
 
-    const selectedLevelEntry = getSelectedLevelEntry(
-      snapshot.levelset,
-      snapshot.selectedLevelIndex,
-    );
-    const persistedEntries = persistRecentSetsToStorage(
-      upsertRecentSetEntry(
-        recentSetsRef.current,
-        createPersistedRecentSetEntry({
-          id: nextRecentSetId,
-          levelset: snapshot.levelset,
-          fileName: snapshot.fileName,
-          selectedLevelIndex: snapshot.selectedLevelIndex,
-          thumbnailDataUrl: selectedLevelEntry
-            ? renderRecentLevelThumbnail(selectedLevelEntry.doc, latestAutosaveTilesetRef.current)
-            : null,
+  const loadDocument = useCallback(
+    (
+      nextDoc: C2mJsonV1,
+      options: Readonly<{
+        fileName?: string | null;
+        warnings?: ReadonlyArray<string>;
+        recentSetId?: string | null;
+      }> = {},
+    ) => {
+      loadLevelset(
+        createSingleLevelset(nextDoc, {
+          fileName: options.fileName ?? DEFAULT_C2M_FILE_NAME,
+          ...(options.warnings ? { warnings: options.warnings } : {}),
+          source: "existing",
         }),
-      ),
-    );
+        options,
+      );
+    },
+    [loadLevelset],
+  );
 
-    if (!persistedEntries.some((entry) => entry.id === nextRecentSetId)) {
-      activeRecentSetIdRef.current = null;
-      setActiveRecentSetId(null);
-    }
-  }, [persistRecentSetsToStorage]);
+  const loadOpenedDocumentSource = useCallback(
+    (openedSource: OpenedDocumentSource) => {
+      setError(null);
+      setParseError(null);
+      setRenderError(null);
+
+      try {
+        const recentSetId = createRecentSetId();
+        const loaded = loadLevelsetFromOpenedDocumentSource(openedSource);
+        loadLevelset(loaded.levelset, {
+          fileName: loaded.fileName,
+          warnings: loaded.warnings,
+          recentSetId,
+        });
+
+        resetBoardTransientState({
+          clearSelection: true,
+          resetView: true,
+        });
+        setViewMode("board");
+      } catch (err: unknown) {
+        setError(asErrorMessage(err));
+      }
+    },
+    [loadLevelset, resetBoardTransientState],
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
