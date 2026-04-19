@@ -7,6 +7,7 @@ import {
   stringifyC2mLevelsetJsonV1,
   type C2mLevelsetJsonV1,
 } from "../../src/c2g/c2gLevelsetJsonV1.js";
+import { compressStoredJson, decompressStoredJson } from "./storageCompression.js";
 
 export const RECENT_SETS_STORAGE_KEY = "c2mtools-recent-levels";
 
@@ -24,7 +25,7 @@ export type PersistedRecentSetEntry = Readonly<{
   width: number | null;
   height: number | null;
   thumbnailDataUrl: string | null;
-  levelsetJson: string;
+  levelsetJsonGzipBase64: string;
 }>;
 
 export type DecodedRecentSetEntry = Readonly<{
@@ -37,12 +38,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString("base64");
-}
-
 function bytesFromBase64(dataBase64: string): Uint8Array {
   return Uint8Array.from(Buffer.from(dataBase64, "base64"));
+}
+
+function encodeStoredLevelset(levelset: C2mLevelsetJsonV1): string {
+  return compressStoredJson(stringifyC2mLevelsetJsonV1(levelset));
+}
+
+function decodeStoredLevelset(dataBase64: string): C2mLevelsetJsonV1 {
+  return parseC2mLevelsetJsonV1(JSON.parse(decompressStoredJson(dataBase64)) as unknown);
 }
 
 function normalizeSetTitle(levelset: C2mLevelsetJsonV1): string {
@@ -135,14 +140,14 @@ export function createPersistedRecentSetEntry(
     width: selectedLevelMetadata.width,
     height: selectedLevelMetadata.height,
     thumbnailDataUrl: options.thumbnailDataUrl ?? null,
-    levelsetJson: stringifyC2mLevelsetJsonV1(options.levelset),
+    levelsetJsonGzipBase64: encodeStoredLevelset(options.levelset),
   };
 }
 
 export function decodePersistedRecentSetEntry(
   entry: PersistedRecentSetEntry,
 ): DecodedRecentSetEntry {
-  const levelset = parseC2mLevelsetJsonV1(JSON.parse(entry.levelsetJson) as unknown);
+  const levelset = decodeStoredLevelset(entry.levelsetJsonGzipBase64);
   return {
     levelset,
     fileName: entry.fileName,
@@ -155,9 +160,10 @@ export function findMatchingRecentSetId(
   levelset: C2mLevelsetJsonV1,
   fileName: string,
 ): string | null {
-  const levelsetJson = stringifyC2mLevelsetJsonV1(levelset);
+  const levelsetJsonGzipBase64 = encodeStoredLevelset(levelset);
   const match = entries.find(
-    (entry) => entry.fileName === fileName && entry.levelsetJson === levelsetJson,
+    (entry) =>
+      entry.fileName === fileName && entry.levelsetJsonGzipBase64 === levelsetJsonGzipBase64,
   );
   return match?.id ?? null;
 }
@@ -228,11 +234,17 @@ export function parsePersistedRecentSets(value: string | null): PersistedRecentS
       if (entry.height !== null && (typeof entry.height !== "number" || entry.height < 0))
         return [];
       if (entry.thumbnailDataUrl !== null && typeof entry.thumbnailDataUrl !== "string") return [];
-      if (typeof entry.levelsetJson !== "string" || entry.levelsetJson.trim().length === 0)
-        return [];
+      const levelsetJsonGzipBase64 =
+        typeof entry.levelsetJsonGzipBase64 === "string" &&
+        entry.levelsetJsonGzipBase64.trim().length > 0
+          ? entry.levelsetJsonGzipBase64
+          : typeof entry.levelsetJson === "string" && entry.levelsetJson.trim().length > 0
+            ? compressStoredJson(entry.levelsetJson)
+            : null;
+      if (!levelsetJsonGzipBase64) return [];
 
       try {
-        const levelset = parseC2mLevelsetJsonV1(JSON.parse(entry.levelsetJson) as unknown);
+        const levelset = decodeStoredLevelset(levelsetJsonGzipBase64);
         const selectedLevelMetadata = resolveSelectedLevelMetadata(
           levelset,
           entry.selectedLevelIndex,
@@ -249,7 +261,7 @@ export function parsePersistedRecentSets(value: string | null): PersistedRecentS
             width: selectedLevelMetadata.width,
             height: selectedLevelMetadata.height,
             thumbnailDataUrl: entry.thumbnailDataUrl,
-            levelsetJson: stringifyC2mLevelsetJsonV1(levelset),
+            levelsetJsonGzipBase64: encodeStoredLevelset(levelset),
           } satisfies PersistedRecentSetEntry,
         ];
       } catch {

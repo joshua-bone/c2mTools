@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createSingleLevelset, stringifyC2mLevelsetJsonV1 } from "../src/c2g/c2gLevelsetJsonV1.js";
 import { encodeC2mFromJsonV1 } from "../src/c2m/c2mJsonV1.js";
 import { createEmptyC2mDoc } from "../web/src/editor/createEmptyC2mDoc.js";
+import { compressStoredJson } from "../web/src/storageCompression.js";
 import {
   createPersistedRecentSetEntry,
   decodePersistedRecentSetEntry,
@@ -130,6 +131,31 @@ describe("recent set storage", () => {
     expect(findMatchingRecentSetId([entry], levelset, "different-set")).toBeNull();
   });
 
+  it("stores levelsets in compressed form", () => {
+    const levels = Array.from({ length: 18 }, (_, index) => ({
+      ...createLevelset(`Level ${index + 1}`, `${String(index + 1).padStart(3, "0")}.c2m`)
+        .levels[0]!,
+    }));
+    const levelset = {
+      ...createLevelset("Big Set"),
+      levels,
+    };
+    const rawJson = stringifyC2mLevelsetJsonV1(levelset);
+    const entry = createPersistedRecentSetEntry({
+      id: "recent-big",
+      levelset,
+      fileName: "big-set",
+      selectedLevelIndex: 0,
+    });
+
+    expect(entry.levelsetJsonGzipBase64.length).toBeLessThan(rawJson.length);
+    expect(decodePersistedRecentSetEntry(entry)).toEqual({
+      levelset,
+      fileName: "big-set",
+      selectedLevelIndex: 0,
+    });
+  });
+
   it("migrates legacy recent level entries into one-level recent sets", () => {
     const doc = {
       ...createEmptyC2mDoc(),
@@ -189,7 +215,9 @@ describe("recent set storage", () => {
               width: 32,
               height: 32,
               thumbnailDataUrl: null,
-              levelsetJson: stringifyC2mLevelsetJsonV1(createLevelset("Valid")),
+              levelsetJsonGzipBase64: compressStoredJson(
+                stringifyC2mLevelsetJsonV1(createLevelset("Valid")),
+              ),
             },
             {
               id: "",
@@ -202,11 +230,47 @@ describe("recent set storage", () => {
               width: 32,
               height: 32,
               thumbnailDataUrl: null,
-              levelsetJson: stringifyC2mLevelsetJsonV1(createLevelset("Invalid")),
+              levelsetJsonGzipBase64: compressStoredJson(
+                stringifyC2mLevelsetJsonV1(createLevelset("Invalid")),
+              ),
             },
           ],
         }),
       ).map((entry) => entry.id),
     ).toEqual(["recent-1"]);
+  });
+
+  it("migrates persisted recent sets that still use raw levelsetJson", () => {
+    const levelset = createLevelset("Legacy Raw");
+
+    const [entry] = parsePersistedRecentSets(
+      JSON.stringify({
+        schema: "c2mTools.web.recentSets.v1",
+        entries: [
+          {
+            id: "recent-legacy",
+            fileName: "legacy-raw",
+            title: "Legacy Raw",
+            updatedAt: 1,
+            levelCount: 1,
+            selectedLevelIndex: 0,
+            selectedLevelTitle: "Legacy Raw",
+            width: 32,
+            height: 32,
+            thumbnailDataUrl: null,
+            levelsetJson: stringifyC2mLevelsetJsonV1(levelset),
+          },
+        ],
+      }),
+    );
+
+    expect(entry).toBeDefined();
+    if (!entry) throw new Error("Expected migrated recent set entry");
+    expect(decodePersistedRecentSetEntry(entry)).toEqual({
+      levelset,
+      fileName: "legacy-raw",
+      selectedLevelIndex: 0,
+    });
+    expect(entry.levelsetJsonGzipBase64.length).toBeGreaterThan(0);
   });
 });

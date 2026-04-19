@@ -5,6 +5,7 @@ import {
   stringifyC2mLevelsetJsonV1,
   type C2mLevelsetJsonV1,
 } from "../../src/c2g/c2gLevelsetJsonV1.js";
+import { compressStoredJson, decompressStoredJson } from "./storageCompression.js";
 
 export type AppViewMode = "board" | "json";
 
@@ -83,14 +84,21 @@ export function parsePersistedEditorSession(value: string | null): PersistedEdit
     if (typeof parsed.fileName !== "string" || parsed.fileName.trim().length === 0) return null;
 
     if (parsed.schema === PERSISTED_EDITOR_SESSION_SCHEMA_V2) {
-      if (typeof parsed.levelsetJson !== "string") return null;
+      const levelsetJson =
+        typeof parsed.levelsetJsonGzipBase64 === "string" &&
+        parsed.levelsetJsonGzipBase64.trim().length > 0
+          ? decompressStoredJson(parsed.levelsetJsonGzipBase64)
+          : typeof parsed.levelsetJson === "string"
+            ? parsed.levelsetJson
+            : null;
+      if (typeof levelsetJson !== "string") return null;
       const selectedLevelIndex =
         typeof parsed.selectedLevelIndex === "number" && Number.isInteger(parsed.selectedLevelIndex)
           ? parsed.selectedLevelIndex
           : 0;
 
       return {
-        levelset: parseC2mLevelsetJsonV1(JSON.parse(parsed.levelsetJson)),
+        levelset: parseC2mLevelsetJsonV1(JSON.parse(levelsetJson)),
         selectedLevelIndex,
         fileName: parsed.fileName,
       };
@@ -121,6 +129,6 @@ export function serializePersistedEditorSession(session: PersistedEditorSession)
     schema: PERSISTED_EDITOR_SESSION_SCHEMA_V2,
     fileName: session.fileName,
     selectedLevelIndex: session.selectedLevelIndex,
-    levelsetJson: stringifyC2mLevelsetJsonV1(session.levelset),
+    levelsetJsonGzipBase64: compressStoredJson(stringifyC2mLevelsetJsonV1(session.levelset)),
   });
 }

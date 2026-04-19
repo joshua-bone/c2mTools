@@ -9,6 +9,7 @@ import {
   serializePersistedAppPreferences,
   serializePersistedEditorSession,
 } from "../web/src/persistedAppState.js";
+import { compressStoredJson } from "../web/src/storageCompression.js";
 
 describe("persisted app preferences", () => {
   it("round-trips the stored view mode", () => {
@@ -75,6 +76,35 @@ describe("persisted editor session", () => {
       selectedLevelIndex: 0,
       fileName: "session.c2m",
     });
+    expect(encoded).toContain("levelsetJsonGzipBase64");
+  });
+
+  it("accepts legacy v2 sessions that still use raw levelsetJson", () => {
+    const levelset = createSingleLevelset(
+      {
+        ...createEmptyC2mDoc(),
+        title: "Legacy Raw Session",
+      },
+      {
+        fileName: "legacy-session.c2m",
+        source: "existing",
+      },
+    );
+
+    expect(
+      parsePersistedEditorSession(
+        JSON.stringify({
+          schema: "c2mTools.web.editorSession.v2",
+          fileName: "legacy-session.c2m",
+          selectedLevelIndex: 0,
+          levelsetJson: JSON.stringify(levelset),
+        }),
+      ),
+    ).toEqual({
+      levelset,
+      selectedLevelIndex: 0,
+      fileName: "legacy-session.c2m",
+    });
   });
 
   it("migrates the legacy single-document session shape", () => {
@@ -107,7 +137,7 @@ describe("persisted editor session", () => {
         JSON.stringify({
           schema: "c2mTools.web.editorSession.v2",
           fileName: "",
-          levelsetJson: "{}",
+          levelsetJsonGzipBase64: compressStoredJson("{}"),
         }),
       ),
     ).toBeNull();
