@@ -36,6 +36,23 @@ describe("empty wire nodes", () => {
     expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(map);
   });
 
+  it("round-trips railroad track modifiers that fit in a single byte", () => {
+    const map = {
+      width: 1,
+      height: 1,
+      tiles: [
+        {
+          tile: "RAILROAD_TRACK",
+          modifiers: [
+            { kind: "TRACKS", pieces: ["TURN_SE", "TURN_SW"], active: "SE", entered: "N" },
+          ],
+        },
+      ],
+    } as const;
+
+    expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(map);
+  });
+
   it("round-trips logic gate wire modifiers alongside logic metadata", () => {
     const map = {
       width: 1,

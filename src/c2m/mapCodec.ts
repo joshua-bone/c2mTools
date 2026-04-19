@@ -654,8 +654,12 @@ function interpretModifierEntries(
   if (modifierEntries.length === 0) return [];
 
   if (tileId === TILE_RAILROAD_TRACK) {
-    return modifierEntries.map((entry) =>
-      entry.modTag === MOD_16
+    if (modifierEntries.length === 1) {
+      return [decodeTracksValue(modifierEntries[0]!.value & 0xffff)];
+    }
+
+    return modifierEntries.map((entry, index) =>
+      index === modifierEntries.length - 1
         ? decodeTracksValue(entry.value & 0xffff)
         : decodeWiresValue(entry.value & 0xff),
     );
