@@ -104,9 +104,9 @@ export function getDefaultMirrorOffset(kind: MirrorKind, size: MirrorBoardSize):
     case "horizontal":
       return clampMirrorOffset(kind, size.height / 2, size);
     case "diag-desc":
-      return clampMirrorOffset(kind, Math.round((size.height - size.width) / 2), size);
+      return clampMirrorOffset(kind, 0, size);
     case "diag-asc":
-      return clampMirrorOffset(kind, Math.round((size.width + size.height - 2) / 2), size);
+      return clampMirrorOffset(kind, size.width - 1, size);
   }
 }
 

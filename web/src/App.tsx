@@ -1480,6 +1480,10 @@ export default function App() {
   );
 
   useEffect(() => {
+    setMirrorState(createDefaultMirrorState(mirrorBoardSize));
+  }, [selectedLevelEntry?.id]);
+
+  useEffect(() => {
     setMirrorState((current) => clampMirrorState(current, mirrorBoardSize));
   }, [mirrorBoardSize]);
 
