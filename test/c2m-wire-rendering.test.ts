@@ -37,7 +37,39 @@ function createFakeTilesetSheet(): RgbaImage {
   return sheet;
 }
 
+function getTileColor(tileX: number, tileY: number): [number, number, number, number] {
+  return [
+    (tileX * 17 + tileY * 3) % 256,
+    (tileX * 11 + tileY * 5) % 256,
+    (tileX * 7 + tileY * 13) % 256,
+    255,
+  ];
+}
+
 describe("c2m wire rendering", () => {
+  it("renders each ice corner from the correct atlas tile", () => {
+    const renderer = new CC2RendererCore(new CC2Tileset(createFakeTilesetSheet()));
+
+    const expectations = [
+      { tile: "ICE_CORNER_NE", atlas: { x: 13, y: 1 } },
+      { tile: "ICE_CORNER_NW", atlas: { x: 14, y: 1 } },
+      { tile: "ICE_CORNER_SE", atlas: { x: 11, y: 1 } },
+      { tile: "ICE_CORNER_SW", atlas: { x: 12, y: 1 } },
+    ] as const;
+
+    for (const expectation of expectations) {
+      const rendered = renderer.renderMap({
+        width: 1,
+        height: 1,
+        tiles: [expectation.tile],
+      });
+
+      expect(Array.from(rendered.data.slice(0, 4))).toEqual(
+        getTileColor(expectation.atlas.x, expectation.atlas.y),
+      );
+    }
+  });
+
   it("does not render empty wire nodes as persistent spool icons", () => {
     const renderer = new CC2RendererCore(new CC2Tileset(createFakeTilesetSheet()));
 
