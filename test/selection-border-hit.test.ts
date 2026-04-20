@@ -27,6 +27,28 @@ describe("selection border hit testing", () => {
     );
   });
 
+  it("extends the draggable hit area slightly beyond the visible stroke", () => {
+    const selectedIndices = [1 + 1 * 32];
+    const point = { x: 1, y: 1 };
+
+    expect(isSelectionBorderStrokeHit(selectedIndices, point, { x: 1.2, y: 1.5 }, boardSize)).toBe(
+      true,
+    );
+    expect(isSelectionBorderStrokeHit(selectedIndices, point, { x: 1.8, y: 1.5 }, boardSize)).toBe(
+      true,
+    );
+    expect(isSelectionBorderStrokeHit(selectedIndices, point, { x: 1.5, y: 1.2 }, boardSize)).toBe(
+      true,
+    );
+    expect(isSelectionBorderStrokeHit(selectedIndices, point, { x: 1.5, y: 1.8 }, boardSize)).toBe(
+      true,
+    );
+
+    expect(isSelectionBorderStrokeHit(selectedIndices, point, { x: 1.28, y: 1.5 }, boardSize)).toBe(
+      false,
+    );
+  });
+
   it("does not allow dragging from internal edges of a larger selection", () => {
     const selectedIndices = [1 + 1 * 32, 2 + 1 * 32];
 

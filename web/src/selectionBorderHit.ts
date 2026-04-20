@@ -1,6 +1,8 @@
 import type { GridPoint } from "./editor/boardGeometry.js";
 
 const BORDER_STROKE_THRESHOLD = 0.14;
+const BORDER_HIT_PADDING = 0.07;
+const BORDER_HIT_THRESHOLD = BORDER_STROKE_THRESHOLD + BORDER_HIT_PADDING;
 
 export function isSelectionBorderStrokeHit(
   selectedIndices: ReadonlyArray<number>,
@@ -24,13 +26,11 @@ export function isSelectionBorderStrokeHit(
   const bottomNeighbor = point.y < boardSize.height - 1 ? index + boardSize.width : null;
 
   return (
-    ((leftNeighbor === null || !selectedSet.has(leftNeighbor)) &&
-      localX <= BORDER_STROKE_THRESHOLD) ||
+    ((leftNeighbor === null || !selectedSet.has(leftNeighbor)) && localX <= BORDER_HIT_THRESHOLD) ||
     ((rightNeighbor === null || !selectedSet.has(rightNeighbor)) &&
-      localX >= 1 - BORDER_STROKE_THRESHOLD) ||
-    ((topNeighbor === null || !selectedSet.has(topNeighbor)) &&
-      localY <= BORDER_STROKE_THRESHOLD) ||
+      localX >= 1 - BORDER_HIT_THRESHOLD) ||
+    ((topNeighbor === null || !selectedSet.has(topNeighbor)) && localY <= BORDER_HIT_THRESHOLD) ||
     ((bottomNeighbor === null || !selectedSet.has(bottomNeighbor)) &&
-      localY >= 1 - BORDER_STROKE_THRESHOLD)
+      localY >= 1 - BORDER_HIT_THRESHOLD)
   );
 }
