@@ -23,6 +23,7 @@ import {
   resolveWireableDirections,
   setTileModifier,
 } from "./cellInspector.js";
+import { transformTileSpec, type LevelTransformKind } from "../../../src/c2m/levelTransform.js";
 
 export type C2mClipboard = Readonly<{
   width: number;
@@ -276,6 +277,67 @@ export function resolveClipboardPreviewRect(
     y: clampedAnchor.y,
     width: Math.max(1, Math.min(clipboard.width, map.width - clampedAnchor.x)),
     height: Math.max(1, Math.min(clipboard.height, map.height - clampedAnchor.y)),
+  };
+}
+
+function clipboardTransformSwapsAxes(kind: LevelTransformKind): boolean {
+  return (
+    kind === "ROTATE_90" ||
+    kind === "ROTATE_270" ||
+    kind === "FLIP_DIAG_NWSE" ||
+    kind === "FLIP_DIAG_NESW"
+  );
+}
+
+function transformClipboardPoint(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  kind: LevelTransformKind,
+): GridPoint {
+  switch (kind) {
+    case "ROTATE_90":
+      return { x: height - 1 - y, y: x };
+    case "ROTATE_180":
+      return { x: width - 1 - x, y: height - 1 - y };
+    case "ROTATE_270":
+      return { x: y, y: width - 1 - x };
+    case "FLIP_H":
+      return { x: width - 1 - x, y };
+    case "FLIP_V":
+      return { x, y: height - 1 - y };
+    case "FLIP_DIAG_NWSE":
+      return { x: y, y: x };
+    case "FLIP_DIAG_NESW":
+      return { x: height - 1 - y, y: width - 1 - x };
+  }
+}
+
+export function transformC2mClipboard(
+  clipboard: C2mClipboard,
+  kind: LevelTransformKind,
+): C2mClipboard {
+  const nextWidth = clipboardTransformSwapsAxes(kind) ? clipboard.height : clipboard.width;
+  const nextHeight = clipboardTransformSwapsAxes(kind) ? clipboard.width : clipboard.height;
+  const cellCount = nextWidth * nextHeight;
+  const cells = new Array<TileSpecJson>(cellCount).fill("FLOOR");
+  const mask = clipboard.mask ? new Array<boolean>(cellCount).fill(false) : null;
+
+  for (let index = 0; index < clipboard.width * clipboard.height; index += 1) {
+    const x = index % clipboard.width;
+    const y = Math.floor(index / clipboard.width);
+    const nextPoint = transformClipboardPoint(x, y, clipboard.width, clipboard.height, kind);
+    const nextIndex = nextPoint.y * nextWidth + nextPoint.x;
+    cells[nextIndex] = transformTileSpec(clipboard.cells[index] ?? "FLOOR", kind);
+    if (mask) mask[nextIndex] = clipboard.mask?.[index] ?? true;
+  }
+
+  return {
+    width: nextWidth,
+    height: nextHeight,
+    cells,
+    ...(mask ? { mask } : {}),
   };
 }
 

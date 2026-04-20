@@ -21,6 +21,7 @@ import {
   resolveClipboardPreviewRect,
   resolveEyedropperBrushAtPoint,
   shiftMapWrap,
+  transformC2mClipboard,
 } from "../web/src/editor/levelEditing.js";
 import type { MapJson, TileSpecJson } from "../src/c2m/mapCodec.js";
 
@@ -152,6 +153,45 @@ describe("c2m level editing", () => {
     const nextMap = pasteMapRegion(map, { x: 5, y: 5 }, clipboard);
 
     expect(nextMap.tiles[targetIndex]).toEqual(sourceCell);
+  });
+
+  it("transforms clipped map regions with tile directions and selection masks", () => {
+    const transformed = transformC2mClipboard(
+      {
+        width: 2,
+        height: 3,
+        cells: [
+          { tile: "ANT", dir: "N" },
+          "WALL",
+          "WATER",
+          {
+            tile: "RAILROAD_TRACK",
+            modifiers: [{ kind: "TRACKS", pieces: ["HORIZONTAL"], active: "H", entered: "E" }],
+          },
+          "FLOOR",
+          { tile: "BALL", dir: "W" },
+        ],
+        mask: [true, false, true, true, false, true],
+      },
+      "ROTATE_90",
+    );
+
+    expect(transformed).toEqual({
+      width: 3,
+      height: 2,
+      cells: [
+        "FLOOR",
+        "WATER",
+        { tile: "ANT", dir: "E" },
+        { tile: "BALL", dir: "N" },
+        {
+          tile: "RAILROAD_TRACK",
+          modifiers: [{ kind: "TRACKS", pieces: ["VERTICAL"], active: "V", entered: "S" }],
+        },
+        "WALL",
+      ],
+      mask: [false, true, true, true, true, false],
+    });
   });
 
   it("moves masked selections while leaving floor behind at the source", () => {

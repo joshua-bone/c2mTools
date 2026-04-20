@@ -128,7 +128,6 @@ import {
   copyMapRegion,
   disconnectWirePoints,
   floodFillMap,
-  moveMapRegion,
   paintMapCells,
   paintMapLine,
   pasteMapRegion,
@@ -137,6 +136,7 @@ import {
   resolveEyedropperBrushAtPoint,
   resolveFloodFillIndices,
   shiftMapWrap,
+  transformC2mClipboard,
   type C2mClipboard,
 } from "./editor/levelEditing";
 import {
@@ -479,6 +479,19 @@ function buildMovedSelection(
   return movedSelection ? { ...movedSelection, mode } : null;
 }
 
+function createSelectionPreviewState(
+  map: MapJson,
+  selection: SelectionArea,
+): SelectionPreviewState {
+  const selectionIndices = resolveSelectionIndices(selection, map);
+  return {
+    baseMap: paintMapCells(map, selectionIndices, ERASER_BRUSH),
+    clipboard: copyMapRegion(map, selection, selectionIndices),
+    selectionMode: selection.mode,
+    anchor: { x: selection.x, y: selection.y },
+  };
+}
+
 function resolveTextBrushPlacementIndices(
   raster: RasterizedTextBrush | null,
   center: GridPoint | null,
@@ -511,36 +524,6 @@ function flattenMirroredIndices(
     ...groups.FLIP_DIAG_NESW,
     ...groups.ROTATE_180,
   ]);
-}
-
-function rotateC2mClipboard(
-  clipboard: C2mClipboard,
-  kind: "ROTATE_90" | "ROTATE_270",
-): C2mClipboard {
-  const nextWidth = clipboard.height;
-  const nextHeight = clipboard.width;
-  const cellCount = nextWidth * nextHeight;
-  const cells = new Array<TileSpecJson>(cellCount).fill("FLOOR");
-  const mask = clipboard.mask ? new Array<boolean>(cellCount).fill(false) : null;
-
-  for (let index = 0; index < clipboard.width * clipboard.height; index += 1) {
-    const x = index % clipboard.width;
-    const y = Math.floor(index / clipboard.width);
-    const nextPoint =
-      kind === "ROTATE_90"
-        ? { x: clipboard.height - 1 - y, y: x }
-        : { x: y, y: clipboard.width - 1 - x };
-    const nextIndex = nextPoint.y * nextWidth + nextPoint.x;
-    cells[nextIndex] = transformTileSpec(clipboard.cells[index] ?? "FLOOR", kind);
-    if (mask) mask[nextIndex] = clipboard.mask?.[index] ?? true;
-  }
-
-  return {
-    width: nextWidth,
-    height: nextHeight,
-    cells,
-    ...(mask ? { mask } : {}),
-  };
 }
 
 const TRANSFORMS: Array<{ label: string; op: LevelTransformKind }> = [
@@ -772,6 +755,18 @@ type MoveSelectionDragState = Readonly<{
   currentAnchor: GridPoint;
   grabOffset: GridPoint;
 }>;
+
+type SelectionPreviewState = Readonly<{
+  baseMap: MapJson;
+  clipboard: C2mClipboard;
+  selectionMode: SelectionMode;
+  anchor: GridPoint;
+}>;
+
+type SelectionTransformMenuState = Readonly<{
+  x: number;
+  y: number;
+}> | null;
 
 type WireDragState = Readonly<{
   tool: "wire";
@@ -1392,6 +1387,9 @@ export default function App() {
   const [lastPaletteAssignmentTarget, setLastPaletteAssignmentTarget] =
     useState<PaletteAssignmentTarget>("primary");
   const [selection, setSelection] = useState<SelectionArea | null>(null);
+  const [selectionPreview, setSelectionPreview] = useState<SelectionPreviewState | null>(null);
+  const [selectionTransformMenu, setSelectionTransformMenu] =
+    useState<SelectionTransformMenuState>(null);
   const [clipboard, setClipboard] = useState<C2mClipboard | null>(null);
   const [pastePreviewActive, setPastePreviewActive] = useState(false);
   const [layoutResizeState, setLayoutResizeState] = useState<LayoutResizeState | null>(null);
@@ -1714,11 +1712,20 @@ export default function App() {
     textPreviewBaseIndices,
     tool,
   ]);
+  const selectionPreviewMap = useMemo(() => {
+    if (!selectionPreview) return null;
+    return pasteMapRegion(
+      selectionPreview.baseMap,
+      selectionPreview.anchor,
+      selectionPreview.clipboard,
+    );
+  }, [selectionPreview]);
   const moveSelectionPreviewMap = useMemo(() => {
     if (!map || dragState?.tool !== "move-selection") return null;
     return pasteMapRegion(dragState.baseMap, dragState.currentAnchor, dragState.clipboard);
   }, [dragState, map]);
-  const displayMap = transientMap ?? moveSelectionPreviewMap ?? textPreviewMap ?? map;
+  const displayMap =
+    transientMap ?? moveSelectionPreviewMap ?? selectionPreviewMap ?? textPreviewMap ?? map;
 
   const selectionPreviewRect = useMemo(() => {
     if (!activeMap) return null;
@@ -1930,6 +1937,8 @@ export default function App() {
       setTransientMap(null);
       setPendingWirePoint(null);
       setPastePreviewActive(false);
+      setSelectionPreview(null);
+      setSelectionTransformMenu(null);
       if (options.clearSelection) setSelection(null);
 
       if (options.resetView) {
@@ -1990,6 +1999,29 @@ export default function App() {
       document.removeEventListener("pointerdown", dismissPastePreview, true);
     };
   }, [pastePreviewActive]);
+
+  useEffect(() => {
+    if (!selectionTransformMenu) return;
+
+    const close = () => setSelectionTransformMenu(null);
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".selectionTransformContextMenu")) {
+        return;
+      }
+      close();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectionTransformMenu]);
 
   useEffect(() => {
     if (viewMode !== "board" || !activeMap) {
@@ -2331,6 +2363,15 @@ export default function App() {
     (index: number) => {
       if (!history) return;
       if (index === history.selectedLevelIndex) return;
+      if (selectionPreview && canMutateBoard) {
+        commitMapChange(
+          pasteMapRegion(
+            selectionPreview.baseMap,
+            selectionPreview.anchor,
+            selectionPreview.clipboard,
+          ),
+        );
+      }
       resetBoardTransientState({ clearSelection: true });
       setBoardMenuOpen(null);
       applyHistoryState(
@@ -2340,12 +2381,28 @@ export default function App() {
         }),
       );
     },
-    [applyHistoryState, history, resetBoardTransientState],
+    [
+      applyHistoryState,
+      canMutateBoard,
+      commitMapChange,
+      history,
+      resetBoardTransientState,
+      selectionPreview,
+    ],
   );
 
   const commitLevelsetUpdate = useCallback(
     (nextLevelset: C2mLevelsetJsonV1, nextSelectedLevelIndex: number) => {
       if (!history) return;
+      if (selectionPreview && canMutateBoard) {
+        commitMapChange(
+          pasteMapRegion(
+            selectionPreview.baseMap,
+            selectionPreview.anchor,
+            selectionPreview.clipboard,
+          ),
+        );
+      }
       resetBoardTransientState({ clearSelection: true });
       setBoardMenuOpen(null);
       applyHistoryState(
@@ -2356,7 +2413,14 @@ export default function App() {
         }),
       );
     },
-    [applyHistoryState, history, resetBoardTransientState],
+    [
+      applyHistoryState,
+      canMutateBoard,
+      commitMapChange,
+      history,
+      resetBoardTransientState,
+      selectionPreview,
+    ],
   );
 
   const addLevelAfterCurrentSelection = useCallback(() => {
@@ -2647,24 +2711,92 @@ export default function App() {
     ],
   );
 
+  const commitSelectionPreview = useCallback(
+    (options: Readonly<{ clearSelection?: boolean }> = {}): SelectionArea | null => {
+      if (!selectionPreview || !canMutateBoard) {
+        if (options.clearSelection) setSelection(null);
+        return selection;
+      }
+
+      const nextMap = pasteMapRegion(
+        selectionPreview.baseMap,
+        selectionPreview.anchor,
+        selectionPreview.clipboard,
+      );
+      const nextSelection =
+        buildMovedSelection(
+          map ?? nextMap,
+          selectionPreview.anchor,
+          selectionPreview.clipboard,
+          selectionPreview.selectionMode,
+        ) ?? selection;
+      commitMapChange(nextMap);
+      setSelectionPreview(null);
+      setSelection(options.clearSelection ? null : nextSelection);
+      return options.clearSelection ? null : nextSelection;
+    },
+    [canMutateBoard, commitMapChange, map, selection, selectionPreview],
+  );
+
+  const applySelectionTransform = useCallback(
+    (kind: LevelTransformKind) => {
+      if (!map || !selection || tool !== "select" || !canMutateBoard) return;
+
+      const preview = selectionPreview ?? createSelectionPreviewState(map, selection);
+      const nextClipboard = transformC2mClipboard(preview.clipboard, kind);
+      const nextSelection = buildMovedSelection(
+        map,
+        preview.anchor,
+        nextClipboard,
+        preview.selectionMode,
+      );
+      if (!nextSelection) return;
+
+      setSelectionPreview({
+        ...preview,
+        clipboard: nextClipboard,
+      });
+      setSelection(nextSelection);
+      setPastePreviewActive(false);
+      setSelectionTransformMenu(null);
+    },
+    [canMutateBoard, map, selection, selectionPreview, tool],
+  );
+
   const copySelection = useCallback(() => {
-    if (!map || !selection) return;
-    setClipboard(copyMapRegion(map, selection, resolveSelectionIndices(selection, map)));
+    if (!selection) return;
+    setClipboard(
+      selectionPreview
+        ? selectionPreview.clipboard
+        : map
+          ? copyMapRegion(map, selection, resolveSelectionIndices(selection, map))
+          : null,
+    );
     setTool("select");
-  }, [map, selection]);
+  }, [map, selection, selectionPreview]);
 
   const cutSelection = useCallback(() => {
-    if (!map || !selection || !canMutateBoard) return;
+    if (!selection || !canMutateBoard) return;
+    if (selectionPreview) {
+      setClipboard(selectionPreview.clipboard);
+      commitMapChange(selectionPreview.baseMap);
+      setSelectionPreview(null);
+      setPastePreviewActive(true);
+      setSelectionTransformMenu(null);
+      return;
+    }
+    if (!map) return;
     setClipboard(copyMapRegion(map, selection, resolveSelectionIndices(selection, map)));
     setTool("select");
     setPastePreviewActive(true);
     commitMapChange(paintMapCells(map, resolveSelectionIndices(selection, map), ERASER_BRUSH));
-  }, [canMutateBoard, commitMapChange, map, selection]);
+  }, [canMutateBoard, commitMapChange, map, selection, selectionPreview]);
 
   const clearSelectionState = useCallback(() => {
-    setSelection(null);
+    commitSelectionPreview({ clearSelection: true });
     setPastePreviewActive(false);
-  }, []);
+    setSelectionTransformMenu(null);
+  }, [commitSelectionPreview]);
 
   const handleSelectToolButtonClick = useCallback(() => {
     if (tool === "select") {
@@ -2675,37 +2807,27 @@ export default function App() {
   }, [tool]);
 
   const eraseSelection = useCallback(() => {
-    if (!map || !selection || !canMutateBoard) return;
+    if (!selection || !canMutateBoard) return;
+    if (selectionPreview) {
+      commitMapChange(selectionPreview.baseMap);
+      setSelectionPreview(null);
+      setSelectionTransformMenu(null);
+      setPastePreviewActive(false);
+      return;
+    }
+    if (!map) return;
 
     const nextMap = paintMapCells(map, resolveSelectionIndices(selection, map), ERASER_BRUSH);
     commitMapChange(nextMap);
     setPastePreviewActive(false);
-  }, [canMutateBoard, commitMapChange, map, selection]);
+    setSelectionTransformMenu(null);
+  }, [canMutateBoard, commitMapChange, map, selection, selectionPreview]);
 
   const rotateSelectedSelection = useCallback(
     (direction: "clockwise" | "counterclockwise") => {
-      if (!map || !selection || tool !== "select" || !canMutateBoard) return;
-
-      const kind = direction === "clockwise" ? "ROTATE_90" : "ROTATE_270";
-      const nextTiles = [...map.tiles];
-      let changed = false;
-
-      for (const index of resolveSelectionIndices(selection, map)) {
-        const tile = map.tiles[index];
-        if (!tile) continue;
-        const rotated = transformTileSpec(tile, kind);
-        if (JSON.stringify(rotated) === JSON.stringify(tile)) continue;
-        nextTiles[index] = rotated;
-        changed = true;
-      }
-
-      if (!changed) return;
-      commitMapChange({
-        ...map,
-        tiles: nextTiles,
-      });
+      applySelectionTransform(direction === "clockwise" ? "ROTATE_90" : "ROTATE_270");
     },
-    [canMutateBoard, commitMapChange, map, selection, tool],
+    [applySelectionTransform],
   );
 
   const rotatePastePreviewClipboard = useCallback(
@@ -2713,7 +2835,7 @@ export default function App() {
       if (!clipboard || !pastePreviewActive || tool !== "select") return;
       setClipboard((current) =>
         current
-          ? rotateC2mClipboard(current, direction === "clockwise" ? "ROTATE_90" : "ROTATE_270")
+          ? transformC2mClipboard(current, direction === "clockwise" ? "ROTATE_90" : "ROTATE_270")
           : current,
       );
     },
@@ -2736,9 +2858,10 @@ export default function App() {
 
   const beginPastePreview = useCallback(() => {
     if (!clipboard) return;
+    commitSelectionPreview();
     setTool("select");
     setPastePreviewActive(true);
-  }, [clipboard]);
+  }, [clipboard, commitSelectionPreview]);
 
   const commitPastePreview = useCallback(
     (anchorOverride?: GridPoint | null) => {
@@ -4098,15 +4221,16 @@ export default function App() {
           canMutateBoard &&
           isSelectionBorderPoint(selection, point, cursorPoint, activeMap)
         ) {
+          const preview = selectionPreview ?? createSelectionPreviewState(activeMap, selection);
           const selectionIndices = resolveSelectionIndices(selection, activeMap);
-          const clipboard = copyMapRegion(activeMap, selection, selectionIndices);
           event.currentTarget.setPointerCapture(event.pointerId);
           setPastePreviewActive(false);
+          setSelectionTransformMenu(null);
           setDragState({
             tool: "move-selection",
             pointerId: event.pointerId,
-            baseMap: paintMapCells(activeMap, selectionIndices, "FLOOR"),
-            clipboard,
+            baseMap: preview.baseMap,
+            clipboard: preview.clipboard,
             sourceSelection: selection,
             sourceIndices: selectionIndices,
             selectionMode: selection.mode,
@@ -4120,9 +4244,21 @@ export default function App() {
           return;
         }
         const operation = resolveSelectionOperationFromModifierKeys(event.shiftKey, event.altKey);
+        const selectionBase = selectionPreview
+          ? pasteMapRegion(
+              selectionPreview.baseMap,
+              selectionPreview.anchor,
+              selectionPreview.clipboard,
+            )
+          : activeMap;
+        if (selectionPreview) {
+          commitMapChange(selectionBase);
+          setSelectionPreview(null);
+        }
         if (selectionMode === "rect") {
           event.currentTarget.setPointerCapture(event.pointerId);
           setPastePreviewActive(false);
+          setSelectionTransformMenu(null);
           setDragState({
             tool: "select",
             pointerId: event.pointerId,
@@ -4135,13 +4271,14 @@ export default function App() {
         }
 
         setPastePreviewActive(false);
+        setSelectionTransformMenu(null);
         setSelection(
           applySelectionOperation(
             selection,
             selectionMode === "contiguous"
-              ? resolveContiguousTileSelection(activeMap, point)
-              : resolveTileMatchSelection(activeMap, point),
-            activeMap,
+              ? resolveContiguousTileSelection(selectionBase, point)
+              : resolveTileMatchSelection(selectionBase, point),
+            selectionBase,
             operation,
             selectionMode,
           ),
@@ -4509,30 +4646,21 @@ export default function App() {
         }
 
         if (dragState.tool === "move-selection") {
-          if (
-            canMutateBoard &&
-            map &&
-            (dragState.currentAnchor.x !== dragState.originAnchor.x ||
-              dragState.currentAnchor.y !== dragState.originAnchor.y)
-          ) {
-            commitMapChange(
-              moveMapRegion(
-                map,
-                dragState.sourceSelection,
-                dragState.currentAnchor,
-                dragState.sourceIndices,
-              ),
-            );
-          }
-          setSelection(
-            buildMovedSelection(
-              activeMap ?? map ?? dragState.baseMap,
-              dragState.currentAnchor,
-              dragState.clipboard,
-              dragState.selectionMode,
-            ),
+          const nextSelection = buildMovedSelection(
+            activeMap ?? map ?? dragState.baseMap,
+            dragState.currentAnchor,
+            dragState.clipboard,
+            dragState.selectionMode,
           );
+          setSelectionPreview({
+            baseMap: dragState.baseMap,
+            clipboard: dragState.clipboard,
+            selectionMode: dragState.selectionMode,
+            anchor: dragState.currentAnchor,
+          });
+          setSelection(nextSelection);
           setPastePreviewActive(false);
+          setSelectionTransformMenu(null);
           updateHoverAtClientPoint(event.clientX, event.clientY);
           setDragState(null);
           return;
@@ -4583,6 +4711,34 @@ export default function App() {
     });
     setHoverCursorPoint(null);
   }, [dragState]);
+
+  const onBoardContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      if (!activeMap || !selection || tool !== "select" || dragState || pastePreviewActive) {
+        setSelectionTransformMenu(null);
+        return;
+      }
+
+      const point = resolveBoardCellAtClientPoint(event.clientX, event.clientY);
+      if (!point) {
+        setSelectionTransformMenu(null);
+        return;
+      }
+
+      const selectedIndices = new Set(resolveSelectionIndices(selection, activeMap));
+      if (!selectedIndices.has(pointToIndex(point, activeMap))) {
+        setSelectionTransformMenu(null);
+        return;
+      }
+
+      setSelectionTransformMenu({
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    [activeMap, dragState, pastePreviewActive, resolveBoardCellAtClientPoint, selection, tool],
+  );
 
   const onBoardWheel = useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
@@ -6067,7 +6223,7 @@ export default function App() {
                 ref={boardViewportRef}
                 className={`boardViewport ${boardStatus.isPanning ? "panning" : ""}`}
                 style={boardCanvasCursor ? { cursor: boardCanvasCursor } : undefined}
-                onContextMenu={(event) => event.preventDefault()}
+                onContextMenu={onBoardContextMenu}
                 onPointerDown={onBoardPointerDown}
                 onPointerMove={onBoardPointerMove}
                 onPointerUp={onBoardPointerUp}
@@ -7270,6 +7426,35 @@ export default function App() {
           ) : null}
         </aside>
       </main>
+      {selectionTransformMenu ? (
+        <div
+          className="dropdownMenu selectionTransformContextMenu"
+          style={{
+            position: "fixed",
+            left: selectionTransformMenu.x,
+            top: selectionTransformMenu.y,
+          }}
+        >
+          {[
+            ["Rotate 90°", "ROTATE_90"],
+            ["Rotate 180°", "ROTATE_180"],
+            ["Rotate 270°", "ROTATE_270"],
+            ["Flip Horizontal", "FLIP_H"],
+            ["Flip Vertical", "FLIP_V"],
+            ["Flip Diagonal NW/SE", "FLIP_DIAG_NWSE"],
+            ["Flip Diagonal NE/SW", "FLIP_DIAG_NESW"],
+          ].map(([label, kind]) => (
+            <button
+              key={kind}
+              type="button"
+              className="dropdownMenuItem"
+              onClick={() => applySelectionTransform(kind as LevelTransformKind)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
