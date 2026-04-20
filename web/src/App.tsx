@@ -108,6 +108,7 @@ import {
   type GridPoint,
   type GridRect,
 } from "./editor/boardGeometry";
+import { isSelectionBorderStrokeHit } from "./selectionBorderHit";
 import {
   commitHistoryEvent,
   createEditorHistory,
@@ -454,22 +455,18 @@ function buildC2mPastePreviewSelection(
 function isSelectionBorderPoint(
   selection: SelectionArea | null,
   point: GridPoint | null,
+  cursorPoint: Readonly<{ x: number; y: number }> | null,
   map: MapJson | null,
 ): boolean {
-  if (!selection || !point || !map) return false;
-
-  const index = pointToIndex(point, map);
-  const selectedSet = new Set(resolveSelectionIndices(selection, map));
-  if (!selectedSet.has(index)) return false;
-
-  const neighbors = [
-    point.x > 0 ? pointToIndex({ x: point.x - 1, y: point.y }, map) : null,
-    point.x < map.width - 1 ? pointToIndex({ x: point.x + 1, y: point.y }, map) : null,
-    point.y > 0 ? pointToIndex({ x: point.x, y: point.y - 1 }, map) : null,
-    point.y < map.height - 1 ? pointToIndex({ x: point.x, y: point.y + 1 }, map) : null,
-  ];
-
-  return neighbors.some((neighbor) => neighbor === null || !selectedSet.has(neighbor));
+  return isSelectionBorderStrokeHit(
+    map ? resolveSelectionIndices(selection, map) : [],
+    point,
+    cursorPoint,
+    {
+      width: map?.width ?? 0,
+      height: map?.height ?? 0,
+    },
+  );
 }
 
 function buildMovedSelection(
@@ -1461,6 +1458,10 @@ export default function App() {
     boardStatusStoreRef.current.getSnapshot,
     boardStatusStoreRef.current.getSnapshot,
   );
+  const [hoverCursorPoint, setHoverCursorPoint] = useState<Readonly<{
+    x: number;
+    y: number;
+  }> | null>(null);
 
   const levelset = history?.doc ?? null;
   const selectedLevelIndex = history?.selectedLevelIndex ?? 0;
@@ -1562,7 +1563,7 @@ export default function App() {
     canMutateBoard &&
     !pastePreviewActive &&
     !dragState &&
-    isSelectionBorderPoint(selection, boardStatus.hoverPoint, activeMap);
+    isSelectionBorderPoint(selection, boardStatus.hoverPoint, hoverCursorPoint, activeMap);
   const boardCanvasCursor = boardStatus.isPanning
     ? "grabbing"
     : dragState?.tool === "move-selection"
@@ -2496,16 +2497,42 @@ export default function App() {
     [activeMap, boardPixelHeight, boardPixelWidth, boardRect],
   );
 
+  const resolveBoardCellSpacePointAtClientPoint = useCallback(
+    (clientX: number, clientY: number): Readonly<{ x: number; y: number }> | null => {
+      if (!boardRect) return null;
+
+      const viewport = boardViewportRef.current;
+      if (!viewport) return null;
+
+      const boardPoint = viewportClientPointToBoardPoint(
+        viewport.getBoundingClientRect(),
+        { clientX, clientY },
+        boardRect,
+        boardPixelWidth,
+        boardPixelHeight,
+      );
+      if (!boardPoint) return null;
+
+      return {
+        x: boardPoint.x / BOARD_TILE_PIXEL_SIZE,
+        y: boardPoint.y / BOARD_TILE_PIXEL_SIZE,
+      };
+    },
+    [boardPixelHeight, boardPixelWidth, boardRect],
+  );
+
   const updateHoverAtClientPoint = useCallback(
     (clientX: number, clientY: number) => {
       const hoverPoint = resolveBoardCellAtClientPoint(clientX, clientY);
+      const cursorPoint = resolveBoardCellSpacePointAtClientPoint(clientX, clientY);
 
       boardStatusStoreRef.current.update({
         hoverPoint,
         hoverCellSummary: buildHoverCellSummary(activeMap, hoverPoint),
       });
+      setHoverCursorPoint(cursorPoint);
     },
-    [activeMap, resolveBoardCellAtClientPoint],
+    [activeMap, resolveBoardCellAtClientPoint, resolveBoardCellSpacePointAtClientPoint],
   );
 
   const setBoardZoom = useCallback(
@@ -3999,10 +4026,12 @@ export default function App() {
       if (!isSupportedBoardToolButton(event.button)) return;
 
       const point = resolveBoardCellAtClientPoint(event.clientX, event.clientY);
+      const cursorPoint = resolveBoardCellSpacePointAtClientPoint(event.clientX, event.clientY);
       boardStatusStoreRef.current.update({
         hoverPoint: point,
         hoverCellSummary: buildHoverCellSummary(activeMap, point),
       });
+      setHoverCursorPoint(cursorPoint);
       if (!point) {
         if (event.button === 0) {
           event.preventDefault();
@@ -4067,7 +4096,7 @@ export default function App() {
           !pastePreviewActive &&
           selection &&
           canMutateBoard &&
-          isSelectionBorderPoint(selection, point, activeMap)
+          isSelectionBorderPoint(selection, point, cursorPoint, activeMap)
         ) {
           const selectionIndices = resolveSelectionIndices(selection, activeMap);
           const clipboard = copyMapRegion(activeMap, selection, selectionIndices);
@@ -4245,6 +4274,7 @@ export default function App() {
           hoverCellSummary: null,
           isPanning: true,
         });
+        setHoverCursorPoint(null);
         return;
       }
 
@@ -4522,6 +4552,7 @@ export default function App() {
       map,
       mirrorState,
       resolveBoardCellAtClientPoint,
+      resolveBoardCellSpacePointAtClientPoint,
       selection,
       updateHoverAtClientPoint,
     ],
@@ -4540,6 +4571,7 @@ export default function App() {
       hoverPoint: null,
       hoverCellSummary: null,
     });
+    setHoverCursorPoint(null);
   }, [dragState, replaceMapChangeLive]);
 
   const onBoardPointerLeave = useCallback(() => {
@@ -4549,6 +4581,7 @@ export default function App() {
       hoverPoint: null,
       hoverCellSummary: null,
     });
+    setHoverCursorPoint(null);
   }, [dragState]);
 
   const onBoardWheel = useCallback(
