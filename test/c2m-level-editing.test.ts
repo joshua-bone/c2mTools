@@ -13,6 +13,7 @@ import {
   classifyBrushRole,
   copyMapRegion,
   disconnectWirePoints,
+  moveMapRegion,
   paintMapCells,
   paintMapLine,
   pasteMapRegion,
@@ -151,6 +152,36 @@ describe("c2m level editing", () => {
     const nextMap = pasteMapRegion(map, { x: 5, y: 5 }, clipboard);
 
     expect(nextMap.tiles[targetIndex]).toEqual(sourceCell);
+  });
+
+  it("moves masked selections while leaving floor behind at the source", () => {
+    const stackedCell: TileSpecJson = {
+      tile: "GHOST",
+      dir: "W",
+      lower: {
+        tile: "BLUE_KEY",
+        lower: "FORCE_S",
+      },
+    };
+    let map = withTile(createMap(), { x: 0, y: 0 }, stackedCell);
+    map = withTile(map, { x: 1, y: 0 }, "WALL");
+    map = withTile(map, { x: 0, y: 1 }, "WATER");
+    map = withTile(map, { x: 1, y: 1 }, "ICE");
+
+    const moved = moveMapRegion(map, { x: 0, y: 0, width: 2, height: 2 }, { x: 4, y: 4 }, [
+      pointToIndex({ x: 0, y: 0 }, map),
+      pointToIndex({ x: 1, y: 0 }, map),
+      pointToIndex({ x: 0, y: 1 }, map),
+    ]);
+
+    expect(moved.tiles[pointToIndex({ x: 0, y: 0 }, map)]).toBe("FLOOR");
+    expect(moved.tiles[pointToIndex({ x: 1, y: 0 }, map)]).toBe("FLOOR");
+    expect(moved.tiles[pointToIndex({ x: 0, y: 1 }, map)]).toBe("FLOOR");
+    expect(moved.tiles[pointToIndex({ x: 1, y: 1 }, map)]).toBe("ICE");
+    expect(moved.tiles[pointToIndex({ x: 4, y: 4 }, map)]).toEqual(stackedCell);
+    expect(moved.tiles[pointToIndex({ x: 5, y: 4 }, map)]).toBe("WALL");
+    expect(moved.tiles[pointToIndex({ x: 4, y: 5 }, map)]).toBe("WATER");
+    expect(moved.tiles[pointToIndex({ x: 5, y: 5 }, map)]).toBe("FLOOR");
   });
 
   it("resolves clipboard preview rects that clamp to the current map bounds", () => {

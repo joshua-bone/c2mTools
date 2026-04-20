@@ -99,6 +99,7 @@ import {
   updateCellLayerAtPoint,
 } from "./editor/cellInspector";
 import {
+  clampPoint,
   getLineIndices,
   indexToPoint,
   normalizeRect,
@@ -126,6 +127,7 @@ import {
   copyMapRegion,
   disconnectWirePoints,
   floodFillMap,
+  moveMapRegion,
   paintMapCells,
   paintMapLine,
   pasteMapRegion,
@@ -310,6 +312,12 @@ function buildSelectionCursor(mode: SelectionMode, operation: SelectionOperation
   )}") 2 2, crosshair`;
 }
 
+function buildSelectionMoveCursor(): string {
+  return `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2l-3.6 4.4h2.5v6.1h2.2V6.4h2.5zM34 18l-4.4-3.6v2.5h-6.1v2.2h6.1v2.5zM18 34l3.6-4.4h-2.5v-6.1h-2.2v6.1h-2.5zM2 18l4.4 3.6v-2.5h6.1v-2.2H6.4v-2.5z" fill="rgba(18,26,31,0.96)"/><rect x="8" y="13.2" width="20" height="9.6" rx="4.2" fill="rgba(20,33,42,0.94)"/><text x="18" y="19.8" text-anchor="middle" font-family="Avenir Next, Segoe UI, sans-serif" font-size="6.3" font-weight="800" fill="rgba(248,252,255,0.98)">MOVE</text></svg>`,
+  )}") 18 18, move`;
+}
+
 function uniqueSortedIndices(indices: ReadonlyArray<number>): number[] {
   return [...new Set(indices)].sort((a, b) => a - b);
 }
@@ -441,6 +449,37 @@ function buildC2mPastePreviewSelection(
   }
 
   return buildSelectionFromIndices(indices, map, "rect");
+}
+
+function isSelectionBorderPoint(
+  selection: SelectionArea | null,
+  point: GridPoint | null,
+  map: MapJson | null,
+): boolean {
+  if (!selection || !point || !map) return false;
+
+  const index = pointToIndex(point, map);
+  const selectedSet = new Set(resolveSelectionIndices(selection, map));
+  if (!selectedSet.has(index)) return false;
+
+  const neighbors = [
+    point.x > 0 ? pointToIndex({ x: point.x - 1, y: point.y }, map) : null,
+    point.x < map.width - 1 ? pointToIndex({ x: point.x + 1, y: point.y }, map) : null,
+    point.y > 0 ? pointToIndex({ x: point.x, y: point.y - 1 }, map) : null,
+    point.y < map.height - 1 ? pointToIndex({ x: point.x, y: point.y + 1 }, map) : null,
+  ];
+
+  return neighbors.some((neighbor) => neighbor === null || !selectedSet.has(neighbor));
+}
+
+function buildMovedSelection(
+  map: MapJson,
+  anchor: GridPoint,
+  clipboard: C2mClipboard,
+  mode: SelectionMode,
+): SelectionArea | null {
+  const movedSelection = buildC2mPastePreviewSelection(map, anchor, clipboard);
+  return movedSelection ? { ...movedSelection, mode } : null;
 }
 
 function resolveTextBrushPlacementIndices(
@@ -724,6 +763,19 @@ type SelectDragState = Readonly<{
   operation: SelectionOperation;
 }>;
 
+type MoveSelectionDragState = Readonly<{
+  tool: "move-selection";
+  pointerId: number;
+  baseMap: MapJson;
+  clipboard: C2mClipboard;
+  sourceSelection: SelectionArea;
+  sourceIndices: ReadonlyArray<number>;
+  selectionMode: SelectionMode;
+  originAnchor: GridPoint;
+  currentAnchor: GridPoint;
+  grabOffset: GridPoint;
+}>;
+
 type WireDragState = Readonly<{
   tool: "wire";
   pointerId: number;
@@ -733,7 +785,12 @@ type WireDragState = Readonly<{
   mode: "add" | "remove";
 }>;
 
-type DragState = BrushDragState | LineDragState | SelectDragState | WireDragState;
+type DragState =
+  | BrushDragState
+  | LineDragState
+  | SelectDragState
+  | MoveSelectionDragState
+  | WireDragState;
 
 function asErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -1500,13 +1557,23 @@ export default function App() {
     isShiftPressed,
     isAltPressed,
   );
+  const selectionMoveHover =
+    tool === "select" &&
+    canMutateBoard &&
+    !pastePreviewActive &&
+    !dragState &&
+    isSelectionBorderPoint(selection, boardStatus.hoverPoint, activeMap);
   const boardCanvasCursor = boardStatus.isPanning
     ? "grabbing"
-    : tool === "select"
-      ? buildSelectionCursor(selectionMode, selectionOperationPreview)
-      : isAltPressed || tool === "eyedropper"
-        ? EYEDROPPER_CURSOR
-        : undefined;
+    : dragState?.tool === "move-selection"
+      ? buildSelectionMoveCursor()
+      : tool === "select"
+        ? selectionMoveHover
+          ? buildSelectionMoveCursor()
+          : buildSelectionCursor(selectionMode, selectionOperationPreview)
+        : isAltPressed || tool === "eyedropper"
+          ? EYEDROPPER_CURSOR
+          : undefined;
   const textBrushConfig = useMemo<TextBrushConfig>(
     () => ({
       text: textBrushText,
@@ -1646,10 +1713,22 @@ export default function App() {
     textPreviewBaseIndices,
     tool,
   ]);
-  const displayMap = transientMap ?? textPreviewMap ?? map;
+  const moveSelectionPreviewMap = useMemo(() => {
+    if (!map || dragState?.tool !== "move-selection") return null;
+    return pasteMapRegion(dragState.baseMap, dragState.currentAnchor, dragState.clipboard);
+  }, [dragState, map]);
+  const displayMap = transientMap ?? moveSelectionPreviewMap ?? textPreviewMap ?? map;
 
   const selectionPreviewRect = useMemo(() => {
     if (!activeMap) return null;
+    if (dragState?.tool === "move-selection") {
+      return buildMovedSelection(
+        activeMap,
+        dragState.currentAnchor,
+        dragState.clipboard,
+        dragState.selectionMode,
+      );
+    }
     if (dragState?.tool === "select") {
       const nextRect = createSelectionFromRect(
         normalizeRect(dragState.start, dragState.current, activeMap),
@@ -3984,6 +4063,33 @@ export default function App() {
       if (tool === "select") {
         if (event.button !== 0) return;
         event.preventDefault();
+        if (
+          !pastePreviewActive &&
+          selection &&
+          canMutateBoard &&
+          isSelectionBorderPoint(selection, point, activeMap)
+        ) {
+          const selectionIndices = resolveSelectionIndices(selection, activeMap);
+          const clipboard = copyMapRegion(activeMap, selection, selectionIndices);
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setPastePreviewActive(false);
+          setDragState({
+            tool: "move-selection",
+            pointerId: event.pointerId,
+            baseMap: paintMapCells(activeMap, selectionIndices, "FLOOR"),
+            clipboard,
+            sourceSelection: selection,
+            sourceIndices: selectionIndices,
+            selectionMode: selection.mode,
+            originAnchor: clampPoint({ x: selection.x, y: selection.y }, activeMap),
+            currentAnchor: clampPoint({ x: selection.x, y: selection.y }, activeMap),
+            grabOffset: {
+              x: point.x - selection.x,
+              y: point.y - selection.y,
+            },
+          });
+          return;
+        }
         const operation = resolveSelectionOperationFromModifierKeys(event.shiftKey, event.altKey);
         if (selectionMode === "rect") {
           event.currentTarget.setPointerCapture(event.pointerId);
@@ -4104,6 +4210,8 @@ export default function App() {
       resolveBoardCellAtClientPoint,
       resolvePaintBrushForInput,
       replaceMapChangeLive,
+      selection,
+      selectionMode,
       textBrushRaster,
       tool,
       updateHoverAtClientPoint,
@@ -4196,6 +4304,37 @@ export default function App() {
           boardStatusStoreRef.current.update({
             hoverPoint: point,
             hoverCellSummary: buildHoverCellSummary(activeMap, point),
+          });
+          return;
+        }
+
+        if (dragState.tool === "move-selection") {
+          if (!point) return;
+          const nextAnchor = clampPoint(
+            {
+              x: point.x - dragState.grabOffset.x,
+              y: point.y - dragState.grabOffset.y,
+            },
+            activeMap,
+          );
+          const nextPreviewMap = pasteMapRegion(dragState.baseMap, nextAnchor, dragState.clipboard);
+          if (
+            nextAnchor.x === dragState.currentAnchor.x &&
+            nextAnchor.y === dragState.currentAnchor.y
+          ) {
+            boardStatusStoreRef.current.update({
+              hoverPoint: point,
+              hoverCellSummary: buildHoverCellSummary(nextPreviewMap, point),
+            });
+            return;
+          }
+          setDragState({
+            ...dragState,
+            currentAnchor: nextAnchor,
+          });
+          boardStatusStoreRef.current.update({
+            hoverPoint: point,
+            hoverCellSummary: buildHoverCellSummary(nextPreviewMap, point),
           });
           return;
         }
@@ -4338,6 +4477,36 @@ export default function App() {
           updateHoverAtClientPoint(event.clientX, event.clientY);
           return;
         }
+
+        if (dragState.tool === "move-selection") {
+          if (
+            canMutateBoard &&
+            map &&
+            (dragState.currentAnchor.x !== dragState.originAnchor.x ||
+              dragState.currentAnchor.y !== dragState.originAnchor.y)
+          ) {
+            commitMapChange(
+              moveMapRegion(
+                map,
+                dragState.sourceSelection,
+                dragState.currentAnchor,
+                dragState.sourceIndices,
+              ),
+            );
+          }
+          setSelection(
+            buildMovedSelection(
+              activeMap ?? map ?? dragState.baseMap,
+              dragState.currentAnchor,
+              dragState.clipboard,
+              dragState.selectionMode,
+            ),
+          );
+          setPastePreviewActive(false);
+          updateHoverAtClientPoint(event.clientX, event.clientY);
+          setDragState(null);
+          return;
+        }
       }
 
       updateHoverAtClientPoint(event.clientX, event.clientY);
@@ -4353,6 +4522,7 @@ export default function App() {
       map,
       mirrorState,
       resolveBoardCellAtClientPoint,
+      selection,
       updateHoverAtClientPoint,
     ],
   );

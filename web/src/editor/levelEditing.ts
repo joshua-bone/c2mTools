@@ -13,6 +13,7 @@ import {
   getLineIndices,
   indexToPoint,
   pointToIndex,
+  rectToIndices,
   type GridPoint,
   type GridRect,
 } from "./boardGeometry.js";
@@ -302,6 +303,20 @@ export function pasteMapRegion(map: MapJson, anchor: GridPoint, clipboard: C2mCl
   }
 
   return changed ? buildNextMap(map, nextTiles) : map;
+}
+
+export function moveMapRegion(
+  map: MapJson,
+  rect: GridRect,
+  anchor: GridPoint,
+  selectedIndices?: ReadonlyArray<number>,
+): MapJson {
+  const sourceIndices = selectedIndices ? [...selectedIndices] : rectToIndices(rect, map);
+  if (sourceIndices.length === 0) return map;
+
+  const clipboard = copyMapRegion(map, rect, sourceIndices);
+  const clearedMap = paintMapCells(map, sourceIndices, "FLOOR");
+  return pasteMapRegion(clearedMap, anchor, clipboard);
 }
 
 export function resolveEyedropperBrush(cell: TileSpecJson): TileSpecJson {
