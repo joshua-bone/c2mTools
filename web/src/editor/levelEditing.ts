@@ -471,6 +471,8 @@ function buildNextCellAtIndex(
 }
 
 function withWireModifier(tile: TileSpecObjJson): TileSpecObjJson {
+  if (tile.tile === "LOGIC_GATE") return tile;
+
   const existing = getTileModifier(tile, "WIRES");
   const requiredWires = resolveRequiredWireDirections(tile);
   if (existing) {
@@ -514,6 +516,8 @@ function sortDirs(dirs: ReadonlyArray<Dir>): Dir[] {
 }
 
 function addWireDir(tile: TileSpecObjJson, dir: Dir): TileSpecObjJson {
+  if (tile.tile === "LOGIC_GATE") return tile;
+
   const nextTile = withWireModifier(tile);
   const modifier = getTileModifier(nextTile, "WIRES");
   if (!modifier) return nextTile;
@@ -580,6 +584,8 @@ export function connectWirePoints(map: MapJson, from: GridPoint, to: GridPoint):
 }
 
 function removeWireDir(tile: TileSpecObjJson, dir: Dir): TileSpecObjJson {
+  if (tile.tile === "LOGIC_GATE") return tile;
+
   const modifier = getTileModifier(tile, "WIRES");
   if (!modifier) return tile;
   return setTileModifier(tile, "WIRES", {

@@ -450,23 +450,17 @@ describe("c2m level editing", () => {
       ],
     ).toEqual({
       tile: "LOGIC_GATE",
-      modifiers: [
-        { kind: "WIRES", wires: ["N", "E", "S"], tunnels: [] },
-        { kind: "LOGIC", gate: "AND", facing: "E" },
-      ],
+      modifiers: [{ kind: "LOGIC", gate: "AND", facing: "E" }],
     });
   });
 
-  it("does not remove required logic-gate wires", () => {
+  it("does not persist synthetic wire metadata on logic gates when disconnecting", () => {
     const map = withTile(
       createMap(),
       { x: 2, y: 2 },
       {
         tile: "LOGIC_GATE",
-        modifiers: [
-          { kind: "WIRES", wires: ["N", "E", "S"], tunnels: [] },
-          { kind: "LOGIC", gate: "AND", facing: "E" },
-        ],
+        modifiers: [{ kind: "LOGIC", gate: "AND", facing: "E" }],
       },
     );
 
@@ -476,10 +470,7 @@ describe("c2m level editing", () => {
       ],
     ).toEqual({
       tile: "LOGIC_GATE",
-      modifiers: [
-        { kind: "WIRES", wires: ["N", "E", "S"], tunnels: [] },
-        { kind: "LOGIC", gate: "AND", facing: "E" },
-      ],
+      modifiers: [{ kind: "LOGIC", gate: "AND", facing: "E" }],
     });
   });
 

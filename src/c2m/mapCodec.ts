@@ -419,6 +419,22 @@ function sortDirsUnique(dirs: ReadonlyArray<Dir>): Dir[] {
   return DIR_ORDER.filter((d) => set.has(d));
 }
 
+export function resolveLogicGateWireDirections(
+  logic: Extract<ModifierJson, { kind: "LOGIC" }> | null | undefined,
+): Dir[] {
+  if (!logic) return [...DIR_ORDER];
+  if (logic.gate === "COUNTER") return [...DIR_ORDER];
+
+  const facing = logic.facing ?? "N";
+  const left = facing === "N" ? "W" : facing === "E" ? "N" : facing === "S" ? "E" : "S";
+  const right = facing === "N" ? "E" : facing === "E" ? "S" : facing === "S" ? "W" : "N";
+  const opposite = facing === "N" ? "S" : facing === "E" ? "W" : facing === "S" ? "N" : "E";
+
+  return logic.gate === "INVERTER"
+    ? sortDirsUnique([facing, opposite])
+    : sortDirsUnique([facing, left, right]);
+}
+
 function maskFromDirs(dirs: ReadonlyArray<Dir>): number {
   let m = 0;
   for (const d of dirs) {
@@ -647,6 +663,42 @@ function tryDecodeLogicValue(value: number): Extract<ModifierJson, { kind: "LOGI
   }
 }
 
+function logicGateWireMaskFromLogic(logic: Extract<ModifierJson, { kind: "LOGIC" }>): number {
+  return maskFromDirs(resolveLogicGateWireDirections(logic)) & 0x0f;
+}
+
+function decodeLogicGateEntries(modifierEntries: ReadonlyArray<RawModifierEntry>): ModifierJson[] {
+  const candidates = modifierEntries
+    .map((entry, index) => {
+      const logic = tryDecodeLogicValue(entry.value & 0xff);
+      return logic ? { entry, index, logic } : null;
+    })
+    .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null);
+
+  if (candidates.length === 0) {
+    return [decodeWiresValue(modifierEntries[0]!.value & 0xff)];
+  }
+
+  const preferred =
+    candidates.find(({ index, logic }) =>
+      modifierEntries.some(
+        (entry, otherIndex) =>
+          otherIndex !== index && (entry.value & 0x0f) === logicGateWireMaskFromLogic(logic),
+      ),
+    ) ?? candidates[0]!;
+
+  const implicitWireMask = logicGateWireMaskFromLogic(preferred.logic);
+  const remainingWireEntries = modifierEntries
+    .filter((_, index) => index !== preferred.index)
+    .map((entry) => decodeWiresValue(entry.value & 0xff))
+    .filter(
+      (modifier) =>
+        modifier.tunnels.length > 0 || (maskFromDirs(modifier.wires) & 0x0f) !== implicitWireMask,
+    );
+
+  return [preferred.logic, ...remainingWireEntries];
+}
+
 function interpretModifierEntries(
   tileId: number,
   modifierEntries: ReadonlyArray<RawModifierEntry>,
@@ -666,17 +718,7 @@ function interpretModifierEntries(
   }
 
   if (tileId === TILE_LOGIC_GATE) {
-    if (modifierEntries.length === 1) {
-      const onlyEntry = modifierEntries[0]!;
-      const logic = tryDecodeLogicValue(onlyEntry.value & 0xff);
-      return [logic ?? decodeWiresValue(onlyEntry.value & 0xff)];
-    }
-
-    return modifierEntries.map((entry, index) =>
-      index === modifierEntries.length - 1
-        ? decodeLogicValue(entry.value & 0xff)
-        : decodeWiresValue(entry.value & 0xff),
-    );
+    return decodeLogicGateEntries(modifierEntries);
   }
 
   if (tileId === TILE_CLONE_MACHINE || tileId === TILE_CLONE_MACHINE_OLD) {
@@ -935,7 +977,9 @@ function encodeTileSpec(w: BinaryWriter, spec: TileSpecJson): void {
   const tileId = tileIdFromName(obj.tile);
   assertU8(tileId, "tile id");
 
-  const mods = [...(obj.modifiers ?? [])];
+  const mods = [...(obj.modifiers ?? [])].filter(
+    (modifier) => !(tileId === TILE_LOGIC_GATE && modifier.kind === "WIRES"),
+  );
   mods.sort((a, b) => modifierKindOrder(a.kind) - modifierKindOrder(b.kind));
 
   for (const m of mods) {

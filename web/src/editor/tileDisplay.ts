@@ -1,4 +1,9 @@
-import type { ModifierJson, TileSpecJson, TileSpecObjJson } from "../../../src/c2m/mapCodec.js";
+import {
+  resolveLogicGateWireDirections,
+  type ModifierJson,
+  type TileSpecJson,
+  type TileSpecObjJson,
+} from "../../../src/c2m/mapCodec.js";
 
 function formatTileNameSegment(segment: string): string {
   if (segment === "IC") return "IC";
@@ -65,7 +70,15 @@ export function describeTileSpec(spec: TileSpecJson | TileSpecObjJson | undefine
     details.push(tile.directionalArrows.arrows.join("/"));
   }
 
+  const logicModifier = tile.modifiers?.find(
+    (modifier): modifier is Extract<ModifierJson, { kind: "LOGIC" }> => modifier.kind === "LOGIC",
+  );
+  if (tile.tile === "LOGIC_GATE" && logicModifier) {
+    details.push(`wires ${resolveLogicGateWireDirections(logicModifier).join("/")}`);
+  }
+
   for (const modifier of tile.modifiers ?? []) {
+    if (tile.tile === "LOGIC_GATE" && modifier.kind === "WIRES") continue;
     const summary = summarizeModifier(modifier);
     if (summary) details.push(summary);
   }

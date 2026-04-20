@@ -7,6 +7,7 @@ import {
   resolveRequiredWireDirections,
   resolveWireableDirections,
   setTileModifier,
+  tileSupportsModifierKind,
   updateCellLayerAtPoint,
 } from "../web/src/editor/cellInspector.js";
 
@@ -131,5 +132,17 @@ describe("c2m cell inspector helpers", () => {
     ).toEqual(["E"]);
 
     expect(resolveRequiredWireDirections({ tile: "FLOOR" })).toEqual([]);
+  });
+
+  it("treats logic-gate wiring as implicit instead of an editable wires modifier", () => {
+    expect(
+      tileSupportsModifierKind(
+        {
+          tile: "LOGIC_GATE",
+          modifiers: [{ kind: "LOGIC", gate: "INVERTER", facing: "W" }],
+        },
+        "WIRES",
+      ),
+    ).toBe(false);
   });
 });

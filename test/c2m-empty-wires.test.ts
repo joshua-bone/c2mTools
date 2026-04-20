@@ -75,7 +75,7 @@ describe("empty wire nodes", () => {
     expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(map);
   });
 
-  it("round-trips logic gate wire modifiers alongside logic metadata", () => {
+  it("canonicalizes logic gate wire metadata down to a single logic modifier", () => {
     const map = {
       width: 1,
       height: 1,
@@ -83,17 +83,40 @@ describe("empty wire nodes", () => {
         {
           tile: "LOGIC_GATE",
           modifiers: [
-            { kind: "WIRES", wires: ["E"], tunnels: [] },
-            { kind: "LOGIC", gate: "AND", facing: "E" },
+            { kind: "WIRES", wires: ["E", "W"], tunnels: [] },
+            { kind: "LOGIC", gate: "INVERTER", facing: "W" },
           ],
         },
       ],
     } as const;
 
-    expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(map);
+    expect(Array.from(encodeMapJsonToBytes(map))).toEqual([1, 1, 0x76, 0x03, 0x5c]);
+    expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual({
+      width: 1,
+      height: 1,
+      tiles: [
+        {
+          tile: "LOGIC_GATE",
+          modifiers: [{ kind: "LOGIC", gate: "INVERTER", facing: "W" }],
+        },
+      ],
+    });
   });
 
-  it("round-trips every faced logic gate with its expected wire mask", () => {
+  it("decodes legacy wire-first logic gate bytes as the intended gate", () => {
+    expect(decodeMapBytesToJson(Uint8Array.from([1, 1, 0x76, 0x0a, 0x76, 0x03, 0x5c]))).toEqual({
+      width: 1,
+      height: 1,
+      tiles: [
+        {
+          tile: "LOGIC_GATE",
+          modifiers: [{ kind: "LOGIC", gate: "INVERTER", facing: "W" }],
+        },
+      ],
+    });
+  });
+
+  it("encodes every faced logic gate without a separate wires modifier", () => {
     for (const gate of FACED_LOGIC_GATES) {
       for (const facing of CARDINAL_DIRS) {
         const map = {
@@ -109,8 +132,21 @@ describe("empty wire nodes", () => {
             },
           ],
         } as const;
+        const canonical = {
+          width: 1,
+          height: 1,
+          tiles: [
+            {
+              tile: "LOGIC_GATE",
+              modifiers: [{ kind: "LOGIC", gate, facing }],
+            },
+          ],
+        } as const;
 
-        expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(map);
+        expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(canonical);
+        expect(Array.from(encodeMapJsonToBytes(map))).toEqual(
+          Array.from(encodeMapJsonToBytes(canonical)),
+        );
       }
     }
   });
@@ -123,10 +159,7 @@ describe("empty wire nodes", () => {
         tiles: [
           {
             tile: "LOGIC_GATE",
-            modifiers: [
-              { kind: "WIRES", wires: [...CARDINAL_DIRS], tunnels: [] },
-              { kind: "LOGIC", gate: "COUNTER", counterValue },
-            ],
+            modifiers: [{ kind: "LOGIC", gate: "COUNTER", counterValue }],
           },
         ],
       } as const;

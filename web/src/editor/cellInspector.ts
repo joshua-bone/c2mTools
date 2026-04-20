@@ -13,6 +13,7 @@ import type {
   TrackActive,
   TrackPiece,
 } from "../../../src/c2m/mapCodec.js";
+import { resolveLogicGateWireDirections } from "../../../src/c2m/mapCodec.js";
 import { pointToIndex, type GridPoint } from "./boardGeometry.js";
 import { describeTileSpec } from "./tileDisplay.js";
 
@@ -89,11 +90,6 @@ const GENERIC_WIREABLE_TILE_NAMES = new Set<string>([
   "FLAME_JET_ON",
 ]);
 
-function rotateDir(dir: Dir, quarterTurns: number): Dir {
-  const index = CARDINAL_DIRS.indexOf(dir);
-  return CARDINAL_DIRS[(index + quarterTurns + CARDINAL_DIRS.length) % CARDINAL_DIRS.length] ?? dir;
-}
-
 function sortDirsUnique(dirs: ReadonlyArray<Dir>): Dir[] {
   const set = new Set(dirs);
   return CARDINAL_DIRS.filter((dir) => set.has(dir));
@@ -128,26 +124,9 @@ export function resolveWireableDirections(tile: TileSpecObjJson): Dir[] {
 
   if (tile.tile === "LOGIC_GATE") {
     const logicModifier = getTileModifier(tile, "LOGIC");
-    if (!logicModifier || logicModifier.kind !== "LOGIC") {
-      return [...CARDINAL_DIRS];
-    }
-
-    if (logicModifier.gate === "COUNTER") {
-      return [...CARDINAL_DIRS];
-    }
-
-    const facing = logicModifier.facing ?? "N";
-    const allowed = [facing];
-
-    if (logicModifier.gate !== "INVERTER") {
-      allowed.push(rotateDir(facing, -1), rotateDir(facing, 1));
-    }
-
-    if (logicModifier.gate === "INVERTER") {
-      allowed.push(rotateDir(facing, 2));
-    }
-
-    return sortDirsUnique(allowed);
+    return logicModifier?.kind === "LOGIC"
+      ? resolveLogicGateWireDirections(logicModifier)
+      : [...CARDINAL_DIRS];
   }
 
   return [];
@@ -230,7 +209,7 @@ export function tileSupportsModifierKind(
 ): boolean {
   switch (kind) {
     case "WIRES":
-      return tileAllowsWires(tile);
+      return tile.tile === "LOGIC_GATE" ? false : tileAllowsWires(tile);
     case "TRACKS":
       return tile.tile === "RAILROAD_TRACK";
     case "CLONE_ARROWS":
