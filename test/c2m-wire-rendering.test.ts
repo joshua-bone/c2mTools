@@ -46,6 +46,17 @@ function getTileColor(tileX: number, tileY: number): [number, number, number, nu
   ];
 }
 
+const CARDINAL_DIRS = ["N", "E", "S", "W"] as const;
+const FACED_LOGIC_GATE_BASE_VALUES = {
+  INVERTER: 0x00,
+  AND: 0x04,
+  OR: 0x08,
+  XOR: 0x0c,
+  LATCH_CW: 0x10,
+  NAND: 0x14,
+  LATCH_CCW: 0x40,
+} as const;
+
 describe("c2m wire rendering", () => {
   it("renders each ice corner from the correct atlas tile", () => {
     const renderer = new CC2RendererCore(new CC2Tileset(createFakeTilesetSheet()));
@@ -142,5 +153,34 @@ describe("c2m wire rendering", () => {
     });
 
     expect(Array.from(wired.data)).toEqual(Array.from(plain.data));
+  });
+
+  it("renders every faced logic gate from the correct atlas tile", () => {
+    const renderer = new CC2RendererCore(new CC2Tileset(createFakeTilesetSheet()));
+
+    for (const [gate, baseValue] of Object.entries(FACED_LOGIC_GATE_BASE_VALUES) as Array<
+      [keyof typeof FACED_LOGIC_GATE_BASE_VALUES, number]
+    >) {
+      for (const [dirIndex, facing] of CARDINAL_DIRS.entries()) {
+        const value = baseValue + dirIndex;
+        const atlas =
+          value >= 0x40
+            ? { x: (value % 16) + 8, y: 21 }
+            : { x: value % 16, y: 25 + Math.floor(value / 16) };
+
+        const rendered = renderer.renderMap({
+          width: 1,
+          height: 1,
+          tiles: [
+            {
+              tile: "LOGIC_GATE",
+              modifiers: [{ kind: "LOGIC", gate, facing }],
+            },
+          ],
+        });
+
+        expect(Array.from(rendered.data.slice(0, 4))).toEqual(getTileColor(atlas.x, atlas.y));
+      }
+    }
   });
 });

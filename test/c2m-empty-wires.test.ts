@@ -2,6 +2,28 @@ import { describe, expect, it } from "vitest";
 
 import { decodeMapBytesToJson, encodeMapJsonToBytes } from "../src/c2m/mapCodec.js";
 
+const CARDINAL_DIRS = ["N", "E", "S", "W"] as const;
+const FACED_LOGIC_GATES = [
+  "INVERTER",
+  "AND",
+  "OR",
+  "XOR",
+  "LATCH_CW",
+  "LATCH_CCW",
+  "NAND",
+] as const;
+
+function logicGateWires(
+  gate: (typeof FACED_LOGIC_GATES)[number],
+  facing: (typeof CARDINAL_DIRS)[number],
+) {
+  const left = facing === "N" ? "W" : facing === "E" ? "N" : facing === "S" ? "E" : "S";
+  const right = facing === "N" ? "E" : facing === "E" ? "S" : facing === "S" ? "W" : "N";
+  const opposite = facing === "N" ? "S" : facing === "E" ? "W" : facing === "S" ? "N" : "E";
+  const dirs = gate === "INVERTER" ? [facing, opposite] : [facing, left, right];
+  return CARDINAL_DIRS.filter((dir) => dirs.includes(dir));
+}
+
 describe("empty wire nodes", () => {
   it("round-trips explicit empty wire modifiers", () => {
     const map = {
@@ -64,6 +86,63 @@ describe("empty wire nodes", () => {
             { kind: "WIRES", wires: ["E"], tunnels: [] },
             { kind: "LOGIC", gate: "AND", facing: "E" },
           ],
+        },
+      ],
+    } as const;
+
+    expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(map);
+  });
+
+  it("round-trips every faced logic gate with its expected wire mask", () => {
+    for (const gate of FACED_LOGIC_GATES) {
+      for (const facing of CARDINAL_DIRS) {
+        const map = {
+          width: 1,
+          height: 1,
+          tiles: [
+            {
+              tile: "LOGIC_GATE",
+              modifiers: [
+                { kind: "WIRES", wires: logicGateWires(gate, facing), tunnels: [] },
+                { kind: "LOGIC", gate, facing },
+              ],
+            },
+          ],
+        } as const;
+
+        expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(map);
+      }
+    }
+  });
+
+  it("round-trips counter logic gates for every digit", () => {
+    for (let counterValue = 0; counterValue <= 9; counterValue += 1) {
+      const map = {
+        width: 1,
+        height: 1,
+        tiles: [
+          {
+            tile: "LOGIC_GATE",
+            modifiers: [
+              { kind: "WIRES", wires: [...CARDINAL_DIRS], tunnels: [] },
+              { kind: "LOGIC", gate: "COUNTER", counterValue },
+            ],
+          },
+        ],
+      } as const;
+
+      expect(decodeMapBytesToJson(encodeMapJsonToBytes(map))).toEqual(map);
+    }
+  });
+
+  it("preserves zero-valued inverter north logic modifiers", () => {
+    const map = {
+      width: 1,
+      height: 1,
+      tiles: [
+        {
+          tile: "LOGIC_GATE",
+          modifiers: [{ kind: "LOGIC", gate: "INVERTER", facing: "N" }],
         },
       ],
     } as const;
