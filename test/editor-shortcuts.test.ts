@@ -94,6 +94,40 @@ describe("editor shortcuts", () => {
     expect(
       resolveEditorShortcut(
         {
+          key: "n",
+          metaKey: false,
+          ctrlKey: false,
+          shiftKey: false,
+          altKey: false,
+        },
+        {
+          hasSelection: false,
+          hasClipboard: false,
+          pastePreviewActive: false,
+        },
+      ),
+    ).toEqual({ type: "next-level" });
+
+    expect(
+      resolveEditorShortcut(
+        {
+          key: "p",
+          metaKey: false,
+          ctrlKey: false,
+          shiftKey: false,
+          altKey: false,
+        },
+        {
+          hasSelection: false,
+          hasClipboard: false,
+          pastePreviewActive: false,
+        },
+      ),
+    ).toEqual({ type: "previous-level" });
+
+    expect(
+      resolveEditorShortcut(
+        {
           key: "r",
           metaKey: false,
           ctrlKey: false,

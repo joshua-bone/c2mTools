@@ -2452,6 +2452,16 @@ export default function App() {
     [commitLevelsetUpdate, displayedLevelCount, levelset, selectedLevelIndex],
   );
 
+  const choosePreviousLevelInList = useCallback(() => {
+    if (selectedLevelIndex <= 0) return;
+    selectLevelAt(selectedLevelIndex - 1);
+  }, [selectLevelAt, selectedLevelIndex]);
+
+  const chooseNextLevelInList = useCallback(() => {
+    if (selectedLevelIndex >= displayedLevelCount - 1) return;
+    selectLevelAt(selectedLevelIndex + 1);
+  }, [displayedLevelCount, selectLevelAt, selectedLevelIndex]);
+
   const getDropInsertionIndex = useCallback((): number | null => {
     if (draggedLevelIndex === null || !levelDropState) return null;
     return Math.max(
@@ -3854,6 +3864,14 @@ export default function App() {
           event.preventDefault();
           onRedo();
           return;
+        case "next-level":
+          event.preventDefault();
+          chooseNextLevelInList();
+          return;
+        case "previous-level":
+          event.preventDefault();
+          choosePreviousLevelInList();
+          return;
         case "cut-selection":
           if (!selection || !canMutateBoard) return;
           event.preventDefault();
@@ -3901,6 +3919,8 @@ export default function App() {
     canMutateBoard,
     canRedo,
     canUndo,
+    chooseNextLevelInList,
+    choosePreviousLevelInList,
     clearSelectionState,
     clipboard,
     commitPastePreview,
@@ -7391,6 +7411,10 @@ export default function App() {
                   <div className="shortcutRow">
                     <span className="shortcutKey">B L F V E R I</span>
                     <span>Tool switch</span>
+                  </div>
+                  <div className="shortcutRow">
+                    <span className="shortcutKey">N P</span>
+                    <span>Next / previous level</span>
                   </div>
                   <div className="shortcutRow">
                     <span className="shortcutKey">, .</span>

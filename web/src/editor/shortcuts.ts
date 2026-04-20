@@ -11,6 +11,8 @@ export type EditorToolMode =
 export type EditorShortcutCommand =
   | Readonly<{ type: "undo" }>
   | Readonly<{ type: "redo" }>
+  | Readonly<{ type: "next-level" }>
+  | Readonly<{ type: "previous-level" }>
   | Readonly<{ type: "cut-selection" }>
   | Readonly<{ type: "copy-selection" }>
   | Readonly<{ type: "start-paste-preview" }>
@@ -78,6 +80,8 @@ export function resolveEditorShortcut(
 
   if (event.altKey || event.ctrlKey || event.metaKey) return null;
 
+  if (key === "n") return { type: "next-level" };
+  if (key === "p") return { type: "previous-level" };
   if (key === "enter" && context.pastePreviewActive) return { type: "commit-paste-preview" };
   if (key === "escape" && (context.pastePreviewActive || context.hasSelection)) {
     return { type: "cancel-selection" };
