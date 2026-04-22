@@ -50,6 +50,14 @@ export function decodeCp1252(bytes: Uint8Array): string {
   return out;
 }
 
+export function stripTrailingNulls(text: string): string {
+  return text.replace(/\0+$/g, "");
+}
+
+export function decodeNullTerminatedCp1252(bytes: Uint8Array): string {
+  return stripTrailingNulls(decodeCp1252(bytes));
+}
+
 export function encodeCp1252(text: string): Uint8Array {
   const out: number[] = [];
   for (const ch of text) {
@@ -76,4 +84,12 @@ export function encodeCp1252(text: string): Uint8Array {
     throw new Error(`Cannot encode character U+${cp.toString(16).toUpperCase()} in windows-1252`);
   }
   return Uint8Array.from(out);
+}
+
+export function encodeNullTerminatedCp1252(text: string): Uint8Array {
+  const body = encodeCp1252(stripTrailingNulls(text));
+  const out = new Uint8Array(body.length + 1);
+  out.set(body);
+  out[body.length] = 0;
+  return out;
 }

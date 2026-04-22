@@ -65,7 +65,7 @@ function blankToUndefined(value: string): string | undefined {
 function fileVersionToStoredValue(value: string): string | undefined {
   const trimmed = value.trim();
   if (trimmed.length === 0) return undefined;
-  return `${trimmed}\0`;
+  return trimmed;
 }
 
 function parseOptionalIntegerString(

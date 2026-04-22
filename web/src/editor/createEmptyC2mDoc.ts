@@ -27,7 +27,7 @@ export function createEmptyC2mDoc(
 
   return parseC2mJsonV1({
     schema: "c2mTools.c2m.json.v1",
-    fileVersion: "7\u0000",
+    fileVersion: "7",
     map: {
       width,
       height,

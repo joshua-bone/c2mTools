@@ -13,7 +13,7 @@ describe("createEmptyC2mDoc", () => {
     const doc = createEmptyC2mDoc();
 
     expect(doc.schema).toBe("c2mTools.c2m.json.v1");
-    expect(doc.fileVersion).toBe("7\u0000");
+    expect(doc.fileVersion).toBe("7");
     expect(doc.map?.width).toBe(DEFAULT_C2M_MAP_SIZE);
     expect(doc.map?.height).toBe(DEFAULT_C2M_MAP_SIZE);
     expect(doc.map?.tiles).toHaveLength(DEFAULT_C2M_MAP_SIZE * DEFAULT_C2M_MAP_SIZE);

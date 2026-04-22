@@ -52,7 +52,7 @@ describe("c2m metadata draft helpers", () => {
 
     expect(reparsed.title).toBe("Metadata Title");
     expect(reparsed.author).toBe("Metadata Author");
-    expect(reparsed.fileVersion).toBe("7\u0000");
+    expect(reparsed.fileVersion).toBe("7");
     expect(reparsed.readOnlyChunk).toBe(true);
     expect(reparsed.options?.time).toBe(120);
     expect(reparsed.options?.extra).toEqual(decoded.options?.extra);

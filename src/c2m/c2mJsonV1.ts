@@ -1,6 +1,10 @@
 // src/c2m/c2mJsonV1.ts
 import { BinaryReader, BinaryWriter } from "./binary.js";
-import { decodeCp1252, encodeCp1252 } from "./cp1252.js";
+import {
+  decodeNullTerminatedCp1252,
+  encodeNullTerminatedCp1252,
+  stripTrailingNulls,
+} from "./cp1252.js";
 import { packC2mLiteralOnly, unpackC2mPacked } from "./pack.js";
 import {
   decodeMapBytesToJson,
@@ -101,7 +105,7 @@ function parseOptionalStringField(
   const v = input[key];
   if (v === undefined) return;
   if (typeof v !== "string") throw new Error(`Invalid ${key}: expected string`);
-  (out as Record<string, unknown>)[key] = v;
+  (out as Record<string, unknown>)[key] = stripTrailingNulls(v);
 }
 
 function parseOptionalIntField(
@@ -257,25 +261,25 @@ export function decodeC2mToJsonV1(bytes: Uint8Array, warn: WarnFn = () => {}): C
 
     switch (tag) {
       case TAG_FILE_VERSION:
-        out.fileVersion = decodeCp1252(payload);
+        out.fileVersion = decodeNullTerminatedCp1252(payload);
         break;
       case TAG_LOCK:
-        out.lock = decodeCp1252(payload);
+        out.lock = decodeNullTerminatedCp1252(payload);
         break;
       case TAG_TITLE:
-        out.title = decodeCp1252(payload);
+        out.title = decodeNullTerminatedCp1252(payload);
         break;
       case TAG_AUTHOR:
-        out.author = decodeCp1252(payload);
+        out.author = decodeNullTerminatedCp1252(payload);
         break;
       case TAG_EDITOR_VERSION:
-        out.editorVersion = decodeCp1252(payload);
+        out.editorVersion = decodeNullTerminatedCp1252(payload);
         break;
       case TAG_CLUE:
-        out.clue = decodeCp1252(payload);
+        out.clue = decodeNullTerminatedCp1252(payload);
         break;
       case TAG_NOTE:
-        out.note = decodeCp1252(payload);
+        out.note = decodeNullTerminatedCp1252(payload);
         break;
 
       case TAG_OPTIONS: {
@@ -416,7 +420,7 @@ function buildOptnPayload(o: NonNullable<C2mJsonV1["options"]>): Uint8Array {
 }
 
 function maybeEncodeText(value: string | undefined): Uint8Array | null {
-  return value === undefined ? null : encodeCp1252(value);
+  return value === undefined ? null : encodeNullTerminatedCp1252(value);
 }
 
 function resolveKnownSectionPayload(
@@ -643,7 +647,7 @@ export function encodeC2mFromJsonV1(doc: C2mJsonV1): Uint8Array {
 
   const writeText = (tag: string, value: string | undefined): void => {
     if (value === undefined) return;
-    const bytes = encodeCp1252(value);
+    const bytes = encodeNullTerminatedCp1252(value);
     w.writeTag4(tag);
     w.writeU32LE(bytes.length);
     w.writeBytes(bytes);
