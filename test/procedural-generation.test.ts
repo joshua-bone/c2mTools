@@ -16,8 +16,45 @@ import {
   listAlgorithmNames,
 } from "../procedural_generation/generator.js";
 
+const ITEM_TILE_BY_TOOL = {
+  greenkey: "GREEN_KEY",
+  redkey: "RED_KEY",
+  bluekey: "BLUE_KEY",
+  yellowkey: "YELLOW_KEY",
+  flippers: "FLIPPERS",
+  fireboots: "FIRE_BOOTS",
+  forceboots: "SUCTION_BOOTS",
+  hikingboots: "HIKING_BOOTS",
+  rrsign: "RAILROAD_SIGN",
+} as const;
+
+const KEY_TOOLS = new Set(["greenkey", "redkey", "bluekey", "yellowkey"]);
+
 function pointToIndex(x: number, y: number, width: number): number {
   return y * width + x;
+}
+
+function expectedBarrierTerrain(tool: keyof typeof ITEM_TILE_BY_TOOL): string {
+  switch (tool) {
+    case "yellowkey":
+      return "YELLOW_DOOR";
+    case "redkey":
+      return "RED_DOOR";
+    case "bluekey":
+      return "BLUE_DOOR";
+    case "greenkey":
+      return "GREEN_DOOR";
+    case "fireboots":
+      return "FIRE";
+    case "flippers":
+      return "WATER";
+    case "forceboots":
+      return "FORCE_N";
+    case "hikingboots":
+      return "GRAVEL";
+    case "rrsign":
+      return "RAILROAD_TRACK";
+  }
 }
 
 describe("procedural level generation", () => {
@@ -46,41 +83,95 @@ describe("procedural level generation", () => {
 
     expect(level.map.width).toBe(BOARD_WIDTH);
     expect(level.map.height).toBe(BOARD_HEIGHT);
-    expect(level.stackPositions).toHaveLength(784);
-    expect(level.barrierCombos).toHaveLength(783);
-    expect(level.plan.order).toHaveLength(783);
-    expect(level.plan.order.at(-1)).toBe(782);
+    expect(level.stackPositions).toHaveLength(882);
+    expect(level.barrierCombos).toHaveLength(881);
+    expect(level.plan.order).toHaveLength(881);
+    expect(level.plan.order.at(-1)).toBe(880);
 
     const startLayers = flattenCellLayers(level.map.tiles[0]!);
     expect(startLayers.mob?.tile).toBe("MELINDA");
     expect(startLayers.terrain.tile).toBe("FLOOR");
 
     const finalStack = level.stackPositions[level.stackPositions.length - 1]!;
-    const exitCell =
-      level.map.tiles[pointToIndex(finalStack.x, finalStack.y + 10, level.map.width)]!;
-    const exitLayers = flattenCellLayers(exitCell);
+    const socketLayers = flattenCellLayers(
+      level.map.tiles[pointToIndex(finalStack.x, finalStack.y, level.map.width)]!,
+    );
+    const exitLayers = flattenCellLayers(
+      level.map.tiles[pointToIndex(finalStack.x, finalStack.y + 9, level.map.width)]!,
+    );
+    expect(socketLayers.terrain.tile).toBe("CHIP_SOCKET");
     expect(exitLayers.terrain.tile).toBe("EXIT");
     expect(exitLayers.thinWalls?.thinWallCanopy?.walls).toEqual(["E", "W", "S"]);
 
-    expect(countTerrainTiles(level.map, "PINK_BUTTON")).toBe(783);
-    expect(countTerrainTiles(level.map, "PURPLE_TOGGLE_WALL")).toBe(783);
+    expect(countTerrainTiles(level.map, "POP_UP_WALL")).toBe(881);
+    expect(countTerrainTiles(level.map, "SWIVEL_DOOR_SE")).toBe(881);
+    expect(countTerrainTiles(level.map, "PINK_BUTTON")).toBe(0);
+    expect(countTerrainTiles(level.map, "PURPLE_TOGGLE_WALL")).toBe(0);
     expect(countTerrainTiles(level.map, "CHIP_SOCKET")).toBe(1);
     expect(countTerrainTiles(level.map, "EXIT")).toBe(1);
 
     for (let stackIndex = 0; stackIndex < level.barrierCombos.length; stackIndex++) {
-      const combo = level.barrierCombos[stackIndex]!;
+      const barrierCombo = level.barrierCombos[stackIndex]!;
+      const grantedCombo = level.plan.grantsByStack[stackIndex] ?? null;
       const position = level.stackPositions[stackIndex]!;
-      const expectedNoSignIndex = combo.findIndex(
-        (tool) =>
-          tool !== "greenkey" && tool !== "redkey" && tool !== "bluekey" && tool !== "yellowkey",
+      const topLayers = flattenCellLayers(
+        level.map.tiles[pointToIndex(position.x, position.y, level.map.width)]!,
+      );
+      expect(topLayers.terrain.tile).toBe("POP_UP_WALL");
+      expect(topLayers.thinWalls?.thinWallCanopy?.walls).toEqual(["E", "W"]);
+      expect(topLayers.noSign).toBeUndefined();
+
+      for (let barrierIndex = 0; barrierIndex < 4; barrierIndex++) {
+        const cell =
+          level.map.tiles[
+            pointToIndex(position.x, position.y + 1 + barrierIndex, level.map.width)
+          ]!;
+        const layers = flattenCellLayers(cell);
+        expect(layers.terrain.tile).toBe(
+          barrierIndex < barrierCombo.length
+            ? expectedBarrierTerrain(barrierCombo[barrierIndex]!)
+            : "FLOOR",
+        );
+        expect(layers.noSign).toBeUndefined();
+      }
+
+      const firstGrantedTool = grantedCombo?.[0] ?? null;
+      const secondThiefTile =
+        firstGrantedTool !== null && KEY_TOOLS.has(firstGrantedTool) ? "TOOL_THIEF" : "KEY_THIEF";
+      const firstThiefTile = secondThiefTile === "TOOL_THIEF" ? "KEY_THIEF" : "TOOL_THIEF";
+
+      const firstThiefLayers = flattenCellLayers(
+        level.map.tiles[pointToIndex(position.x, position.y + 5, level.map.width)]!,
+      );
+      expect(firstThiefLayers.terrain.tile).toBe(firstThiefTile);
+      expect(firstThiefLayers.item?.tile).toBe("IC_CHIP");
+
+      const secondThiefLayers = flattenCellLayers(
+        level.map.tiles[pointToIndex(position.x, position.y + 6, level.map.width)]!,
+      );
+      expect(secondThiefLayers.terrain.tile).toBe(secondThiefTile);
+      expect(secondThiefLayers.item?.tile).toBe(
+        firstGrantedTool ? ITEM_TILE_BY_TOOL[firstGrantedTool] : undefined,
       );
 
-      for (let barrierIndex = 0; barrierIndex < combo.length; barrierIndex++) {
-        const cell =
-          level.map.tiles[pointToIndex(position.x, position.y + barrierIndex, level.map.width)]!;
-        const layers = flattenCellLayers(cell);
-        const hasNoSign = layers.noSign?.tile === "NOT_ALLOWED_MARKER";
-        expect(hasNoSign).toBe(barrierIndex === expectedNoSignIndex);
+      const remainingGrantTools = grantedCombo?.slice(1) ?? [];
+      const firstRemainingGrantRow = position.y + 10 - remainingGrantTools.length;
+      for (let relY = 7; relY <= 9; relY++) {
+        const row = position.y + relY;
+        const layers = flattenCellLayers(
+          level.map.tiles[pointToIndex(position.x, row, level.map.width)]!,
+        );
+        const expectedTerrain = relY === 9 ? "SWIVEL_DOOR_SE" : "FLOOR";
+        const grantIndex =
+          row >= firstRemainingGrantRow ? row - firstRemainingGrantRow : Number.NEGATIVE_INFINITY;
+        const expectedItem =
+          grantIndex >= 0 && grantIndex < remainingGrantTools.length
+            ? ITEM_TILE_BY_TOOL[remainingGrantTools[grantIndex]!]
+            : undefined;
+
+        expect(layers.terrain.tile).toBe(expectedTerrain);
+        expect(layers.item?.tile).toBe(expectedItem);
+        expect(layers.noSign).toBeUndefined();
       }
     }
 

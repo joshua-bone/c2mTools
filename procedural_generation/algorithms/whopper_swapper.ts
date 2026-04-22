@@ -9,14 +9,14 @@ import type { Dir, MapJson, TileSpecJson, TileSpecObjJson } from "../../src/c2m/
 export const BOARD_WIDTH = 100;
 export const BOARD_HEIGHT = 100;
 export const BORDER_SIZE = 1;
-export const STACK_HEIGHT = 11;
+export const STACK_HEIGHT = 10;
 export const STACK_ROW_GAP = 1;
 export const DEFAULT_SEED = 20260422;
 export const ALGORITHM_NAME = "whopper_swapper";
 
 const STACK_WALLS: ReadonlyArray<Dir> = Object.freeze(["E", "W"]);
 const FINAL_EXIT_WALLS: ReadonlyArray<Dir> = Object.freeze(["E", "W", "S"]);
-const DOOR_TOOLS = new Set<ToolName>(["greenkey", "redkey", "bluekey", "yellowkey"]);
+const KEY_TOOLS = new Set<ToolName>(["greenkey", "redkey", "bluekey", "yellowkey"]);
 
 const toolDefs = [
   { name: "greenkey", max: 4 },
@@ -127,7 +127,6 @@ function buildCell(
     itemTile?: string;
     mobTile?: string;
     mobDir?: Dir;
-    noSign?: boolean;
     thinWalls?: ReadonlyArray<Dir>;
   }> = {},
 ): TileSpecJson {
@@ -155,13 +154,6 @@ function buildCell(
           },
         }
       : {}),
-    ...(options.noSign
-      ? {
-          noSign: {
-            tile: "NOT_ALLOWED_MARKER",
-          },
-        }
-      : {}),
     ...(options.thinWalls && options.thinWalls.length > 0
       ? {
           thinWalls: buildThinWallLayer(options.thinWalls),
@@ -170,19 +162,6 @@ function buildCell(
   };
 
   return buildCellFromLayers(layers);
-}
-
-function buildWiredTerrain(tile: string, wires: ReadonlyArray<Dir>): TileSpecObjJson {
-  return {
-    tile,
-    modifiers: [
-      {
-        kind: "WIRES",
-        wires: [...wires],
-        tunnels: [],
-      },
-    ],
-  };
 }
 
 function buildRailroadBarrier(): TileSpecObjJson {
@@ -259,23 +238,38 @@ function buildStackFloorCell(walls: ReadonlyArray<Dir> = STACK_WALLS): TileSpecJ
   return buildCell("FLOOR", { thinWalls: walls });
 }
 
-function buildBarrierCell(tool: ToolName, noSign: boolean): TileSpecJson {
-  return buildCell(buildBarrierTerrain(tool), {
-    noSign,
+function buildStackTopCell(): TileSpecJson {
+  return buildCell("POP_UP_WALL", { thinWalls: STACK_WALLS });
+}
+
+function buildBarrierCell(tool: ToolName): TileSpecJson {
+  return buildCell(buildBarrierTerrain(tool), { thinWalls: STACK_WALLS });
+}
+
+function buildThiefCell(
+  tile: "TOOL_THIEF" | "KEY_THIEF",
+  options: Readonly<{
+    itemTool?: ToolName;
+    itemTile?: string;
+  }> = {},
+): TileSpecJson {
+  return buildCell(tile, {
+    ...(options.itemTool ? { itemTool: options.itemTool } : {}),
+    ...(options.itemTile ? { itemTile: options.itemTile } : {}),
     thinWalls: STACK_WALLS,
   });
 }
 
-function buildPinkButtonCell(itemTool?: ToolName): TileSpecJson {
-  return buildCell(buildWiredTerrain("PINK_BUTTON", ["S"]), {
+function buildGrantFloorCell(itemTool?: ToolName): TileSpecJson {
+  return buildCell("FLOOR", {
     ...(itemTool ? { itemTool } : {}),
     thinWalls: STACK_WALLS,
   });
 }
 
-function buildChipWallCell(): TileSpecJson {
-  return buildCell(buildWiredTerrain("PURPLE_TOGGLE_WALL", ["N"]), {
-    itemTile: "IC_CHIP",
+function buildFinalGrantCell(itemTool?: ToolName): TileSpecJson {
+  return buildCell("SWIVEL_DOOR_SE", {
+    ...(itemTool ? { itemTool } : {}),
     thinWalls: STACK_WALLS,
   });
 }
@@ -472,53 +466,50 @@ function placeBarrierStack(
   barrierCombo: Combo,
   grantedCombo: Combo | null,
 ): void {
-  const firstNonDoorBarrierIndex = barrierCombo.findIndex((tool) => !DOOR_TOOLS.has(tool));
+  const firstGrantedTool = grantedCombo?.[0] ?? null;
+  const secondThiefTile =
+    firstGrantedTool !== null && KEY_TOOLS.has(firstGrantedTool) ? "TOOL_THIEF" : "KEY_THIEF";
+  const firstThiefTile = secondThiefTile === "TOOL_THIEF" ? "KEY_THIEF" : "TOOL_THIEF";
 
   for (let relY = 0; relY < STACK_HEIGHT; relY++) {
     setCell(tiles, map, position.x, position.y + relY, buildStackFloorCell());
   }
 
+  setCell(tiles, map, position.x, position.y, buildStackTopCell());
+
   for (let i = 0; i < barrierCombo.length; i++) {
-    setCell(
-      tiles,
-      map,
-      position.x,
-      position.y + i,
-      buildBarrierCell(barrierCombo[i]!, i === firstNonDoorBarrierIndex),
-    );
+    setCell(tiles, map, position.x, position.y + 1 + i, buildBarrierCell(barrierCombo[i]!));
   }
 
-  setCell(
-    tiles,
-    map,
-    position.x,
-    position.y + 4,
-    buildCell("TOOL_THIEF", { thinWalls: STACK_WALLS }),
-  );
   setCell(
     tiles,
     map,
     position.x,
     position.y + 5,
-    buildCell("KEY_THIEF", { thinWalls: STACK_WALLS }),
+    buildThiefCell(firstThiefTile, { itemTile: "IC_CHIP" }),
+  );
+  setCell(
+    tiles,
+    map,
+    position.x,
+    position.y + 6,
+    buildThiefCell(secondThiefTile, {
+      ...(firstGrantedTool ? { itemTool: firstGrantedTool } : {}),
+    }),
   );
 
-  if (grantedCombo === null) {
-    setCell(tiles, map, position.x, position.y + 9, buildPinkButtonCell());
-  } else {
-    const firstGrantRow = 10 - grantedCombo.length;
-    for (let i = 0; i < grantedCombo.length; i++) {
-      const row = firstGrantRow + i;
-      const itemTool = grantedCombo[i]!;
-      const cell =
-        row === 9
-          ? buildPinkButtonCell(itemTool)
-          : buildCell("FLOOR", { itemTool, thinWalls: STACK_WALLS });
-      setCell(tiles, map, position.x, position.y + row, cell);
-    }
+  const remainingGrantTools = grantedCombo?.slice(1) ?? [];
+  setCell(tiles, map, position.x, position.y + STACK_HEIGHT - 1, buildFinalGrantCell());
+  const firstGrantRow = position.y + STACK_HEIGHT - remainingGrantTools.length;
+  for (let i = 0; i < remainingGrantTools.length; i++) {
+    const row = firstGrantRow + i;
+    const itemTool = remainingGrantTools[i]!;
+    const cell =
+      row === position.y + STACK_HEIGHT - 1
+        ? buildFinalGrantCell(itemTool)
+        : buildGrantFloorCell(itemTool);
+    setCell(tiles, map, position.x, row, cell);
   }
-
-  setCell(tiles, map, position.x, position.y + 10, buildChipWallCell());
 }
 
 function placeFinalStack(
