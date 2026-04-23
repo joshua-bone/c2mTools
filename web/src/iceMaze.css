@@ -1,0 +1,282 @@
+.iceMazeShell {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  overflow: hidden;
+}
+
+.iceMazeHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.4)),
+    linear-gradient(160deg, rgba(35, 95, 122, 0.12), rgba(186, 130, 55, 0.1));
+  box-shadow: var(--shadow);
+}
+
+.iceMazeKicker {
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.iceMazeTitle {
+  margin: 4px 0 0;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.iceMazeSubtitle {
+  margin: 8px 0 0;
+  max-width: 72ch;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.iceMazeMeta {
+  min-width: 240px;
+  padding: 10px 12px;
+  border: 1px solid rgba(35, 95, 122, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.iceMazeLayout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 360px;
+  gap: 12px;
+}
+
+.iceMazePanel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(249, 251, 252, 0.98), rgba(243, 247, 249, 0.98));
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.iceMazeControls,
+.iceMazeDebugPanel {
+  overflow: auto;
+}
+
+.iceMazeBoardPanel {
+  padding: 14px;
+}
+
+.iceMazeBoardScroller {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.34)),
+    repeating-linear-gradient(
+      45deg,
+      rgba(35, 95, 122, 0.03),
+      rgba(35, 95, 122, 0.03) 10px,
+      rgba(35, 95, 122, 0.06) 10px,
+      rgba(35, 95, 122, 0.06) 20px
+    );
+  border: 1px solid rgba(35, 95, 122, 0.12);
+}
+
+.iceMazeBoard {
+  position: relative;
+  margin: 20px;
+  transform-origin: top left;
+}
+
+.iceMazeBoard canvas,
+.iceMazeOverlay {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.iceMazeOverlay {
+  pointer-events: none;
+}
+
+.iceMazeSection {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(57, 75, 66, 0.08);
+}
+
+.iceMazeSection:last-child {
+  border-bottom: none;
+}
+
+.iceMazeSectionLabel {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.iceMazeButtonRow,
+.iceMazeBrushGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.iceMazeButtonRow {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.iceMazeBrushGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.iceMazeBrushGrid button.active {
+  border-color: rgba(35, 95, 122, 0.48);
+  background: linear-gradient(180deg, rgba(226, 241, 247, 0.96), rgba(214, 232, 240, 0.96));
+  box-shadow: 0 5px 12px rgba(35, 95, 122, 0.16);
+}
+
+.iceMazeFieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.iceMazeFieldGrid label,
+.iceMazeCheckbox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.iceMazeFieldGrid input,
+.iceMazeCheckbox select,
+.iceMazeCheckbox input[type="range"] {
+  width: 100%;
+}
+
+.iceMazeFieldGrid input,
+.iceMazeCheckbox select {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.iceMazeCheckbox input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.iceMazeCheckbox {
+  margin-bottom: 8px;
+}
+
+.iceMazeCheckbox:has(input[type="checkbox"]) {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.iceMazeStatList {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.iceMazeDebugText {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.45;
+  font-family: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+}
+
+.iceMazeAnchorText {
+  font-size: 13px;
+  font-family: "Press Start 2P", monospace;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-width: 2px;
+}
+
+.iceMazeAnchorText.entry {
+  fill: #2a8f5a;
+}
+
+.iceMazeAnchorText.exit {
+  fill: #a24632;
+}
+
+.iceMazeDirectedEdge {
+  fill: none;
+  stroke: rgba(43, 98, 133, 0.5);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.iceMazeReciprocalEdge {
+  fill: none;
+  stroke: rgba(28, 114, 84, 0.7);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.iceMazeNodeLabel {
+  fill: rgba(27, 37, 44, 0.92);
+  font-size: 10px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.96);
+  stroke-width: 2px;
+}
+
+@media (max-width: 1200px) {
+  .iceMazeLayout {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+
+  .iceMazeDebugPanel {
+    grid-column: 1 / -1;
+    max-height: 260px;
+  }
+}
+
+@media (max-width: 900px) {
+  .iceMazeHeader {
+    flex-direction: column;
+  }
+
+  .iceMazeLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .iceMazeBoardPanel {
+    min-height: 420px;
+  }
+}

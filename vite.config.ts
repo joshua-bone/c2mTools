@@ -32,12 +32,22 @@ export default defineConfig(({ command }) => {
   // In GitHub Actions, GITHUB_REPOSITORY is "owner/repo".
   const repo = process.env.GITHUB_REPOSITORY?.split("/")[1];
   const base = command === "build" && repo ? `/${repo}/` : "/";
+  const webRoot = path.resolve(__dirname, "web");
 
   return {
     root: "web",
     base,
     plugins: [react(), resolveJsToTsForLocalSources()],
     server: { fs: { allow: [".."] } },
-    build: { outDir: "../dist-web", emptyOutDir: true },
+    build: {
+      outDir: "../dist-web",
+      emptyOutDir: true,
+      rollupOptions: {
+        input: {
+          main: path.resolve(webRoot, "index.html"),
+          icemaze: path.resolve(webRoot, "icemaze/index.html"),
+        },
+      },
+    },
   };
 });
