@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import { flattenCellLayers } from "../src/c2m/cellStack.js";
 import { decodeC2mToJsonV1, encodeC2mFromJsonV1 } from "../src/c2m/c2mJsonV1.js";
+import { transformTileSpec } from "../src/c2m/levelTransform.js";
+import type { Dir, TileSpecJson } from "../src/c2m/mapCodec.js";
 import {
   BOARD_HEIGHT,
   BOARD_WIDTH,
   DEFAULT_SEED,
+  STACK_SLOT_HEIGHT,
   countTerrainTiles,
   generateProceduralLevel,
   generateCombinations,
+  type StackPosition,
 } from "../procedural_generation/algorithms/whopper_swapper.js";
 import {
   DEFAULT_ALGORITHM_NAME,
@@ -34,27 +38,80 @@ function pointToIndex(x: number, y: number, width: number): number {
   return y * width + x;
 }
 
-function expectedBarrierTerrain(tool: keyof typeof ITEM_TILE_BY_TOOL): string {
+function flipWallsVertical(walls: ReadonlyArray<Dir>): Dir[] {
+  const flipped = walls.map((wall) => {
+    if (wall === "N") return "S";
+    if (wall === "S") return "N";
+    return wall;
+  });
+  const order: ReadonlyArray<Dir> = ["N", "E", "S", "W"];
+  return order.filter((wall) => flipped.includes(wall));
+}
+
+function resolveSlotPoint(position: StackPosition, localX: number, localY: number) {
+  return {
+    x: position.x + localX,
+    y:
+      position.facing === "N" ? position.y + localY : position.y + (STACK_SLOT_HEIGHT - 1 - localY),
+  };
+}
+
+function readLocalCell(
+  level: ReturnType<typeof generateProceduralLevel>,
+  position: StackPosition,
+  localX: number,
+  localY: number,
+) {
+  const point = resolveSlotPoint(position, localX, localY);
+  return flattenCellLayers(level.map.tiles[pointToIndex(point.x, point.y, level.map.width)]!);
+}
+
+function expectedBarrierSpec(
+  tool: keyof typeof ITEM_TILE_BY_TOOL,
+  facing: StackPosition["facing"],
+): TileSpecJson {
+  let spec: TileSpecJson;
   switch (tool) {
     case "yellowkey":
-      return "YELLOW_DOOR";
+      spec = "YELLOW_DOOR";
+      break;
     case "redkey":
-      return "RED_DOOR";
+      spec = "RED_DOOR";
+      break;
     case "bluekey":
-      return "BLUE_DOOR";
+      spec = "BLUE_DOOR";
+      break;
     case "greenkey":
-      return "GREEN_DOOR";
+      spec = "GREEN_DOOR";
+      break;
     case "fireboots":
-      return "FIRE";
+      spec = "FIRE";
+      break;
     case "flippers":
-      return "WATER";
+      spec = "WATER";
+      break;
     case "forceboots":
-      return "FORCE_N";
+      spec = "FORCE_N";
+      break;
     case "hikingboots":
-      return "GRAVEL";
+      spec = "GRAVEL";
+      break;
     case "rrsign":
-      return "RAILROAD_TRACK";
+      spec = {
+        tile: "RAILROAD_TRACK",
+        modifiers: [
+          {
+            kind: "TRACKS",
+            pieces: ["HORIZONTAL"],
+            active: "H",
+            entered: "W",
+          },
+        ],
+      };
+      break;
   }
+
+  return facing === "N" ? spec : transformTileSpec(spec, "FLIP_V");
 }
 
 describe("procedural level generation", () => {
@@ -93,18 +150,20 @@ describe("procedural level generation", () => {
     expect(startLayers.terrain.tile).toBe("FLOOR");
 
     const finalStack = level.stackPositions[level.stackPositions.length - 1]!;
-    const socketLayers = flattenCellLayers(
-      level.map.tiles[pointToIndex(finalStack.x, finalStack.y, level.map.width)]!,
-    );
-    const exitLayers = flattenCellLayers(
-      level.map.tiles[pointToIndex(finalStack.x, finalStack.y + 9, level.map.width)]!,
-    );
-    expect(socketLayers.terrain.tile).toBe("CHIP_SOCKET");
-    expect(exitLayers.terrain.tile).toBe("EXIT");
-    expect(exitLayers.thinWalls?.thinWallCanopy?.walls).toEqual(["E", "W", "S"]);
+    expect(finalStack.facing).toBe("S");
+    expect(readLocalCell(level, finalStack, 0, 0).terrain.tile).toBe("CHIP_SOCKET");
+    expect(readLocalCell(level, finalStack, 1, 0).terrain.tile).toBe("EXIT");
 
-    expect(countTerrainTiles(level.map, "POP_UP_WALL")).toBe(881);
-    expect(countTerrainTiles(level.map, "SWIVEL_DOOR_SE")).toBe(881);
+    const northBarrierCount = level.stackPositions
+      .slice(0, -1)
+      .filter((position) => position.facing === "N").length;
+    const southBarrierCount = level.stackPositions
+      .slice(0, -1)
+      .filter((position) => position.facing === "S").length;
+
+    expect(countTerrainTiles(level.map, "POP_UP_WALL")).toBe(level.barrierCombos.length);
+    expect(countTerrainTiles(level.map, "SWIVEL_DOOR_NE")).toBe(northBarrierCount);
+    expect(countTerrainTiles(level.map, "SWIVEL_DOOR_SE")).toBe(southBarrierCount);
     expect(countTerrainTiles(level.map, "PINK_BUTTON")).toBe(0);
     expect(countTerrainTiles(level.map, "PURPLE_TOGGLE_WALL")).toBe(0);
     expect(countTerrainTiles(level.map, "CHIP_SOCKET")).toBe(1);
@@ -114,25 +173,25 @@ describe("procedural level generation", () => {
       const barrierCombo = level.barrierCombos[stackIndex]!;
       const grantedCombo = level.plan.grantsByStack[stackIndex] ?? null;
       const position = level.stackPositions[stackIndex]!;
-      const topLayers = flattenCellLayers(
-        level.map.tiles[pointToIndex(position.x, position.y, level.map.width)]!,
-      );
-      expect(topLayers.terrain.tile).toBe("POP_UP_WALL");
-      expect(topLayers.thinWalls?.thinWallCanopy?.walls).toEqual(["E", "W"]);
-      expect(topLayers.noSign).toBeUndefined();
+
+      const topLeft = readLocalCell(level, position, 0, 0);
+      expect(topLeft.terrain.tile).toBe("POP_UP_WALL");
+      expect(topLeft.thinWalls?.thinWallCanopy?.walls).toEqual(["E", "W"]);
+      expect(topLeft.noSign).toBeUndefined();
 
       for (let barrierIndex = 0; barrierIndex < 4; barrierIndex++) {
-        const cell =
-          level.map.tiles[
-            pointToIndex(position.x, position.y + 1 + barrierIndex, level.map.width)
-          ]!;
-        const layers = flattenCellLayers(cell);
-        expect(layers.terrain.tile).toBe(
+        const cell = readLocalCell(level, position, 0, barrierIndex + 1);
+        const expectedTerrain =
           barrierIndex < barrierCombo.length
-            ? expectedBarrierTerrain(barrierCombo[barrierIndex]!)
-            : "FLOOR",
-        );
-        expect(layers.noSign).toBeUndefined();
+            ? flattenCellLayers(expectedBarrierSpec(barrierCombo[barrierIndex]!, position.facing))
+                .terrain.tile
+            : "FLOOR";
+        const expectedWalls =
+          barrierIndex === 3 ? (position.facing === "N" ? ["W", "S"] : ["N", "W"]) : ["E", "W"];
+
+        expect(cell.terrain.tile).toBe(expectedTerrain);
+        expect(cell.thinWalls?.thinWallCanopy?.walls).toEqual(expectedWalls);
+        expect(cell.noSign).toBeUndefined();
       }
 
       const firstGrantedTool = grantedCombo?.[0] ?? null;
@@ -140,38 +199,55 @@ describe("procedural level generation", () => {
         firstGrantedTool !== null && KEY_TOOLS.has(firstGrantedTool) ? "TOOL_THIEF" : "KEY_THIEF";
       const firstThiefTile = secondThiefTile === "TOOL_THIEF" ? "KEY_THIEF" : "TOOL_THIEF";
 
-      const firstThiefLayers = flattenCellLayers(
-        level.map.tiles[pointToIndex(position.x, position.y + 5, level.map.width)]!,
-      );
+      const firstThiefLayers = readLocalCell(level, position, 1, 4);
       expect(firstThiefLayers.terrain.tile).toBe(firstThiefTile);
       expect(firstThiefLayers.item?.tile).toBe("IC_CHIP");
-
-      const secondThiefLayers = flattenCellLayers(
-        level.map.tiles[pointToIndex(position.x, position.y + 6, level.map.width)]!,
+      expect(firstThiefLayers.thinWalls?.thinWallCanopy?.walls).toEqual(
+        position.facing === "N" ? ["E", "S"] : ["N", "E"],
       );
+
+      const secondThiefLayers = readLocalCell(level, position, 1, 3);
       expect(secondThiefLayers.terrain.tile).toBe(secondThiefTile);
       expect(secondThiefLayers.item?.tile).toBe(
         firstGrantedTool ? ITEM_TILE_BY_TOOL[firstGrantedTool] : undefined,
       );
+      expect(secondThiefLayers.thinWalls?.thinWallCanopy?.walls).toEqual(["E", "W"]);
 
       const remainingGrantTools = grantedCombo?.slice(1) ?? [];
-      const firstRemainingGrantRow = position.y + 10 - remainingGrantTools.length;
-      for (let relY = 7; relY <= 9; relY++) {
-        const row = position.y + relY;
-        const layers = flattenCellLayers(
-          level.map.tiles[pointToIndex(position.x, row, level.map.width)]!,
-        );
-        const expectedTerrain = relY === 9 ? "SWIVEL_DOOR_SE" : "FLOOR";
-        const grantIndex =
-          row >= firstRemainingGrantRow ? row - firstRemainingGrantRow : Number.NEGATIVE_INFINITY;
-        const expectedItem =
-          grantIndex >= 0 && grantIndex < remainingGrantTools.length
-            ? ITEM_TILE_BY_TOOL[remainingGrantTools[grantIndex]!]
-            : undefined;
+      const rightColumnExpectations: Array<{
+        localY: number;
+        terrain: string;
+        item?: string;
+        walls: ReadonlyArray<Dir>;
+      }> = [
+        {
+          localY: 2,
+          terrain: "FLOOR",
+          ...(remainingGrantTools[0] ? { item: ITEM_TILE_BY_TOOL[remainingGrantTools[0]] } : {}),
+          walls: ["E", "W"],
+        },
+        {
+          localY: 1,
+          terrain: "FLOOR",
+          ...(remainingGrantTools[1] ? { item: ITEM_TILE_BY_TOOL[remainingGrantTools[1]] } : {}),
+          walls: ["E", "W"],
+        },
+        {
+          localY: 0,
+          terrain: position.facing === "N" ? "SWIVEL_DOOR_NE" : "SWIVEL_DOOR_SE",
+          ...(remainingGrantTools[2] ? { item: ITEM_TILE_BY_TOOL[remainingGrantTools[2]] } : {}),
+          walls: ["E", "W"],
+        },
+      ];
 
-        expect(layers.terrain.tile).toBe(expectedTerrain);
-        expect(layers.item?.tile).toBe(expectedItem);
-        expect(layers.noSign).toBeUndefined();
+      for (const expected of rightColumnExpectations) {
+        const cell = readLocalCell(level, position, 1, expected.localY);
+        expect(cell.terrain.tile).toBe(expected.terrain);
+        expect(cell.item?.tile).toBe(expected.item);
+        expect(cell.thinWalls?.thinWallCanopy?.walls).toEqual(
+          position.facing === "N" ? [...expected.walls] : flipWallsVertical(expected.walls),
+        );
+        expect(cell.noSign).toBeUndefined();
       }
     }
 

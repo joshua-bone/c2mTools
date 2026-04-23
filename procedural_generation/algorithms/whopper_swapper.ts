@@ -4,18 +4,22 @@ import {
   type C2mCellLayers,
 } from "../../src/c2m/cellStack.js";
 import type { C2mJsonV1 } from "../../src/c2m/c2mJsonV1.js";
+import { transformTileSpec } from "../../src/c2m/levelTransform.js";
 import type { Dir, MapJson, TileSpecJson, TileSpecObjJson } from "../../src/c2m/mapCodec.js";
 
 export const BOARD_WIDTH = 100;
 export const BOARD_HEIGHT = 100;
 export const BORDER_SIZE = 1;
 export const STACK_HEIGHT = 10;
+export const STACK_SLOT_HEIGHT = 5;
+export const STACK_WIDTH = 2;
 export const STACK_ROW_GAP = 1;
 export const DEFAULT_SEED = 20260422;
 export const ALGORITHM_NAME = "whopper_swapper";
 
-const STACK_WALLS: ReadonlyArray<Dir> = Object.freeze(["E", "W"]);
-const FINAL_EXIT_WALLS: ReadonlyArray<Dir> = Object.freeze(["E", "W", "S"]);
+const STACK_PASSAGE_WALLS: ReadonlyArray<Dir> = Object.freeze(["E", "W"]);
+const LEFT_TURN_WALLS: ReadonlyArray<Dir> = Object.freeze(["W", "S"]);
+const RIGHT_TURN_WALLS: ReadonlyArray<Dir> = Object.freeze(["E", "S"]);
 const KEY_TOOLS = new Set<ToolName>(["greenkey", "redkey", "bluekey", "yellowkey"]);
 
 const toolDefs = [
@@ -32,10 +36,12 @@ const toolDefs = [
 
 export type ToolName = (typeof toolDefs)[number]["name"];
 export type Combo = ReadonlyArray<ToolName>;
+export type StackFacing = "N" | "S";
 
 export type StackPosition = Readonly<{
   x: number;
   y: number;
+  facing: StackFacing;
 }>;
 
 export type TraversalPlan = Readonly<{
@@ -164,6 +170,27 @@ function buildCell(
   return buildCellFromLayers(layers);
 }
 
+function buildTerrainCell(
+  terrain: TileSpecJson,
+  walls: ReadonlyArray<Dir>,
+  options: Readonly<{
+    itemTool?: ToolName;
+    itemTile?: string;
+  }> = {},
+): TileSpecJson {
+  return buildCell(terrain, {
+    ...(options.itemTool ? { itemTool: options.itemTool } : {}),
+    ...(options.itemTile ? { itemTile: options.itemTile } : {}),
+    thinWalls: walls,
+  });
+}
+
+function buildFloorCell(walls: ReadonlyArray<Dir>, itemTool?: ToolName): TileSpecJson {
+  return buildTerrainCell("FLOOR", walls, {
+    ...(itemTool ? { itemTool } : {}),
+  });
+}
+
 function buildRailroadBarrier(): TileSpecObjJson {
   return {
     tile: "RAILROAD_TRACK",
@@ -201,6 +228,30 @@ function buildBarrierTerrain(tool: ToolName): TileSpecJson {
   }
 }
 
+function buildNorthBarrierSlotCell(slotIndex: number, barrierCombo: Combo): TileSpecJson {
+  const terrain =
+    slotIndex < barrierCombo.length ? buildBarrierTerrain(barrierCombo[slotIndex]!) : "FLOOR";
+  const walls = slotIndex === 3 ? LEFT_TURN_WALLS : STACK_PASSAGE_WALLS;
+  return buildTerrainCell(terrain, walls);
+}
+
+function buildThiefCell(
+  tile: "TOOL_THIEF" | "KEY_THIEF",
+  walls: ReadonlyArray<Dir>,
+  options: Readonly<{
+    itemTool?: ToolName;
+    itemTile?: string;
+  }> = {},
+): TileSpecJson {
+  return buildTerrainCell(tile, walls, options);
+}
+
+function buildFinalGrantCell(itemTool?: ToolName): TileSpecJson {
+  return buildTerrainCell("SWIVEL_DOOR_NE", STACK_PASSAGE_WALLS, {
+    ...(itemTool ? { itemTool } : {}),
+  });
+}
+
 function createMulberry32(seed: number): () => number {
   let value = seed >>> 0;
   return () => {
@@ -230,48 +281,23 @@ function setCell(
   x: number,
   y: number,
   cell: TileSpecJson,
-) {
+): void {
   tiles[pointToIndex(x, y, map)] = cell;
 }
 
-function buildStackFloorCell(walls: ReadonlyArray<Dir> = STACK_WALLS): TileSpecJson {
-  return buildCell("FLOOR", { thinWalls: walls });
-}
-
-function buildStackTopCell(): TileSpecJson {
-  return buildCell("POP_UP_WALL", { thinWalls: STACK_WALLS });
-}
-
-function buildBarrierCell(tool: ToolName): TileSpecJson {
-  return buildCell(buildBarrierTerrain(tool), { thinWalls: STACK_WALLS });
-}
-
-function buildThiefCell(
-  tile: "TOOL_THIEF" | "KEY_THIEF",
-  options: Readonly<{
-    itemTool?: ToolName;
-    itemTile?: string;
-  }> = {},
-): TileSpecJson {
-  return buildCell(tile, {
-    ...(options.itemTool ? { itemTool: options.itemTool } : {}),
-    ...(options.itemTile ? { itemTile: options.itemTile } : {}),
-    thinWalls: STACK_WALLS,
-  });
-}
-
-function buildGrantFloorCell(itemTool?: ToolName): TileSpecJson {
-  return buildCell("FLOOR", {
-    ...(itemTool ? { itemTool } : {}),
-    thinWalls: STACK_WALLS,
-  });
-}
-
-function buildFinalGrantCell(itemTool?: ToolName): TileSpecJson {
-  return buildCell("SWIVEL_DOOR_SE", {
-    ...(itemTool ? { itemTool } : {}),
-    thinWalls: STACK_WALLS,
-  });
+function placeLocalCell(
+  tiles: TileSpecJson[],
+  map: Pick<MapJson, "width">,
+  position: StackPosition,
+  localX: number,
+  localY: number,
+  cell: TileSpecJson,
+): void {
+  const actualX = position.x + localX;
+  const actualY =
+    position.facing === "N" ? position.y + localY : position.y + (STACK_SLOT_HEIGHT - 1 - localY);
+  const actualCell = position.facing === "N" ? cell : transformTileSpec(cell, "FLIP_V");
+  setCell(tiles, map, actualX, actualY, actualCell);
 }
 
 function createEmptyMap(width = BOARD_WIDTH, height = BOARD_HEIGHT): MapJson {
@@ -321,7 +347,7 @@ export function computeStackPositions(
 ): ReadonlyArray<StackPosition> {
   const positions: StackPosition[] = [];
   const minX = BORDER_SIZE;
-  const maxX = width - BORDER_SIZE - 1;
+  const maxX = width - BORDER_SIZE - STACK_WIDTH;
   const maxY = height - BORDER_SIZE - 1;
 
   for (
@@ -329,8 +355,11 @@ export function computeStackPositions(
     startY + STACK_HEIGHT - 1 <= maxY;
     startY += STACK_HEIGHT + STACK_ROW_GAP
   ) {
-    for (let x = minX; x <= maxX; x++) {
-      positions.push({ x, y: startY });
+    for (let x = minX; x <= maxX; x += STACK_WIDTH) {
+      positions.push({ x, y: startY, facing: "N" });
+    }
+    for (let x = minX; x <= maxX; x += STACK_WIDTH) {
+      positions.push({ x, y: startY + STACK_SLOT_HEIGHT, facing: "S" });
     }
   }
 
@@ -459,6 +488,69 @@ function placeStartArea(
   }
 }
 
+function buildNorthFacingBarrierStackCells(
+  barrierCombo: Combo,
+  grantedCombo: Combo | null,
+): ReadonlyArray<ReadonlyArray<TileSpecJson>> {
+  const firstGrantedTool = grantedCombo?.[0] ?? null;
+  const secondThiefTile =
+    firstGrantedTool !== null && KEY_TOOLS.has(firstGrantedTool) ? "TOOL_THIEF" : "KEY_THIEF";
+  const firstThiefTile = secondThiefTile === "TOOL_THIEF" ? "KEY_THIEF" : "TOOL_THIEF";
+  const remainingGrantTools = grantedCombo?.slice(1) ?? [];
+
+  return [
+    [
+      buildTerrainCell("POP_UP_WALL", STACK_PASSAGE_WALLS),
+      buildFinalGrantCell(remainingGrantTools[2]),
+    ],
+    [
+      buildNorthBarrierSlotCell(0, barrierCombo),
+      buildFloorCell(STACK_PASSAGE_WALLS, remainingGrantTools[1]),
+    ],
+    [
+      buildNorthBarrierSlotCell(1, barrierCombo),
+      buildFloorCell(STACK_PASSAGE_WALLS, remainingGrantTools[0]),
+    ],
+    [
+      buildNorthBarrierSlotCell(2, barrierCombo),
+      buildThiefCell(secondThiefTile, STACK_PASSAGE_WALLS, {
+        ...(firstGrantedTool ? { itemTool: firstGrantedTool } : {}),
+      }),
+    ],
+    [
+      buildNorthBarrierSlotCell(3, barrierCombo),
+      buildThiefCell(firstThiefTile, RIGHT_TURN_WALLS, { itemTile: "IC_CHIP" }),
+    ],
+  ];
+}
+
+function buildNorthFacingFinalStackCells(): ReadonlyArray<ReadonlyArray<TileSpecJson>> {
+  return [
+    [
+      buildTerrainCell("CHIP_SOCKET", STACK_PASSAGE_WALLS),
+      buildTerrainCell("EXIT", STACK_PASSAGE_WALLS),
+    ],
+    [buildFloorCell(STACK_PASSAGE_WALLS), buildFloorCell(STACK_PASSAGE_WALLS)],
+    [buildFloorCell(STACK_PASSAGE_WALLS), buildFloorCell(STACK_PASSAGE_WALLS)],
+    [buildFloorCell(STACK_PASSAGE_WALLS), buildFloorCell(STACK_PASSAGE_WALLS)],
+    [buildFloorCell(LEFT_TURN_WALLS), buildFloorCell(RIGHT_TURN_WALLS)],
+  ];
+}
+
+function placeStackCells(
+  tiles: TileSpecJson[],
+  map: Pick<MapJson, "width">,
+  position: StackPosition,
+  cells: ReadonlyArray<ReadonlyArray<TileSpecJson>>,
+): void {
+  for (let localY = 0; localY < STACK_SLOT_HEIGHT; localY++) {
+    const row = cells[localY]!;
+    for (let localX = 0; localX < STACK_WIDTH; localX++) {
+      placeLocalCell(tiles, map, position, localX, localY, row[localX]!);
+    }
+  }
+}
+
 function placeBarrierStack(
   tiles: TileSpecJson[],
   map: Pick<MapJson, "width">,
@@ -466,50 +558,12 @@ function placeBarrierStack(
   barrierCombo: Combo,
   grantedCombo: Combo | null,
 ): void {
-  const firstGrantedTool = grantedCombo?.[0] ?? null;
-  const secondThiefTile =
-    firstGrantedTool !== null && KEY_TOOLS.has(firstGrantedTool) ? "TOOL_THIEF" : "KEY_THIEF";
-  const firstThiefTile = secondThiefTile === "TOOL_THIEF" ? "KEY_THIEF" : "TOOL_THIEF";
-
-  for (let relY = 0; relY < STACK_HEIGHT; relY++) {
-    setCell(tiles, map, position.x, position.y + relY, buildStackFloorCell());
-  }
-
-  setCell(tiles, map, position.x, position.y, buildStackTopCell());
-
-  for (let i = 0; i < barrierCombo.length; i++) {
-    setCell(tiles, map, position.x, position.y + 1 + i, buildBarrierCell(barrierCombo[i]!));
-  }
-
-  setCell(
+  placeStackCells(
     tiles,
     map,
-    position.x,
-    position.y + 5,
-    buildThiefCell(firstThiefTile, { itemTile: "IC_CHIP" }),
+    position,
+    buildNorthFacingBarrierStackCells(barrierCombo, grantedCombo),
   );
-  setCell(
-    tiles,
-    map,
-    position.x,
-    position.y + 6,
-    buildThiefCell(secondThiefTile, {
-      ...(firstGrantedTool ? { itemTool: firstGrantedTool } : {}),
-    }),
-  );
-
-  const remainingGrantTools = grantedCombo?.slice(1) ?? [];
-  setCell(tiles, map, position.x, position.y + STACK_HEIGHT - 1, buildFinalGrantCell());
-  const firstGrantRow = position.y + STACK_HEIGHT - remainingGrantTools.length;
-  for (let i = 0; i < remainingGrantTools.length; i++) {
-    const row = firstGrantRow + i;
-    const itemTool = remainingGrantTools[i]!;
-    const cell =
-      row === position.y + STACK_HEIGHT - 1
-        ? buildFinalGrantCell(itemTool)
-        : buildGrantFloorCell(itemTool);
-    setCell(tiles, map, position.x, row, cell);
-  }
 }
 
 function placeFinalStack(
@@ -517,11 +571,7 @@ function placeFinalStack(
   map: Pick<MapJson, "width">,
   position: StackPosition,
 ): void {
-  for (let relY = 0; relY < STACK_HEIGHT; relY++) {
-    const walls = relY === STACK_HEIGHT - 1 ? FINAL_EXIT_WALLS : STACK_WALLS;
-    const terrain = relY === 0 ? "CHIP_SOCKET" : relY === STACK_HEIGHT - 1 ? "EXIT" : "FLOOR";
-    setCell(tiles, map, position.x, position.y + relY, buildCell(terrain, { thinWalls: walls }));
-  }
+  placeStackCells(tiles, map, position, buildNorthFacingFinalStackCells());
 }
 
 function buildDoc(map: MapJson, seed: number, verification: VerificationSummary): C2mJsonV1 {
