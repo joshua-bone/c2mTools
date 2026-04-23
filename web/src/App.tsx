@@ -2816,6 +2816,21 @@ export default function App() {
     setTool("select");
   }, [tool]);
 
+  const selectWholeMap = useCallback(() => {
+    if (!map) return;
+    commitSelectionPreview();
+    setTool("select");
+    setPastePreviewActive(false);
+    setSelectionTransformMenu(null);
+    setSelection({
+      x: 0,
+      y: 0,
+      width: map.width,
+      height: map.height,
+      mode: "rect",
+    });
+  }, [commitSelectionPreview, map]);
+
   const eraseSelection = useCallback(() => {
     if (!selection || !canMutateBoard) return;
     if (selectionPreview) {
@@ -3864,6 +3879,11 @@ export default function App() {
           event.preventDefault();
           onRedo();
           return;
+        case "select-all":
+          if (!map) return;
+          event.preventDefault();
+          selectWholeMap();
+          return;
         case "next-level":
           event.preventDefault();
           chooseNextLevelInList();
@@ -3927,6 +3947,7 @@ export default function App() {
     cutSelection,
     copySelection,
     eraseSelection,
+    map,
     onRedo,
     onUndo,
     pastePreviewActive,
@@ -3936,6 +3957,7 @@ export default function App() {
     rotateSelectedPaletteBrush,
     selection,
     handleSelectToolButtonClick,
+    selectWholeMap,
     tool,
     viewMode,
   ]);
@@ -7411,6 +7433,10 @@ export default function App() {
                   <div className="shortcutRow">
                     <span className="shortcutKey">B L F V E R I</span>
                     <span>Tool switch</span>
+                  </div>
+                  <div className="shortcutRow">
+                    <span className="shortcutKey">Cmd/Ctrl+A</span>
+                    <span>Select all</span>
                   </div>
                   <div className="shortcutRow">
                     <span className="shortcutKey">N P</span>

@@ -41,6 +41,23 @@ describe("editor shortcuts", () => {
     expect(
       resolveEditorShortcut(
         {
+          key: "a",
+          metaKey: true,
+          ctrlKey: false,
+          shiftKey: false,
+          altKey: false,
+        },
+        {
+          hasSelection: false,
+          hasClipboard: false,
+          pastePreviewActive: false,
+        },
+      ),
+    ).toEqual({ type: "select-all" });
+
+    expect(
+      resolveEditorShortcut(
+        {
           key: "x",
           metaKey: true,
           ctrlKey: false,
