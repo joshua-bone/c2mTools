@@ -1,12 +1,7 @@
 import "./polyfills";
 import "./styles.css";
 
-import React from "react";
 import ReactDOM from "react-dom/client";
-import IceMazeApp from "./IceMazeApp";
+import ISlideStudioApp from "./ISlideStudioApp";
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <IceMazeApp />
-  </React.StrictMode>,
-);
+ReactDOM.createRoot(document.getElementById("root")!).render(<ISlideStudioApp />);

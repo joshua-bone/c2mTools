@@ -38,6 +38,14 @@ export default defineConfig(({ command }) => {
     root: "web",
     base,
     plugins: [react(), resolveJsToTsForLocalSources()],
+    resolve: {
+      alias: [
+        {
+          find: "path",
+          replacement: path.resolve(__dirname, "web/src/pathBrowserShim.ts"),
+        },
+      ],
+    },
     server: { fs: { allow: [".."] } },
     build: {
       outDir: "../dist-web",
