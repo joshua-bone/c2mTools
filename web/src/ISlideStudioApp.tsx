@@ -217,7 +217,7 @@ function stringFromUnknown(value: unknown, fallback: string): string {
   return typeof value === "string" ? value : fallback;
 }
 
-function buildViewGraph(layout: ISlideLayout): ViewGraph {
+export function buildViewGraph(layout: ISlideLayout): ViewGraph {
   const rawGraph = layout.graph as unknown as {
     nodes?: ReadonlyArray<Record<string, unknown>>;
     edges?: ReadonlyArray<Record<string, unknown>>;
@@ -225,6 +225,7 @@ function buildViewGraph(layout: ISlideLayout): ViewGraph {
   };
   const rawNodes = rawGraph.nodes ?? [];
   const fallbackRadius = 40;
+  let chipOrdinal = 0;
   const nodes = rawNodes.map((node, index): ViewGraphNode => {
     const angle = (index / Math.max(1, rawNodes.length)) * Math.PI * 2 - Math.PI / 2;
     const point =
@@ -237,11 +238,12 @@ function buildViewGraph(layout: ISlideLayout): ViewGraph {
           });
     const role = stringFromUnknown(node.role, "route");
     const id = stringFromUnknown(node.id, `node-${index + 1}`);
+    if (role === "chip") chipOrdinal += 1;
     return {
       id,
       role,
       point,
-      label: stringFromUnknown(node.label, role === "chip" ? `Chip ${index + 1}` : role),
+      label: stringFromUnknown(node.label, role === "chip" ? `Chip ${chipOrdinal}` : role),
     };
   });
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
@@ -424,6 +426,10 @@ export default function ISlideStudioApp() {
       await platform.saveC2mFile(fileName, artifact.c2mBytes);
       setSaveState({ kind: "saved", message: `Saved ${fileName}` });
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setSaveState({ kind: "idle" });
+        return;
+      }
       setSaveState({ kind: "error", message: errorMessage(error) });
     }
   }
@@ -676,6 +682,7 @@ function GeneratorSlider({
       </span>
       <input
         type="range"
+        aria-label={definition.label}
         min={definition.min}
         max={definition.max}
         step={definition.step}
