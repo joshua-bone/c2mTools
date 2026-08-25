@@ -1,0 +1,1367 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1260" viewBox="-4 -5 107 112" role="img" aria-labelledby="graph-title graph-description">
+  <title id="graph-title">I SLIDE 99 × 99 — solution route graph</title>
+  <desc id="graph-description">Ordered route through 99 chips, the socket, and the exit. Replay 56b8fda602478646cb17d61e844ad3dc validates as won.</desc>
+  <defs>
+    <marker id="solution-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fbbf24" />
+    </marker>
+    <marker id="final-arm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f472b6" />
+    </marker>
+    <style>
+      .board { fill: #07111f; stroke: #64748b; stroke-width: 0.18; }
+      .route { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .route-slide { stroke: #22d3ee; stroke-width: 0.22; opacity: 0.52; }
+      .route-walk { stroke: #94a3b8; stroke-width: 0.18; stroke-dasharray: 0.35 0.28; opacity: 0.72; }
+      .solution-step { fill: none; stroke: #fbbf24; stroke-width: 0.3; stroke-linecap: round; stroke-linejoin: round; opacity: 0.48; }
+      .final-arm-step { fill: none; stroke: #f472b6; stroke-width: 0.48; stroke-linecap: round; stroke-linejoin: round; opacity: 0.92; }
+      .node circle { stroke: #020617; stroke-width: 0.16; }
+      .node-hub circle { fill: #94a3b8; }
+      .node-start circle { fill: #4ade80; stroke: #dcfce7; stroke-width: 0.25; }
+      .node-chip circle { fill: #f8fafc; }
+      .node-socket circle { fill: #fb7185; stroke: #ffe4e6; stroke-width: 0.25; }
+      .node-exit circle { fill: #a78bfa; stroke: #ede9fe; stroke-width: 0.25; }
+      .chip-order { fill: #0f172a; font: 0.62px ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; text-anchor: middle; }
+      .heading { fill: #e2e8f0; font: 1.8px ui-sans-serif, system-ui, sans-serif; font-weight: 700; }
+      .metadata { fill: #94a3b8; font: 0.95px ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .legend { fill: #cbd5e1; font: 1.05px ui-sans-serif, system-ui, sans-serif; }
+      .final-arm-label { fill: #f9a8d4; font: 1.05px ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
+    </style>
+  </defs>
+  <rect x="-4" y="-5" width="107" height="112" fill="#020617" />
+  <text class="heading" x="0" y="-2.4">I SLIDE 99 × 99 — solution route graph</text>
+  <text class="metadata" x="0" y="-0.9">fingerprint islide-v1-5d5df7fa · replay MD5 56b8fda602478646cb17d61e844ad3dc</text>
+  <rect class="board" x="-0.5" y="-0.5" width="99" height="99" rx="0.5" />
+  <g id="graph-edges">
+    <polyline class="route route-walk" data-edge-id="walk-45-45-46-45" points="45,45 46,45" />
+    <polyline class="route route-walk" data-edge-id="walk-45-45-45-46" points="45,45 45,46" />
+    <polyline class="route route-walk" data-edge-id="walk-46-45-47-45" points="46,45 47,45" />
+    <polyline class="route route-walk" data-edge-id="walk-46-45-46-46" points="46,45 46,46" />
+    <polyline class="route route-walk" data-edge-id="walk-47-45-48-45" points="47,45 48,45" />
+    <polyline class="route route-walk" data-edge-id="walk-47-45-47-46" points="47,45 47,46" />
+    <polyline class="route route-walk" data-edge-id="walk-48-45-49-45" points="48,45 49,45" />
+    <polyline class="route route-walk" data-edge-id="walk-48-45-48-46" points="48,45 48,46" />
+    <polyline class="route route-walk" data-edge-id="walk-49-45-50-45" points="49,45 50,45" />
+    <polyline class="route route-walk" data-edge-id="walk-49-45-49-46" points="49,45 49,46" />
+    <polyline class="route route-walk" data-edge-id="walk-50-45-51-45" points="50,45 51,45" />
+    <polyline class="route route-walk" data-edge-id="walk-50-45-50-46" points="50,45 50,46" />
+    <polyline class="route route-walk" data-edge-id="walk-51-45-52-45" points="51,45 52,45" />
+    <polyline class="route route-walk" data-edge-id="walk-51-45-51-46" points="51,45 51,46" />
+    <polyline class="route route-walk" data-edge-id="walk-52-45-53-45" points="52,45 53,45" />
+    <polyline class="route route-walk" data-edge-id="walk-52-45-52-46" points="52,45 52,46" />
+    <polyline class="route route-walk" data-edge-id="walk-53-45-53-46" points="53,45 53,46" />
+    <polyline class="route route-walk" data-edge-id="walk-45-46-46-46" points="45,46 46,46" />
+    <polyline class="route route-walk" data-edge-id="walk-45-46-45-47" points="45,46 45,47" />
+    <polyline class="route route-walk" data-edge-id="walk-46-46-47-46" points="46,46 47,46" />
+    <polyline class="route route-walk" data-edge-id="walk-46-46-46-47" points="46,46 46,47" />
+    <polyline class="route route-walk" data-edge-id="walk-47-46-48-46" points="47,46 48,46" />
+    <polyline class="route route-walk" data-edge-id="walk-47-46-47-47" points="47,46 47,47" />
+    <polyline class="route route-walk" data-edge-id="walk-48-46-49-46" points="48,46 49,46" />
+    <polyline class="route route-walk" data-edge-id="walk-48-46-48-47" points="48,46 48,47" />
+    <polyline class="route route-walk" data-edge-id="walk-49-46-50-46" points="49,46 50,46" />
+    <polyline class="route route-walk" data-edge-id="walk-49-46-49-47" points="49,46 49,47" />
+    <polyline class="route route-walk" data-edge-id="walk-50-46-51-46" points="50,46 51,46" />
+    <polyline class="route route-walk" data-edge-id="walk-50-46-50-47" points="50,46 50,47" />
+    <polyline class="route route-walk" data-edge-id="walk-51-46-52-46" points="51,46 52,46" />
+    <polyline class="route route-walk" data-edge-id="walk-51-46-51-47" points="51,46 51,47" />
+    <polyline class="route route-walk" data-edge-id="walk-52-46-53-46" points="52,46 53,46" />
+    <polyline class="route route-walk" data-edge-id="walk-52-46-52-47" points="52,46 52,47" />
+    <polyline class="route route-walk" data-edge-id="walk-53-46-53-47" points="53,46 53,47" />
+    <polyline class="route route-walk" data-edge-id="walk-45-47-46-47" points="45,47 46,47" />
+    <polyline class="route route-walk" data-edge-id="walk-45-47-45-48" points="45,47 45,48" />
+    <polyline class="route route-walk" data-edge-id="walk-46-47-47-47" points="46,47 47,47" />
+    <polyline class="route route-walk" data-edge-id="walk-46-47-46-48" points="46,47 46,48" />
+    <polyline class="route route-walk" data-edge-id="walk-47-47-48-47" points="47,47 48,47" />
+    <polyline class="route route-walk" data-edge-id="walk-47-47-47-48" points="47,47 47,48" />
+    <polyline class="route route-walk" data-edge-id="walk-48-47-49-47" points="48,47 49,47" />
+    <polyline class="route route-walk" data-edge-id="walk-48-47-48-48" points="48,47 48,48" />
+    <polyline class="route route-walk" data-edge-id="walk-49-47-50-47" points="49,47 50,47" />
+    <polyline class="route route-walk" data-edge-id="walk-49-47-49-48" points="49,47 49,48" />
+    <polyline class="route route-walk" data-edge-id="walk-50-47-51-47" points="50,47 51,47" />
+    <polyline class="route route-walk" data-edge-id="walk-50-47-50-48" points="50,47 50,48" />
+    <polyline class="route route-walk" data-edge-id="walk-51-47-52-47" points="51,47 52,47" />
+    <polyline class="route route-walk" data-edge-id="walk-51-47-51-48" points="51,47 51,48" />
+    <polyline class="route route-walk" data-edge-id="walk-52-47-53-47" points="52,47 53,47" />
+    <polyline class="route route-walk" data-edge-id="walk-52-47-52-48" points="52,47 52,48" />
+    <polyline class="route route-walk" data-edge-id="walk-53-47-53-48" points="53,47 53,48" />
+    <polyline class="route route-walk" data-edge-id="walk-45-48-46-48" points="45,48 46,48" />
+    <polyline class="route route-walk" data-edge-id="walk-45-48-45-49" points="45,48 45,49" />
+    <polyline class="route route-walk" data-edge-id="walk-46-48-47-48" points="46,48 47,48" />
+    <polyline class="route route-walk" data-edge-id="walk-46-48-46-49" points="46,48 46,49" />
+    <polyline class="route route-walk" data-edge-id="walk-47-48-48-48" points="47,48 48,48" />
+    <polyline class="route route-walk" data-edge-id="walk-47-48-47-49" points="47,48 47,49" />
+    <polyline class="route route-walk" data-edge-id="walk-48-48-49-48" points="48,48 49,48" />
+    <polyline class="route route-walk" data-edge-id="walk-48-48-48-49" points="48,48 48,49" />
+    <polyline class="route route-walk" data-edge-id="walk-49-48-50-48" points="49,48 50,48" />
+    <polyline class="route route-walk" data-edge-id="walk-49-48-49-49" points="49,48 49,49" />
+    <polyline class="route route-walk" data-edge-id="walk-50-48-51-48" points="50,48 51,48" />
+    <polyline class="route route-walk" data-edge-id="walk-50-48-50-49" points="50,48 50,49" />
+    <polyline class="route route-walk" data-edge-id="walk-51-48-52-48" points="51,48 52,48" />
+    <polyline class="route route-walk" data-edge-id="walk-51-48-51-49" points="51,48 51,49" />
+    <polyline class="route route-walk" data-edge-id="walk-52-48-53-48" points="52,48 53,48" />
+    <polyline class="route route-walk" data-edge-id="walk-52-48-52-49" points="52,48 52,49" />
+    <polyline class="route route-walk" data-edge-id="walk-53-48-53-49" points="53,48 53,49" />
+    <polyline class="route route-walk" data-edge-id="walk-45-49-46-49" points="45,49 46,49" />
+    <polyline class="route route-walk" data-edge-id="walk-45-49-45-50" points="45,49 45,50" />
+    <polyline class="route route-walk" data-edge-id="walk-46-49-47-49" points="46,49 47,49" />
+    <polyline class="route route-walk" data-edge-id="walk-46-49-46-50" points="46,49 46,50" />
+    <polyline class="route route-walk" data-edge-id="walk-47-49-48-49" points="47,49 48,49" />
+    <polyline class="route route-walk" data-edge-id="walk-47-49-47-50" points="47,49 47,50" />
+    <polyline class="route route-walk" data-edge-id="walk-48-49-49-49" points="48,49 49,49" />
+    <polyline class="route route-walk" data-edge-id="walk-48-49-48-50" points="48,49 48,50" />
+    <polyline class="route route-walk" data-edge-id="walk-49-49-50-49" points="49,49 50,49" />
+    <polyline class="route route-walk" data-edge-id="walk-49-49-49-50" points="49,49 49,50" />
+    <polyline class="route route-walk" data-edge-id="walk-50-49-51-49" points="50,49 51,49" />
+    <polyline class="route route-walk" data-edge-id="walk-50-49-50-50" points="50,49 50,50" />
+    <polyline class="route route-walk" data-edge-id="walk-51-49-52-49" points="51,49 52,49" />
+    <polyline class="route route-walk" data-edge-id="walk-51-49-51-50" points="51,49 51,50" />
+    <polyline class="route route-walk" data-edge-id="walk-52-49-53-49" points="52,49 53,49" />
+    <polyline class="route route-walk" data-edge-id="walk-52-49-52-50" points="52,49 52,50" />
+    <polyline class="route route-walk" data-edge-id="walk-53-49-53-50" points="53,49 53,50" />
+    <polyline class="route route-walk" data-edge-id="walk-45-50-46-50" points="45,50 46,50" />
+    <polyline class="route route-walk" data-edge-id="walk-45-50-45-51" points="45,50 45,51" />
+    <polyline class="route route-walk" data-edge-id="walk-46-50-47-50" points="46,50 47,50" />
+    <polyline class="route route-walk" data-edge-id="walk-46-50-46-51" points="46,50 46,51" />
+    <polyline class="route route-walk" data-edge-id="walk-47-50-48-50" points="47,50 48,50" />
+    <polyline class="route route-walk" data-edge-id="walk-47-50-47-51" points="47,50 47,51" />
+    <polyline class="route route-walk" data-edge-id="walk-48-50-49-50" points="48,50 49,50" />
+    <polyline class="route route-walk" data-edge-id="walk-48-50-48-51" points="48,50 48,51" />
+    <polyline class="route route-walk" data-edge-id="walk-49-50-50-50" points="49,50 50,50" />
+    <polyline class="route route-walk" data-edge-id="walk-49-50-49-51" points="49,50 49,51" />
+    <polyline class="route route-walk" data-edge-id="walk-50-50-51-50" points="50,50 51,50" />
+    <polyline class="route route-walk" data-edge-id="walk-50-50-50-51" points="50,50 50,51" />
+    <polyline class="route route-walk" data-edge-id="walk-51-50-52-50" points="51,50 52,50" />
+    <polyline class="route route-walk" data-edge-id="walk-51-50-51-51" points="51,50 51,51" />
+    <polyline class="route route-walk" data-edge-id="walk-52-50-53-50" points="52,50 53,50" />
+    <polyline class="route route-walk" data-edge-id="walk-52-50-52-51" points="52,50 52,51" />
+    <polyline class="route route-walk" data-edge-id="walk-53-50-53-51" points="53,50 53,51" />
+    <polyline class="route route-walk" data-edge-id="walk-45-51-46-51" points="45,51 46,51" />
+    <polyline class="route route-walk" data-edge-id="walk-45-51-45-52" points="45,51 45,52" />
+    <polyline class="route route-walk" data-edge-id="walk-46-51-47-51" points="46,51 47,51" />
+    <polyline class="route route-walk" data-edge-id="walk-46-51-46-52" points="46,51 46,52" />
+    <polyline class="route route-walk" data-edge-id="walk-47-51-48-51" points="47,51 48,51" />
+    <polyline class="route route-walk" data-edge-id="walk-47-51-47-52" points="47,51 47,52" />
+    <polyline class="route route-walk" data-edge-id="walk-48-51-49-51" points="48,51 49,51" />
+    <polyline class="route route-walk" data-edge-id="walk-48-51-48-52" points="48,51 48,52" />
+    <polyline class="route route-walk" data-edge-id="walk-49-51-50-51" points="49,51 50,51" />
+    <polyline class="route route-walk" data-edge-id="walk-49-51-49-52" points="49,51 49,52" />
+    <polyline class="route route-walk" data-edge-id="walk-50-51-51-51" points="50,51 51,51" />
+    <polyline class="route route-walk" data-edge-id="walk-50-51-50-52" points="50,51 50,52" />
+    <polyline class="route route-walk" data-edge-id="walk-51-51-52-51" points="51,51 52,51" />
+    <polyline class="route route-walk" data-edge-id="walk-51-51-51-52" points="51,51 51,52" />
+    <polyline class="route route-walk" data-edge-id="walk-52-51-53-51" points="52,51 53,51" />
+    <polyline class="route route-walk" data-edge-id="walk-52-51-52-52" points="52,51 52,52" />
+    <polyline class="route route-walk" data-edge-id="walk-53-51-53-52" points="53,51 53,52" />
+    <polyline class="route route-walk" data-edge-id="walk-45-52-46-52" points="45,52 46,52" />
+    <polyline class="route route-walk" data-edge-id="walk-45-52-45-53" points="45,52 45,53" />
+    <polyline class="route route-walk" data-edge-id="walk-46-52-47-52" points="46,52 47,52" />
+    <polyline class="route route-walk" data-edge-id="walk-46-52-46-53" points="46,52 46,53" />
+    <polyline class="route route-walk" data-edge-id="walk-47-52-48-52" points="47,52 48,52" />
+    <polyline class="route route-walk" data-edge-id="walk-47-52-47-53" points="47,52 47,53" />
+    <polyline class="route route-walk" data-edge-id="walk-48-52-49-52" points="48,52 49,52" />
+    <polyline class="route route-walk" data-edge-id="walk-48-52-48-53" points="48,52 48,53" />
+    <polyline class="route route-walk" data-edge-id="walk-49-52-50-52" points="49,52 50,52" />
+    <polyline class="route route-walk" data-edge-id="walk-49-52-49-53" points="49,52 49,53" />
+    <polyline class="route route-walk" data-edge-id="walk-50-52-51-52" points="50,52 51,52" />
+    <polyline class="route route-walk" data-edge-id="walk-50-52-50-53" points="50,52 50,53" />
+    <polyline class="route route-walk" data-edge-id="walk-51-52-52-52" points="51,52 52,52" />
+    <polyline class="route route-walk" data-edge-id="walk-51-52-51-53" points="51,52 51,53" />
+    <polyline class="route route-walk" data-edge-id="walk-52-52-53-52" points="52,52 53,52" />
+    <polyline class="route route-walk" data-edge-id="walk-52-52-52-53" points="52,52 52,53" />
+    <polyline class="route route-walk" data-edge-id="walk-53-52-53-53" points="53,52 53,53" />
+    <polyline class="route route-walk" data-edge-id="walk-45-53-46-53" points="45,53 46,53" />
+    <polyline class="route route-walk" data-edge-id="walk-46-53-47-53" points="46,53 47,53" />
+    <polyline class="route route-walk" data-edge-id="walk-47-53-48-53" points="47,53 48,53" />
+    <polyline class="route route-walk" data-edge-id="walk-48-53-49-53" points="48,53 49,53" />
+    <polyline class="route route-walk" data-edge-id="walk-49-53-50-53" points="49,53 50,53" />
+    <polyline class="route route-walk" data-edge-id="walk-50-53-51-53" points="50,53 51,53" />
+    <polyline class="route route-walk" data-edge-id="walk-51-53-52-53" points="51,53 52,53" />
+    <polyline class="route route-walk" data-edge-id="walk-52-53-53-53" points="52,53 53,53" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-001" points="47,45 47,44 47,43 47,42 47,41" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-002" points="47,41 46,41 45,41 44,41 43,41 42,41 41,41 41,40 41,39 41,38 41,37 41,36 41,35 41,34 41,33 41,32 41,31 41,30 41,29 41,28 41,27 41,26 41,25 41,24 41,23 41,22 41,21 41,20 41,19 41,18 41,17 41,16 41,15 41,14 41,13" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-003" points="41,13 40,13 39,13 38,13 37,13 36,13 35,13 34,13 33,13 32,13 31,13 30,13 29,13 28,13 27,13 26,13 25,13 24,13 23,13 22,13 21,13 20,13 19,13 19,14 19,15 19,16 19,17 19,18 19,19 19,20 19,21 19,22 19,23" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-004" points="19,23 20,23 21,23 21,24 21,25 21,26 21,27 21,28 21,29 21,30 21,31 21,32 21,33 21,34 21,35" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-005" points="21,35 22,35 23,35 24,35 25,35 26,35 27,35 28,35 29,35 30,35 31,35 32,35 33,35 33,34 33,33 33,32 33,31 33,30 33,29 33,28 33,27 33,26 33,25 33,24 33,23 33,22 33,21" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-006" points="33,21 32,21 31,21 30,21 29,21 28,21 27,21 26,21 25,21 24,21 23,21 23,20 23,19" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-007" points="23,19 24,19 25,19 26,19 27,19 28,19 29,19 30,19 31,19 32,19 33,19 34,19 35,19 35,20 35,21 35,22 35,23 35,24 35,25 35,26 35,27 35,28 35,29 35,30 35,31" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-008" points="35,31 34,31 33,31 32,31 31,31 30,31 29,31 29,32 29,33" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-009" points="29,33 28,33 27,33 26,33 25,33 24,33 23,33 22,33 21,33 20,33 19,33 18,33 17,33 16,33 15,33 14,33 13,33 13,34 13,35 13,36 13,37 13,38 13,39" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-010" points="13,39 14,39 15,39 16,39 17,39 18,39 19,39 20,39 21,39 22,39 23,39 24,39 25,39 26,39 27,39 28,39 29,39 30,39 31,39 32,39 33,39 34,39 35,39 36,39 37,39 37,38 37,37 37,36 37,35 37,34 37,33 37,32 37,31 37,30 37,29" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-011" points="37,29 38,29 39,29 40,29 41,29 42,29 43,29 43,28 43,27 43,26 43,25" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-012" points="43,25 42,25 41,25 40,25 39,25 38,25 37,25 36,25 35,25 34,25 33,25 32,25 31,25 30,25 29,25 28,25 27,25 26,25 25,25 24,25 23,25 22,25 21,25 20,25 19,25 18,25 17,25 16,25 15,25 15,24 15,23 15,22 15,21 15,20 15,19 15,18 15,17 15,16 15,15" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-013" points="15,15 16,15 17,15 18,15 19,15 20,15 21,15 22,15 23,15 24,15 25,15 26,15 27,15 27,14 27,13 27,12 27,11" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-01-return" points="27,11 26,11 25,11 24,11 23,11 22,11 21,11 20,11 19,11 18,11 17,11 16,11 15,11 14,11 13,11 12,11 11,11 10,11 9,11 8,11 7,11 6,11 5,11 4,11 3,11 2,11 1,11 1,12 1,13 1,14 1,15 1,16 1,17 1,18 1,19 1,20 1,21 1,22 1,23 1,24 1,25 1,26 1,27 1,28 1,29 1,30 1,31 1,32 1,33 1,34 1,35 1,36 1,37 1,38 1,39 1,40 1,41 1,42 1,43 1,44 1,45 1,46 1,47 1,48 1,49 2,49 3,49 4,49 5,49 6,49 7,49 8,49 9,49 10,49 11,49 12,49 13,49 14,49 15,49 16,49 17,49 18,49 19,49 20,49 21,49 22,49 23,49 24,49 25,49 26,49 27,49 28,49 29,49 30,49 31,49 32,49 33,49 34,49 35,49 36,49 37,49 38,49 39,49 40,49 41,49 42,49 43,49 44,49 45,49" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-02-001" points="51,45 51,44 51,43 51,42 51,41" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-02-002" points="51,41 52,41 53,41 54,41 55,41 56,41 57,41 58,41 59,41 60,41 61,41 61,40 61,39 61,38 61,37 61,36 61,35 61,34 61,33 61,32 61,31 61,30 61,29 61,28 61,27 61,26 61,25" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-02-003" points="61,25 60,25 59,25 58,25 57,25 56,25 55,25 55,26 55,27 55,28 55,29 55,30 55,31" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-02-004" points="55,31 56,31 57,31 58,31 59,31 60,31 61,31 62,31 63,31 64,31 65,31 66,31 67,31 68,31 69,31 70,31 71,31 72,31 73,31 74,31 75,31 76,31 77,31 78,31 79,31 80,31 81,31 82,31 83,31 83,32 83,33 83,34 83,35" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-02-005" points="83,35 82,35 81,35 80,35 79,35 78,35 77,35 77,34 77,33 77,32 77,31 77,30 77,29 77,28 77,27 77,26 77,25 77,24 77,23 77,22 77,21 77,20 77,19 77,18 77,17 77,16 77,15 77,14 77,13 77,12 77,11" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-02-006" points="77,11 76,11 75,11 74,11 73,11 72,11 71,11 70,11 69,11 68,11 67,11 67,12 67,13" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-02-007" points="67,13 66,13 65,13 65,14 65,15 65,16 65,17" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-02-008" points="65,17 66,17 67,17 68,17 69,17 70,17 71,17 72,17 73,17 73,18 73,19 73,20 73,21 73,22 73,23 73,24 73,25 73,26 73,27 73,28 73,29 73,30 73,31 73,32 73,33" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-02-009" points="73,33 74,33 75,33 76,33 77,33 78,33 79,33 79,34 79,35 79,36 79,37 79,38 79,39" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-02-010" points="79,39 78,39 77,39 76,39 75,39 74,39 73,39 72,39 71,39 70,39 69,39 68,39 67,39 66,39 65,39 64,39 63,39 62,39 61,39 60,39 59,39 59,38 59,37 59,36 59,35 59,34 59,33 59,32 59,31 59,30 59,29 59,28 59,27 59,26 59,25 59,24 59,23 59,22 59,21 59,20 59,19" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-02-011" points="59,19 60,19 61,19 62,19 63,19 64,19 65,19 66,19 67,19 68,19 69,19 70,19 71,19 71,20 71,21" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-02-012" points="71,21 72,21 73,21 74,21 75,21 76,21 77,21 78,21 79,21 80,21 81,21 82,21 83,21 84,21 85,21 85,22 85,23 85,24 85,25 85,26 85,27" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-02-return" points="85,27 86,27 87,27 88,27 89,27 90,27 91,27 92,27 93,27 94,27 95,27 96,27 96,28 96,29 96,30 96,31 96,32 96,33 96,34 96,35 96,36 96,37 96,38 96,39 96,40 96,41 96,42 96,43 96,44 96,45 96,46 96,47 96,48 96,49 96,50 96,51 96,52 96,53 96,54 96,55 96,56 96,57 96,58 96,59 96,60 96,61 96,62 96,63 96,64 96,65 96,66 96,67 96,68 96,69 96,70 96,71 96,72 96,73 96,74 96,75 96,76 96,77 96,78 96,79 96,80 96,81 96,82 96,83 96,84 96,85 96,86 96,87 96,88 96,89 96,90 96,91 96,92 96,93 96,94 96,95 96,96 96,97 95,97 94,97 93,97 92,97 91,97 90,97 89,97 88,97 87,97 86,97 85,97 84,97 83,97 82,97 81,97 80,97 79,97 78,97 77,97 76,97 75,97 74,97 73,97 72,97 71,97 70,97 69,97 68,97 67,97 66,97 65,97 64,97 63,97 62,97 61,97 60,97 59,97 58,97 57,97 56,97 55,97 54,97 53,97 52,97 51,97 50,97 49,97 49,96 49,95 49,94 49,93 49,92 49,91 49,90 49,89 49,88 49,87 49,86 49,85 49,84 49,83 49,82 49,81 49,80 49,79 49,78 49,77 49,76 49,75 49,74 49,73 49,72 49,71 49,70 49,69 49,68 49,67 49,66 49,65 49,64 49,63 49,62 49,61 49,60 49,59 49,58 49,57 49,56 49,55 49,54 49,53" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-03-001" points="47,53 47,54 47,55 47,56 47,57" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-03-002" points="47,57 46,57 45,57 44,57 43,57 43,58 43,59 43,60 43,61 43,62 43,63 43,64 43,65" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-03-003" points="43,65 42,65 41,65 40,65 39,65 38,65 37,65 36,65 35,65 34,65 33,65 32,65 31,65 30,65 29,65 28,65 27,65 26,65 25,65 24,65 23,65 22,65 21,65 21,66 21,67 21,68 21,69 21,70 21,71 21,72 21,73 21,74 21,75 21,76 21,77 21,78 21,79 21,80 21,81 21,82 21,83 21,84 21,85" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-03-004" points="21,85 22,85 23,85 24,85 25,85 26,85 27,85 28,85 29,85 30,85 31,85 32,85 33,85 34,85 35,85 36,85 37,85 38,85 39,85 39,86 39,87" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-03-005" points="39,87 38,87 37,87 36,87 35,87 34,87 33,87 33,86 33,85 33,84 33,83 33,82 33,81 33,80 33,79 33,78 33,77 33,76 33,75 33,74 33,73 33,72 33,71" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-03-006" points="33,71 34,71 35,71 36,71 37,71 37,70 37,69 37,68 37,67 37,66 37,65 37,64 37,63 37,62 37,61 37,60 37,59" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-03-007" points="37,59 36,59 35,59 34,59 33,59 32,59 31,59 30,59 29,59 28,59 27,59 26,59 25,59 24,59 23,59 22,59 21,59 20,59 19,59 18,59 17,59 16,59 15,59 14,59 13,59 13,60 13,61 13,62 13,63" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-03-008" points="13,63 14,63 15,63 16,63 17,63 18,63 19,63 19,64 19,65 19,66 19,67 19,68 19,69 19,70 19,71 19,72 19,73 19,74 19,75 19,76 19,77 19,78 19,79" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-03-009" points="19,79 20,79 21,79 22,79 23,79 24,79 25,79 26,79 27,79 28,79 29,79 30,79 31,79 31,78 31,77" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-03-010" points="31,77 30,77 29,77 28,77 27,77 27,76 27,75 27,74 27,73" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-03-011" points="27,73 26,73 25,73 25,74 25,75 25,76 25,77 25,78 25,79 25,80 25,81" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-03-012" points="25,81 24,81 23,81 22,81 21,81 20,81 19,81 18,81 17,81 16,81 15,81 15,80 15,79 15,78 15,77 15,76 15,75 15,74 15,73 15,72 15,71 15,70 15,69 15,68 15,67" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-04-001" points="51,53 51,54 51,55 51,56 51,57" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-04-002" points="51,57 52,57 53,57 54,57 55,57 56,57 57,57 57,58 57,59 57,60 57,61 57,62 57,63 57,64 57,65 57,66 57,67 57,68 57,69 57,70 57,71 57,72 57,73 57,74 57,75 57,76 57,77 57,78 57,79 57,80 57,81 57,82 57,83 57,84 57,85" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-04-003" points="57,85 58,85 59,85 60,85 61,85 62,85 63,85 64,85 65,85 66,85 67,85 68,85 69,85 70,85 71,85 71,86 71,87" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-04-004" points="71,87 70,87 69,87 68,87 67,87 66,87 65,87 65,86 65,85 65,84 65,83 65,82 65,81 65,80 65,79 65,78 65,77 65,76 65,75 65,74 65,73 65,72 65,71 65,70 65,69 65,68 65,67 65,66 65,65" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-04-005" points="65,65 64,65 63,65 62,65 61,65 60,65 59,65 58,65 57,65 56,65 55,65 55,66 55,67" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-04-006" points="55,67 56,67 57,67 58,67 59,67 60,67 61,67 62,67 63,67 64,67 65,67 66,67 67,67 68,67 69,67 70,67 71,67 72,67 73,67 74,67 75,67 76,67 77,67 78,67 79,67 79,68 79,69" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-04-007" points="79,69 80,69 81,69 82,69 83,69 84,69 85,69 85,68 85,67 85,66 85,65 85,64 85,63" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-04-008" points="85,63 84,63 83,63 82,63 81,63 80,63 79,63 78,63 77,63 76,63 75,63 75,64 75,65 75,66 75,67 75,68 75,69 75,70 75,71 75,72 75,73 75,74 75,75 75,76 75,77" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-04-009" points="75,77 76,77 77,77 77,76 77,75 77,74 77,73 77,72 77,71 77,70 77,69 77,68 77,67 77,66 77,65 77,64 77,63 77,62 77,61 77,60 77,59" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-04-010" points="77,59 76,59 75,59 74,59 73,59 72,59 71,59 70,59 69,59 68,59 67,59 66,59 65,59 64,59 63,59 62,59 61,59 61,60 61,61 61,62 61,63 61,64 61,65 61,66 61,67 61,68 61,69 61,70 61,71 61,72 61,73 61,74 61,75" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-04-011" points="61,75 62,75 63,75 64,75 65,75 66,75 67,75 68,75 69,75 70,75 71,75 72,75 73,75 74,75 75,75 76,75 77,75 78,75 79,75 80,75 81,75 82,75 83,75 83,76 83,77 83,78 83,79" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-04-012" points="83,79 82,79 81,79 80,79 79,79 78,79 77,79 76,79 75,79 74,79 73,79 72,79 71,79 70,79 69,79 69,80 69,81 69,82 69,83" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-04-013" points="69,83 68,83 67,83 66,83 65,83 64,83 63,83 63,82 63,81 63,80 63,79 63,78 63,77 63,76 63,75 63,74 63,73" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-05-001" points="53,51 54,51 55,51 56,51" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-05-002" points="56,51 56,52 56,53 56,54 56,55 56,56 56,57 56,58 57,58 58,58 59,58 60,58 61,58 62,58 63,58 64,58 65,58 66,58 67,58 68,58 69,58 70,58 71,58 72,58 73,58 74,58 75,58 76,58" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-05-003" points="76,58 76,59 76,60 76,61 76,62 76,63 76,64 76,65 76,66 76,67 76,68 76,69 76,70 76,71 76,72 76,73 76,74 76,75 76,76 76,77 76,78 76,79 76,80 76,81 76,82 77,82 78,82 79,82 80,82 81,82 82,82 83,82 84,82 85,82 86,82" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-05-004" points="86,82 86,81 86,80 86,79 86,78 86,77 86,76 86,75 86,74 86,73 86,72 86,71 86,70 85,70 84,70 83,70 82,70 81,70 80,70 79,70 78,70" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-05-005" points="78,70 78,69 78,68 78,67 78,66 78,65 78,64 78,63 78,62 78,61 78,60 78,59 78,58 78,57 78,56 78,55 78,54 77,54 76,54 75,54 74,54 73,54 72,54 71,54 70,54 69,54 68,54 67,54 66,54" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-05-006" points="66,54 66,55 66,56 66,57 66,58 66,59 66,60 66,61 66,62 66,63 66,64 65,64 64,64 63,64 62,64" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-05-007" points="62,64 62,65 62,66 62,67 62,68 62,69 62,70 62,71 62,72 62,73 62,74 62,75 62,76 62,77 62,78 63,78 64,78" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-05-008" points="64,78 64,77 64,76 64,75 64,74 64,73 64,72 64,71 64,70 64,69 64,68 64,67 64,66 65,66 66,66 67,66 68,66 69,66 70,66 71,66 72,66" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-05-009" points="72,66 72,65 72,64 72,63 72,62 72,61 72,60 73,60 74,60 75,60 76,60 77,60 78,60 79,60 80,60 81,60 82,60 83,60 84,60" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-05-010" points="84,60 84,61 84,62 84,63 84,64 84,65 84,66 84,67 84,68 84,69 84,70 84,71 84,72 83,72 82,72 81,72 80,72 79,72 78,72 77,72 76,72 75,72 74,72 73,72 72,72 71,72 70,72 69,72 68,72 67,72 66,72 65,72 64,72 63,72 62,72 61,72 60,72 59,72 58,72" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-05-011" points="58,72 58,73 58,74 58,75 58,76 59,76 60,76 61,76 62,76 63,76 64,76 65,76 66,76 67,76 68,76 69,76 70,76" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-05-012" points="70,76 70,77 70,78 70,79 70,80 70,81 70,82 70,83 70,84 71,84 72,84 73,84 74,84 75,84 76,84 77,84 78,84 79,84 80,84" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-06-001" points="45,47 44,47 43,47 42,47" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-06-002" points="42,47 42,46 42,45 42,44 41,44 40,44 39,44 38,44 37,44 36,44 35,44 34,44" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-06-003" points="34,44 34,43 34,42 34,41 34,40 34,39 34,38 34,37 34,36 34,35 34,34 34,33 34,32 34,31 34,30 34,29 34,28 34,27 34,26 34,25 34,24 34,23 34,22 34,21 34,20 34,19 34,18 34,17 34,16 34,15 34,14 33,14 32,14 31,14 30,14 29,14 28,14 27,14 26,14 25,14 24,14 23,14 22,14 21,14 20,14 19,14 18,14 17,14 16,14" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-06-004" points="16,14 16,15 16,16 17,16 18,16 19,16 20,16 21,16 22,16 23,16 24,16" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-06-005" points="24,16 24,17 24,18 24,19 24,20 24,21 24,22 24,23 24,24 24,25 24,26 24,27 24,28 23,28 22,28 21,28 20,28 19,28 18,28 17,28 16,28 15,28 14,28 13,28 12,28" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-06-006" points="12,28 12,29 12,30 13,30 14,30 15,30 16,30 17,30 18,30 19,30 20,30 21,30 22,30 23,30 24,30 25,30 26,30 27,30 28,30 29,30 30,30" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-06-007" points="30,30 30,31 30,32 30,33 30,34 30,35 30,36 30,37 30,38 30,39 30,40 30,41 30,42 31,42 32,42 33,42 34,42 35,42 36,42" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-06-008" points="36,42 36,41 36,40 36,39 36,38 36,37 36,36 36,35 36,34 36,33 36,32 36,31 36,30 36,29 36,28 36,27 36,26 36,25 36,24 36,23 36,22 36,21 36,20 35,20 34,20 33,20 32,20 31,20 30,20 29,20 28,20 27,20 26,20" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-06-009" points="26,20 26,21 26,22 26,23 26,24 25,24 24,24 23,24 22,24 21,24 20,24" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-06-010" points="20,24 20,23 20,22 21,22 22,22 23,22 24,22 25,22 26,22 27,22 28,22 29,22 30,22 31,22 32,22" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-06-011" points="32,22 32,23 32,24 32,25 32,26 32,27 32,28 32,29 32,30 32,31 32,32 32,33 32,34 32,35 32,36 32,37 32,38 33,38 34,38 35,38 36,38 37,38 38,38 39,38 40,38" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-06-012" points="40,38 40,37 40,36 40,35 40,34 39,34 38,34 37,34 36,34 35,34 34,34 33,34 32,34 31,34 30,34 29,34 28,34 27,34 26,34 25,34 24,34 23,34 22,34 21,34 20,34 19,34 18,34 17,34 16,34 15,34 14,34" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-06-013" points="14,34 14,35 14,36 15,36 16,36 17,36 18,36 19,36 20,36 21,36 22,36" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-07-001" points="45,51 44,51 43,51 42,51" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-07-002" points="42,51 42,52 42,53 42,54 42,55 42,56 42,57 42,58 42,59 42,60 42,61 42,62 42,63 42,64 42,65 42,66 42,67 42,68 42,69 42,70 42,71 42,72 42,73 42,74 42,75 42,76 42,77 42,78 42,79 42,80 42,81 42,82 42,83 42,84 41,84 40,84 39,84 38,84 37,84 36,84 35,84 34,84" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-07-003" points="34,84 34,83 34,82 34,81 34,80 34,79 34,78 34,77 34,76 34,75 34,74 34,73 34,72 34,71 34,70 34,69 34,68 34,67 34,66 35,66 36,66" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-07-004" points="36,66 36,65 36,64 36,63 36,62 36,61 36,60 35,60 34,60 33,60 32,60 31,60 30,60 29,60 28,60 27,60 26,60" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-07-005" points="26,60 26,61 26,62 26,63 26,64 26,65 26,66 26,67 26,68 26,69 26,70 26,71 26,72 25,72 24,72 23,72 22,72" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-07-006" points="22,72 22,73 22,74 22,75 22,76 23,76 24,76 25,76 26,76 27,76 28,76" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-07-007" points="28,76 28,75 28,74 28,73 28,72 28,71 28,70 29,70 30,70 31,70 32,70 33,70 34,70 35,70 36,70 37,70 38,70 39,70 40,70" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-07-008" points="40,70 40,69 40,68 40,67 40,66 40,65 40,64 39,64 38,64 37,64 36,64 35,64 34,64 33,64 32,64 31,64 30,64 29,64 28,64 27,64 26,64 25,64 24,64 23,64 22,64 21,64 20,64 19,64 18,64" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-07-009" points="18,64 18,63 18,62 18,61 18,60 18,59 18,58 17,58 16,58 15,58 14,58" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-07-010" points="14,58 14,59 14,60 14,61 14,62 14,63 14,64 14,65 14,66 14,67 14,68 14,69 14,70 14,71 14,72 14,73 14,74 14,75 14,76 14,77 14,78 15,78 16,78 17,78 18,78 19,78 20,78 21,78 22,78 23,78 24,78 25,78 26,78 27,78 28,78 29,78 30,78 31,78 32,78" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-07-011" points="32,78 32,79 32,80 32,81 32,82 31,82 30,82 29,82 28,82 27,82 26,82 25,82 24,82 23,82 22,82 21,82 20,82" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-07-012" points="20,82 20,81 20,80 20,79 20,78 20,77 20,76 20,75 20,74 20,73 20,72 20,71 20,70 20,69 20,68 20,67 20,66 20,65 20,64 20,63 20,62 20,61 20,60 20,59 20,58 20,57 20,56 20,55 20,54 19,54 18,54 17,54 16,54 15,54 14,54 13,54 12,54" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-08-001" points="53,47 54,47 55,47 56,47" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-08-002" points="56,47 56,46 56,45 56,44 56,43 56,42 56,41 56,40 57,40 58,40 59,40 60,40 61,40 62,40 63,40 64,40 65,40 66,40 67,40 68,40 69,40 70,40 71,40 72,40 73,40 74,40 75,40 76,40 77,40 78,40 79,40 80,40 81,40 82,40 83,40 84,40" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-08-003" points="84,40 84,39 84,38 83,38 82,38 81,38 80,38 79,38 78,38 77,38 76,38" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-08-004" points="76,38 76,37 76,36 76,35 76,34 76,33 76,32 76,31 76,30 76,29 76,28 76,27 76,26 75,26 74,26 73,26 72,26 71,26 70,26 69,26 68,26 67,26 66,26 65,26 64,26" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-08-005" points="64,26 64,27 64,28 64,29 64,30 64,31 64,32 64,33 64,34 64,35 64,36 64,37 64,38 64,39 64,40 64,41 64,42 64,43 64,44 65,44 66,44 67,44 68,44 69,44 70,44" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-08-006" points="70,44 70,43 70,42 70,41 70,40 70,39 70,38 70,37 70,36 70,35 70,34 70,33 70,32 70,31 70,30 70,29 70,28 70,27 70,26 70,25 70,24 70,23 70,22 70,21 70,20 71,20 72,20 73,20 74,20 75,20 76,20 77,20 78,20 79,20 80,20" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-08-007" points="80,20 80,21 80,22 80,23 80,24 80,25 80,26 80,27 80,28 80,29 80,30 80,31 80,32 80,33 80,34 79,34 78,34 77,34 76,34 75,34 74,34 73,34 72,34 71,34 70,34 69,34 68,34 67,34 66,34 65,34 64,34 63,34 62,34" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-08-008" points="62,34 62,33 62,32 63,32 64,32 65,32 66,32 67,32 68,32 69,32 70,32 71,32 72,32 73,32 74,32 75,32 76,32 77,32 78,32" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-08-009" points="78,32 78,31 78,30 78,29 78,28 78,27 78,26 78,25 78,24 78,23 78,22 78,21 78,20 78,19 78,18 78,17 78,16 78,15 78,14 77,14 76,14 75,14 74,14 73,14 72,14" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-08-010" points="72,14 72,15 72,16 72,17 72,18 72,19 72,20 72,21 72,22 72,23 72,24 72,25 72,26 72,27 72,28 71,28 70,28 69,28 68,28 67,28 66,28 65,28 64,28 63,28 62,28 61,28 60,28 59,28 58,28" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-08-011" points="58,28 58,27 58,26 58,25 58,24 58,23 58,22 58,21 58,20 58,19 58,18 58,17 58,16 59,16 60,16 61,16 62,16 63,16 64,16 65,16 66,16 67,16 68,16 69,16 70,16 71,16 72,16 73,16 74,16 75,16 76,16 77,16 78,16 79,16 80,16 81,16 82,16 83,16 84,16 85,16 86,16" />
+    <polyline class="route route-slide" data-edge-id="slide-chain-08-012" points="86,16 86,17 86,18 86,19 86,20 86,21 86,22 85,22 84,22 83,22 82,22 81,22 80,22 79,22 78,22 77,22 76,22 75,22 74,22 73,22 72,22 71,22 70,22 69,22 68,22 67,22 66,22" />
+    <polyline class="route route-slide" data-edge-id="slide-final-socket" points="49,45 49,44 49,43 49,42 49,41 49,40 49,39 49,38 49,37 49,36 49,35 49,34 49,33 49,32 49,31" />
+    <polyline class="route route-slide" data-edge-id="slide-final-exit" points="49,31 49,30 49,29 49,28 49,27 49,26 49,25 49,24 49,23 49,22 49,21 49,20 49,19 49,18 49,17 49,16 49,15 49,14 49,13 49,12 49,11 49,10 49,9 49,8 49,7 49,6 49,5 49,4 49,3 49,2 49,1 50,1 51,1 52,1 53,1 54,1 55,1 56,1 57,1 58,1 59,1 60,1 61,1 62,1 63,1 64,1 65,1 66,1 67,1 68,1 69,1 70,1 71,1 72,1 73,1 74,1 75,1 76,1 77,1 78,1 79,1 80,1 81,1 82,1 83,1 84,1 85,1 86,1 87,1 88,1 89,1 90,1 91,1 92,1 93,1 94,1 95,1 96,1 97,1 97,2 97,3 97,4 97,5 97,6 97,7 97,8 97,9 97,10 97,11 97,12 97,13 97,14 97,15 97,16 97,17 97,18 97,19 97,20 97,21 97,22 97,23 97,24 97,25 97,26 97,27 97,28 97,29 97,30 97,31 97,32 97,33 97,34 97,35 97,36 97,37 97,38 97,39 97,40 97,41 97,42 97,43 97,44 97,45 97,46 97,47 97,48 97,49 98,49" />
+  </g>
+  <g id="ordered-solution-route">
+    <polyline class="solution-step" data-step="1" data-edge-id="walk-48-49-49-49" points="49,49 48,49" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="2" data-edge-id="walk-47-49-48-49" points="48,49 47,49" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="3" data-edge-id="walk-47-48-47-49" points="47,49 47,48" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="4" data-edge-id="walk-47-47-47-48" points="47,48 47,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="5" data-edge-id="walk-47-46-47-47" points="47,47 47,46" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="6" data-edge-id="walk-47-45-47-46" points="47,46 47,45" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="7" data-edge-id="slide-chain-01-001" points="47,45 47,44 47,43 47,42 47,41" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="8" data-edge-id="slide-chain-01-002" points="47,41 46,41 45,41 44,41 43,41 42,41 41,41 41,40 41,39 41,38 41,37 41,36 41,35 41,34 41,33 41,32 41,31 41,30 41,29 41,28 41,27 41,26 41,25 41,24 41,23 41,22 41,21 41,20 41,19 41,18 41,17 41,16 41,15 41,14 41,13" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="9" data-edge-id="slide-chain-01-003" points="41,13 40,13 39,13 38,13 37,13 36,13 35,13 34,13 33,13 32,13 31,13 30,13 29,13 28,13 27,13 26,13 25,13 24,13 23,13 22,13 21,13 20,13 19,13 19,14 19,15 19,16 19,17 19,18 19,19 19,20 19,21 19,22 19,23" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="10" data-edge-id="slide-chain-01-004" points="19,23 20,23 21,23 21,24 21,25 21,26 21,27 21,28 21,29 21,30 21,31 21,32 21,33 21,34 21,35" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="11" data-edge-id="slide-chain-01-005" points="21,35 22,35 23,35 24,35 25,35 26,35 27,35 28,35 29,35 30,35 31,35 32,35 33,35 33,34 33,33 33,32 33,31 33,30 33,29 33,28 33,27 33,26 33,25 33,24 33,23 33,22 33,21" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="12" data-edge-id="slide-chain-01-006" points="33,21 32,21 31,21 30,21 29,21 28,21 27,21 26,21 25,21 24,21 23,21 23,20 23,19" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="13" data-edge-id="slide-chain-01-007" points="23,19 24,19 25,19 26,19 27,19 28,19 29,19 30,19 31,19 32,19 33,19 34,19 35,19 35,20 35,21 35,22 35,23 35,24 35,25 35,26 35,27 35,28 35,29 35,30 35,31" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="14" data-edge-id="slide-chain-01-008" points="35,31 34,31 33,31 32,31 31,31 30,31 29,31 29,32 29,33" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="15" data-edge-id="slide-chain-01-009" points="29,33 28,33 27,33 26,33 25,33 24,33 23,33 22,33 21,33 20,33 19,33 18,33 17,33 16,33 15,33 14,33 13,33 13,34 13,35 13,36 13,37 13,38 13,39" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="16" data-edge-id="slide-chain-01-010" points="13,39 14,39 15,39 16,39 17,39 18,39 19,39 20,39 21,39 22,39 23,39 24,39 25,39 26,39 27,39 28,39 29,39 30,39 31,39 32,39 33,39 34,39 35,39 36,39 37,39 37,38 37,37 37,36 37,35 37,34 37,33 37,32 37,31 37,30 37,29" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="17" data-edge-id="slide-chain-01-011" points="37,29 38,29 39,29 40,29 41,29 42,29 43,29 43,28 43,27 43,26 43,25" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="18" data-edge-id="slide-chain-01-012" points="43,25 42,25 41,25 40,25 39,25 38,25 37,25 36,25 35,25 34,25 33,25 32,25 31,25 30,25 29,25 28,25 27,25 26,25 25,25 24,25 23,25 22,25 21,25 20,25 19,25 18,25 17,25 16,25 15,25 15,24 15,23 15,22 15,21 15,20 15,19 15,18 15,17 15,16 15,15" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="19" data-edge-id="slide-chain-01-013" points="15,15 16,15 17,15 18,15 19,15 20,15 21,15 22,15 23,15 24,15 25,15 26,15 27,15 27,14 27,13 27,12 27,11" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="20" data-edge-id="slide-chain-01-return" points="27,11 26,11 25,11 24,11 23,11 22,11 21,11 20,11 19,11 18,11 17,11 16,11 15,11 14,11 13,11 12,11 11,11 10,11 9,11 8,11 7,11 6,11 5,11 4,11 3,11 2,11 1,11 1,12 1,13 1,14 1,15 1,16 1,17 1,18 1,19 1,20 1,21 1,22 1,23 1,24 1,25 1,26 1,27 1,28 1,29 1,30 1,31 1,32 1,33 1,34 1,35 1,36 1,37 1,38 1,39 1,40 1,41 1,42 1,43 1,44 1,45 1,46 1,47 1,48 1,49 2,49 3,49 4,49 5,49 6,49 7,49 8,49 9,49 10,49 11,49 12,49 13,49 14,49 15,49 16,49 17,49 18,49 19,49 20,49 21,49 22,49 23,49 24,49 25,49 26,49 27,49 28,49 29,49 30,49 31,49 32,49 33,49 34,49 35,49 36,49 37,49 38,49 39,49 40,49 41,49 42,49 43,49 44,49 45,49" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="21" data-edge-id="walk-45-49-46-49" points="45,49 46,49" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="22" data-edge-id="walk-46-49-47-49" points="46,49 47,49" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="23" data-edge-id="walk-47-49-48-49" points="47,49 48,49" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="24" data-edge-id="walk-48-49-49-49" points="48,49 49,49" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="25" data-edge-id="walk-49-49-50-49" points="49,49 50,49" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="26" data-edge-id="walk-50-49-51-49" points="50,49 51,49" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="27" data-edge-id="walk-51-48-51-49" points="51,49 51,48" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="28" data-edge-id="walk-51-47-51-48" points="51,48 51,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="29" data-edge-id="walk-51-46-51-47" points="51,47 51,46" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="30" data-edge-id="walk-51-45-51-46" points="51,46 51,45" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="31" data-edge-id="slide-chain-02-001" points="51,45 51,44 51,43 51,42 51,41" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="32" data-edge-id="slide-chain-02-002" points="51,41 52,41 53,41 54,41 55,41 56,41 57,41 58,41 59,41 60,41 61,41 61,40 61,39 61,38 61,37 61,36 61,35 61,34 61,33 61,32 61,31 61,30 61,29 61,28 61,27 61,26 61,25" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="33" data-edge-id="slide-chain-02-003" points="61,25 60,25 59,25 58,25 57,25 56,25 55,25 55,26 55,27 55,28 55,29 55,30 55,31" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="34" data-edge-id="slide-chain-02-004" points="55,31 56,31 57,31 58,31 59,31 60,31 61,31 62,31 63,31 64,31 65,31 66,31 67,31 68,31 69,31 70,31 71,31 72,31 73,31 74,31 75,31 76,31 77,31 78,31 79,31 80,31 81,31 82,31 83,31 83,32 83,33 83,34 83,35" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="35" data-edge-id="slide-chain-02-005" points="83,35 82,35 81,35 80,35 79,35 78,35 77,35 77,34 77,33 77,32 77,31 77,30 77,29 77,28 77,27 77,26 77,25 77,24 77,23 77,22 77,21 77,20 77,19 77,18 77,17 77,16 77,15 77,14 77,13 77,12 77,11" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="36" data-edge-id="slide-chain-02-006" points="77,11 76,11 75,11 74,11 73,11 72,11 71,11 70,11 69,11 68,11 67,11 67,12 67,13" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="37" data-edge-id="slide-chain-02-007" points="67,13 66,13 65,13 65,14 65,15 65,16 65,17" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="38" data-edge-id="slide-chain-02-008" points="65,17 66,17 67,17 68,17 69,17 70,17 71,17 72,17 73,17 73,18 73,19 73,20 73,21 73,22 73,23 73,24 73,25 73,26 73,27 73,28 73,29 73,30 73,31 73,32 73,33" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="39" data-edge-id="slide-chain-02-009" points="73,33 74,33 75,33 76,33 77,33 78,33 79,33 79,34 79,35 79,36 79,37 79,38 79,39" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="40" data-edge-id="slide-chain-02-010" points="79,39 78,39 77,39 76,39 75,39 74,39 73,39 72,39 71,39 70,39 69,39 68,39 67,39 66,39 65,39 64,39 63,39 62,39 61,39 60,39 59,39 59,38 59,37 59,36 59,35 59,34 59,33 59,32 59,31 59,30 59,29 59,28 59,27 59,26 59,25 59,24 59,23 59,22 59,21 59,20 59,19" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="41" data-edge-id="slide-chain-02-011" points="59,19 60,19 61,19 62,19 63,19 64,19 65,19 66,19 67,19 68,19 69,19 70,19 71,19 71,20 71,21" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="42" data-edge-id="slide-chain-02-012" points="71,21 72,21 73,21 74,21 75,21 76,21 77,21 78,21 79,21 80,21 81,21 82,21 83,21 84,21 85,21 85,22 85,23 85,24 85,25 85,26 85,27" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="43" data-edge-id="slide-chain-02-return" points="85,27 86,27 87,27 88,27 89,27 90,27 91,27 92,27 93,27 94,27 95,27 96,27 96,28 96,29 96,30 96,31 96,32 96,33 96,34 96,35 96,36 96,37 96,38 96,39 96,40 96,41 96,42 96,43 96,44 96,45 96,46 96,47 96,48 96,49 96,50 96,51 96,52 96,53 96,54 96,55 96,56 96,57 96,58 96,59 96,60 96,61 96,62 96,63 96,64 96,65 96,66 96,67 96,68 96,69 96,70 96,71 96,72 96,73 96,74 96,75 96,76 96,77 96,78 96,79 96,80 96,81 96,82 96,83 96,84 96,85 96,86 96,87 96,88 96,89 96,90 96,91 96,92 96,93 96,94 96,95 96,96 96,97 95,97 94,97 93,97 92,97 91,97 90,97 89,97 88,97 87,97 86,97 85,97 84,97 83,97 82,97 81,97 80,97 79,97 78,97 77,97 76,97 75,97 74,97 73,97 72,97 71,97 70,97 69,97 68,97 67,97 66,97 65,97 64,97 63,97 62,97 61,97 60,97 59,97 58,97 57,97 56,97 55,97 54,97 53,97 52,97 51,97 50,97 49,97 49,96 49,95 49,94 49,93 49,92 49,91 49,90 49,89 49,88 49,87 49,86 49,85 49,84 49,83 49,82 49,81 49,80 49,79 49,78 49,77 49,76 49,75 49,74 49,73 49,72 49,71 49,70 49,69 49,68 49,67 49,66 49,65 49,64 49,63 49,62 49,61 49,60 49,59 49,58 49,57 49,56 49,55 49,54 49,53" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="44" data-edge-id="walk-48-53-49-53" points="49,53 48,53" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="45" data-edge-id="walk-47-53-48-53" points="48,53 47,53" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="46" data-edge-id="slide-chain-03-001" points="47,53 47,54 47,55 47,56 47,57" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="47" data-edge-id="slide-chain-03-002" points="47,57 46,57 45,57 44,57 43,57 43,58 43,59 43,60 43,61 43,62 43,63 43,64 43,65" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="48" data-edge-id="slide-chain-03-003" points="43,65 42,65 41,65 40,65 39,65 38,65 37,65 36,65 35,65 34,65 33,65 32,65 31,65 30,65 29,65 28,65 27,65 26,65 25,65 24,65 23,65 22,65 21,65 21,66 21,67 21,68 21,69 21,70 21,71 21,72 21,73 21,74 21,75 21,76 21,77 21,78 21,79 21,80 21,81 21,82 21,83 21,84 21,85" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="49" data-edge-id="slide-chain-03-004" points="21,85 22,85 23,85 24,85 25,85 26,85 27,85 28,85 29,85 30,85 31,85 32,85 33,85 34,85 35,85 36,85 37,85 38,85 39,85 39,86 39,87" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="50" data-edge-id="slide-chain-03-005" points="39,87 38,87 37,87 36,87 35,87 34,87 33,87 33,86 33,85 33,84 33,83 33,82 33,81 33,80 33,79 33,78 33,77 33,76 33,75 33,74 33,73 33,72 33,71" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="51" data-edge-id="slide-chain-03-006" points="33,71 34,71 35,71 36,71 37,71 37,70 37,69 37,68 37,67 37,66 37,65 37,64 37,63 37,62 37,61 37,60 37,59" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="52" data-edge-id="slide-chain-03-007" points="37,59 36,59 35,59 34,59 33,59 32,59 31,59 30,59 29,59 28,59 27,59 26,59 25,59 24,59 23,59 22,59 21,59 20,59 19,59 18,59 17,59 16,59 15,59 14,59 13,59 13,60 13,61 13,62 13,63" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="53" data-edge-id="slide-chain-03-008" points="13,63 14,63 15,63 16,63 17,63 18,63 19,63 19,64 19,65 19,66 19,67 19,68 19,69 19,70 19,71 19,72 19,73 19,74 19,75 19,76 19,77 19,78 19,79" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="54" data-edge-id="slide-chain-03-009" points="19,79 20,79 21,79 22,79 23,79 24,79 25,79 26,79 27,79 28,79 29,79 30,79 31,79 31,78 31,77" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="55" data-edge-id="slide-chain-03-010" points="31,77 30,77 29,77 28,77 27,77 27,76 27,75 27,74 27,73" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="56" data-edge-id="slide-chain-03-011" points="27,73 26,73 25,73 25,74 25,75 25,76 25,77 25,78 25,79 25,80 25,81" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="57" data-edge-id="slide-chain-03-012" points="25,81 24,81 23,81 22,81 21,81 20,81 19,81 18,81 17,81 16,81 15,81 15,80 15,79 15,78 15,77 15,76 15,75 15,74 15,73 15,72 15,71 15,70 15,69 15,68 15,67" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="58" data-edge-id="slide-chain-03-012" points="15,67 15,68 15,69 15,70 15,71 15,72 15,73 15,74 15,75 15,76 15,77 15,78 15,79 15,80 15,81 16,81 17,81 18,81 19,81 20,81 21,81 22,81 23,81 24,81 25,81" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="59" data-edge-id="slide-chain-03-011" points="25,81 25,80 25,79 25,78 25,77 25,76 25,75 25,74 25,73 26,73 27,73" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="60" data-edge-id="slide-chain-03-010" points="27,73 27,74 27,75 27,76 27,77 28,77 29,77 30,77 31,77" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="61" data-edge-id="slide-chain-03-009" points="31,77 31,78 31,79 30,79 29,79 28,79 27,79 26,79 25,79 24,79 23,79 22,79 21,79 20,79 19,79" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="62" data-edge-id="slide-chain-03-008" points="19,79 19,78 19,77 19,76 19,75 19,74 19,73 19,72 19,71 19,70 19,69 19,68 19,67 19,66 19,65 19,64 19,63 18,63 17,63 16,63 15,63 14,63 13,63" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="63" data-edge-id="slide-chain-03-007" points="13,63 13,62 13,61 13,60 13,59 14,59 15,59 16,59 17,59 18,59 19,59 20,59 21,59 22,59 23,59 24,59 25,59 26,59 27,59 28,59 29,59 30,59 31,59 32,59 33,59 34,59 35,59 36,59 37,59" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="64" data-edge-id="slide-chain-03-006" points="37,59 37,60 37,61 37,62 37,63 37,64 37,65 37,66 37,67 37,68 37,69 37,70 37,71 36,71 35,71 34,71 33,71" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="65" data-edge-id="slide-chain-03-005" points="33,71 33,72 33,73 33,74 33,75 33,76 33,77 33,78 33,79 33,80 33,81 33,82 33,83 33,84 33,85 33,86 33,87 34,87 35,87 36,87 37,87 38,87 39,87" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="66" data-edge-id="slide-chain-03-004" points="39,87 39,86 39,85 38,85 37,85 36,85 35,85 34,85 33,85 32,85 31,85 30,85 29,85 28,85 27,85 26,85 25,85 24,85 23,85 22,85 21,85" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="67" data-edge-id="slide-chain-03-003" points="21,85 21,84 21,83 21,82 21,81 21,80 21,79 21,78 21,77 21,76 21,75 21,74 21,73 21,72 21,71 21,70 21,69 21,68 21,67 21,66 21,65 22,65 23,65 24,65 25,65 26,65 27,65 28,65 29,65 30,65 31,65 32,65 33,65 34,65 35,65 36,65 37,65 38,65 39,65 40,65 41,65 42,65 43,65" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="68" data-edge-id="slide-chain-03-002" points="43,65 43,64 43,63 43,62 43,61 43,60 43,59 43,58 43,57 44,57 45,57 46,57 47,57" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="69" data-edge-id="slide-chain-03-001" points="47,57 47,56 47,55 47,54 47,53" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="70" data-edge-id="walk-47-53-48-53" points="47,53 48,53" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="71" data-edge-id="walk-48-53-49-53" points="48,53 49,53" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="72" data-edge-id="walk-49-53-50-53" points="49,53 50,53" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="73" data-edge-id="walk-50-53-51-53" points="50,53 51,53" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="74" data-edge-id="slide-chain-04-001" points="51,53 51,54 51,55 51,56 51,57" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="75" data-edge-id="slide-chain-04-002" points="51,57 52,57 53,57 54,57 55,57 56,57 57,57 57,58 57,59 57,60 57,61 57,62 57,63 57,64 57,65 57,66 57,67 57,68 57,69 57,70 57,71 57,72 57,73 57,74 57,75 57,76 57,77 57,78 57,79 57,80 57,81 57,82 57,83 57,84 57,85" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="76" data-edge-id="slide-chain-04-003" points="57,85 58,85 59,85 60,85 61,85 62,85 63,85 64,85 65,85 66,85 67,85 68,85 69,85 70,85 71,85 71,86 71,87" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="77" data-edge-id="slide-chain-04-004" points="71,87 70,87 69,87 68,87 67,87 66,87 65,87 65,86 65,85 65,84 65,83 65,82 65,81 65,80 65,79 65,78 65,77 65,76 65,75 65,74 65,73 65,72 65,71 65,70 65,69 65,68 65,67 65,66 65,65" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="78" data-edge-id="slide-chain-04-005" points="65,65 64,65 63,65 62,65 61,65 60,65 59,65 58,65 57,65 56,65 55,65 55,66 55,67" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="79" data-edge-id="slide-chain-04-006" points="55,67 56,67 57,67 58,67 59,67 60,67 61,67 62,67 63,67 64,67 65,67 66,67 67,67 68,67 69,67 70,67 71,67 72,67 73,67 74,67 75,67 76,67 77,67 78,67 79,67 79,68 79,69" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="80" data-edge-id="slide-chain-04-007" points="79,69 80,69 81,69 82,69 83,69 84,69 85,69 85,68 85,67 85,66 85,65 85,64 85,63" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="81" data-edge-id="slide-chain-04-008" points="85,63 84,63 83,63 82,63 81,63 80,63 79,63 78,63 77,63 76,63 75,63 75,64 75,65 75,66 75,67 75,68 75,69 75,70 75,71 75,72 75,73 75,74 75,75 75,76 75,77" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="82" data-edge-id="slide-chain-04-009" points="75,77 76,77 77,77 77,76 77,75 77,74 77,73 77,72 77,71 77,70 77,69 77,68 77,67 77,66 77,65 77,64 77,63 77,62 77,61 77,60 77,59" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="83" data-edge-id="slide-chain-04-010" points="77,59 76,59 75,59 74,59 73,59 72,59 71,59 70,59 69,59 68,59 67,59 66,59 65,59 64,59 63,59 62,59 61,59 61,60 61,61 61,62 61,63 61,64 61,65 61,66 61,67 61,68 61,69 61,70 61,71 61,72 61,73 61,74 61,75" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="84" data-edge-id="slide-chain-04-011" points="61,75 62,75 63,75 64,75 65,75 66,75 67,75 68,75 69,75 70,75 71,75 72,75 73,75 74,75 75,75 76,75 77,75 78,75 79,75 80,75 81,75 82,75 83,75 83,76 83,77 83,78 83,79" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="85" data-edge-id="slide-chain-04-012" points="83,79 82,79 81,79 80,79 79,79 78,79 77,79 76,79 75,79 74,79 73,79 72,79 71,79 70,79 69,79 69,80 69,81 69,82 69,83" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="86" data-edge-id="slide-chain-04-013" points="69,83 68,83 67,83 66,83 65,83 64,83 63,83 63,82 63,81 63,80 63,79 63,78 63,77 63,76 63,75 63,74 63,73" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="87" data-edge-id="slide-chain-04-013" points="63,73 63,74 63,75 63,76 63,77 63,78 63,79 63,80 63,81 63,82 63,83 64,83 65,83 66,83 67,83 68,83 69,83" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="88" data-edge-id="slide-chain-04-012" points="69,83 69,82 69,81 69,80 69,79 70,79 71,79 72,79 73,79 74,79 75,79 76,79 77,79 78,79 79,79 80,79 81,79 82,79 83,79" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="89" data-edge-id="slide-chain-04-011" points="83,79 83,78 83,77 83,76 83,75 82,75 81,75 80,75 79,75 78,75 77,75 76,75 75,75 74,75 73,75 72,75 71,75 70,75 69,75 68,75 67,75 66,75 65,75 64,75 63,75 62,75 61,75" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="90" data-edge-id="slide-chain-04-010" points="61,75 61,74 61,73 61,72 61,71 61,70 61,69 61,68 61,67 61,66 61,65 61,64 61,63 61,62 61,61 61,60 61,59 62,59 63,59 64,59 65,59 66,59 67,59 68,59 69,59 70,59 71,59 72,59 73,59 74,59 75,59 76,59 77,59" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="91" data-edge-id="slide-chain-04-009" points="77,59 77,60 77,61 77,62 77,63 77,64 77,65 77,66 77,67 77,68 77,69 77,70 77,71 77,72 77,73 77,74 77,75 77,76 77,77 76,77 75,77" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="92" data-edge-id="slide-chain-04-008" points="75,77 75,76 75,75 75,74 75,73 75,72 75,71 75,70 75,69 75,68 75,67 75,66 75,65 75,64 75,63 76,63 77,63 78,63 79,63 80,63 81,63 82,63 83,63 84,63 85,63" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="93" data-edge-id="slide-chain-04-007" points="85,63 85,64 85,65 85,66 85,67 85,68 85,69 84,69 83,69 82,69 81,69 80,69 79,69" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="94" data-edge-id="slide-chain-04-006" points="79,69 79,68 79,67 78,67 77,67 76,67 75,67 74,67 73,67 72,67 71,67 70,67 69,67 68,67 67,67 66,67 65,67 64,67 63,67 62,67 61,67 60,67 59,67 58,67 57,67 56,67 55,67" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="95" data-edge-id="slide-chain-04-005" points="55,67 55,66 55,65 56,65 57,65 58,65 59,65 60,65 61,65 62,65 63,65 64,65 65,65" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="96" data-edge-id="slide-chain-04-004" points="65,65 65,66 65,67 65,68 65,69 65,70 65,71 65,72 65,73 65,74 65,75 65,76 65,77 65,78 65,79 65,80 65,81 65,82 65,83 65,84 65,85 65,86 65,87 66,87 67,87 68,87 69,87 70,87 71,87" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="97" data-edge-id="slide-chain-04-003" points="71,87 71,86 71,85 70,85 69,85 68,85 67,85 66,85 65,85 64,85 63,85 62,85 61,85 60,85 59,85 58,85 57,85" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="98" data-edge-id="slide-chain-04-002" points="57,85 57,84 57,83 57,82 57,81 57,80 57,79 57,78 57,77 57,76 57,75 57,74 57,73 57,72 57,71 57,70 57,69 57,68 57,67 57,66 57,65 57,64 57,63 57,62 57,61 57,60 57,59 57,58 57,57 56,57 55,57 54,57 53,57 52,57 51,57" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="99" data-edge-id="slide-chain-04-001" points="51,57 51,56 51,55 51,54 51,53" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="100" data-edge-id="walk-51-53-52-53" points="51,53 52,53" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="101" data-edge-id="walk-52-53-53-53" points="52,53 53,53" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="102" data-edge-id="walk-53-52-53-53" points="53,53 53,52" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="103" data-edge-id="walk-53-51-53-52" points="53,52 53,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="104" data-edge-id="slide-chain-05-001" points="53,51 54,51 55,51 56,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="105" data-edge-id="slide-chain-05-002" points="56,51 56,52 56,53 56,54 56,55 56,56 56,57 56,58 57,58 58,58 59,58 60,58 61,58 62,58 63,58 64,58 65,58 66,58 67,58 68,58 69,58 70,58 71,58 72,58 73,58 74,58 75,58 76,58" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="106" data-edge-id="slide-chain-05-003" points="76,58 76,59 76,60 76,61 76,62 76,63 76,64 76,65 76,66 76,67 76,68 76,69 76,70 76,71 76,72 76,73 76,74 76,75 76,76 76,77 76,78 76,79 76,80 76,81 76,82 77,82 78,82 79,82 80,82 81,82 82,82 83,82 84,82 85,82 86,82" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="107" data-edge-id="slide-chain-05-004" points="86,82 86,81 86,80 86,79 86,78 86,77 86,76 86,75 86,74 86,73 86,72 86,71 86,70 85,70 84,70 83,70 82,70 81,70 80,70 79,70 78,70" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="108" data-edge-id="slide-chain-05-005" points="78,70 78,69 78,68 78,67 78,66 78,65 78,64 78,63 78,62 78,61 78,60 78,59 78,58 78,57 78,56 78,55 78,54 77,54 76,54 75,54 74,54 73,54 72,54 71,54 70,54 69,54 68,54 67,54 66,54" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="109" data-edge-id="slide-chain-05-006" points="66,54 66,55 66,56 66,57 66,58 66,59 66,60 66,61 66,62 66,63 66,64 65,64 64,64 63,64 62,64" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="110" data-edge-id="slide-chain-05-007" points="62,64 62,65 62,66 62,67 62,68 62,69 62,70 62,71 62,72 62,73 62,74 62,75 62,76 62,77 62,78 63,78 64,78" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="111" data-edge-id="slide-chain-05-008" points="64,78 64,77 64,76 64,75 64,74 64,73 64,72 64,71 64,70 64,69 64,68 64,67 64,66 65,66 66,66 67,66 68,66 69,66 70,66 71,66 72,66" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="112" data-edge-id="slide-chain-05-009" points="72,66 72,65 72,64 72,63 72,62 72,61 72,60 73,60 74,60 75,60 76,60 77,60 78,60 79,60 80,60 81,60 82,60 83,60 84,60" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="113" data-edge-id="slide-chain-05-010" points="84,60 84,61 84,62 84,63 84,64 84,65 84,66 84,67 84,68 84,69 84,70 84,71 84,72 83,72 82,72 81,72 80,72 79,72 78,72 77,72 76,72 75,72 74,72 73,72 72,72 71,72 70,72 69,72 68,72 67,72 66,72 65,72 64,72 63,72 62,72 61,72 60,72 59,72 58,72" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="114" data-edge-id="slide-chain-05-011" points="58,72 58,73 58,74 58,75 58,76 59,76 60,76 61,76 62,76 63,76 64,76 65,76 66,76 67,76 68,76 69,76 70,76" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="115" data-edge-id="slide-chain-05-012" points="70,76 70,77 70,78 70,79 70,80 70,81 70,82 70,83 70,84 71,84 72,84 73,84 74,84 75,84 76,84 77,84 78,84 79,84 80,84" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="116" data-edge-id="slide-chain-05-012" points="80,84 79,84 78,84 77,84 76,84 75,84 74,84 73,84 72,84 71,84 70,84 70,83 70,82 70,81 70,80 70,79 70,78 70,77 70,76" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="117" data-edge-id="slide-chain-05-011" points="70,76 69,76 68,76 67,76 66,76 65,76 64,76 63,76 62,76 61,76 60,76 59,76 58,76 58,75 58,74 58,73 58,72" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="118" data-edge-id="slide-chain-05-010" points="58,72 59,72 60,72 61,72 62,72 63,72 64,72 65,72 66,72 67,72 68,72 69,72 70,72 71,72 72,72 73,72 74,72 75,72 76,72 77,72 78,72 79,72 80,72 81,72 82,72 83,72 84,72 84,71 84,70 84,69 84,68 84,67 84,66 84,65 84,64 84,63 84,62 84,61 84,60" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="119" data-edge-id="slide-chain-05-009" points="84,60 83,60 82,60 81,60 80,60 79,60 78,60 77,60 76,60 75,60 74,60 73,60 72,60 72,61 72,62 72,63 72,64 72,65 72,66" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="120" data-edge-id="slide-chain-05-008" points="72,66 71,66 70,66 69,66 68,66 67,66 66,66 65,66 64,66 64,67 64,68 64,69 64,70 64,71 64,72 64,73 64,74 64,75 64,76 64,77 64,78" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="121" data-edge-id="slide-chain-05-007" points="64,78 63,78 62,78 62,77 62,76 62,75 62,74 62,73 62,72 62,71 62,70 62,69 62,68 62,67 62,66 62,65 62,64" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="122" data-edge-id="slide-chain-05-006" points="62,64 63,64 64,64 65,64 66,64 66,63 66,62 66,61 66,60 66,59 66,58 66,57 66,56 66,55 66,54" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="123" data-edge-id="slide-chain-05-005" points="66,54 67,54 68,54 69,54 70,54 71,54 72,54 73,54 74,54 75,54 76,54 77,54 78,54 78,55 78,56 78,57 78,58 78,59 78,60 78,61 78,62 78,63 78,64 78,65 78,66 78,67 78,68 78,69 78,70" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="124" data-edge-id="slide-chain-05-004" points="78,70 79,70 80,70 81,70 82,70 83,70 84,70 85,70 86,70 86,71 86,72 86,73 86,74 86,75 86,76 86,77 86,78 86,79 86,80 86,81 86,82" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="125" data-edge-id="slide-chain-05-003" points="86,82 85,82 84,82 83,82 82,82 81,82 80,82 79,82 78,82 77,82 76,82 76,81 76,80 76,79 76,78 76,77 76,76 76,75 76,74 76,73 76,72 76,71 76,70 76,69 76,68 76,67 76,66 76,65 76,64 76,63 76,62 76,61 76,60 76,59 76,58" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="126" data-edge-id="slide-chain-05-002" points="76,58 75,58 74,58 73,58 72,58 71,58 70,58 69,58 68,58 67,58 66,58 65,58 64,58 63,58 62,58 61,58 60,58 59,58 58,58 57,58 56,58 56,57 56,56 56,55 56,54 56,53 56,52 56,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="127" data-edge-id="slide-chain-05-001" points="56,51 55,51 54,51 53,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="128" data-edge-id="walk-52-51-53-51" points="53,51 52,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="129" data-edge-id="walk-51-51-52-51" points="52,51 51,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="130" data-edge-id="walk-50-51-51-51" points="51,51 50,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="131" data-edge-id="walk-49-51-50-51" points="50,51 49,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="132" data-edge-id="walk-48-51-49-51" points="49,51 48,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="133" data-edge-id="walk-47-51-48-51" points="48,51 47,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="134" data-edge-id="walk-46-51-47-51" points="47,51 46,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="135" data-edge-id="walk-45-51-46-51" points="46,51 45,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="136" data-edge-id="walk-45-50-45-51" points="45,51 45,50" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="137" data-edge-id="walk-45-49-45-50" points="45,50 45,49" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="138" data-edge-id="walk-45-48-45-49" points="45,49 45,48" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="139" data-edge-id="walk-45-47-45-48" points="45,48 45,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="140" data-edge-id="slide-chain-06-001" points="45,47 44,47 43,47 42,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="141" data-edge-id="slide-chain-06-002" points="42,47 42,46 42,45 42,44 41,44 40,44 39,44 38,44 37,44 36,44 35,44 34,44" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="142" data-edge-id="slide-chain-06-003" points="34,44 34,43 34,42 34,41 34,40 34,39 34,38 34,37 34,36 34,35 34,34 34,33 34,32 34,31 34,30 34,29 34,28 34,27 34,26 34,25 34,24 34,23 34,22 34,21 34,20 34,19 34,18 34,17 34,16 34,15 34,14 33,14 32,14 31,14 30,14 29,14 28,14 27,14 26,14 25,14 24,14 23,14 22,14 21,14 20,14 19,14 18,14 17,14 16,14" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="143" data-edge-id="slide-chain-06-004" points="16,14 16,15 16,16 17,16 18,16 19,16 20,16 21,16 22,16 23,16 24,16" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="144" data-edge-id="slide-chain-06-005" points="24,16 24,17 24,18 24,19 24,20 24,21 24,22 24,23 24,24 24,25 24,26 24,27 24,28 23,28 22,28 21,28 20,28 19,28 18,28 17,28 16,28 15,28 14,28 13,28 12,28" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="145" data-edge-id="slide-chain-06-006" points="12,28 12,29 12,30 13,30 14,30 15,30 16,30 17,30 18,30 19,30 20,30 21,30 22,30 23,30 24,30 25,30 26,30 27,30 28,30 29,30 30,30" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="146" data-edge-id="slide-chain-06-007" points="30,30 30,31 30,32 30,33 30,34 30,35 30,36 30,37 30,38 30,39 30,40 30,41 30,42 31,42 32,42 33,42 34,42 35,42 36,42" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="147" data-edge-id="slide-chain-06-008" points="36,42 36,41 36,40 36,39 36,38 36,37 36,36 36,35 36,34 36,33 36,32 36,31 36,30 36,29 36,28 36,27 36,26 36,25 36,24 36,23 36,22 36,21 36,20 35,20 34,20 33,20 32,20 31,20 30,20 29,20 28,20 27,20 26,20" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="148" data-edge-id="slide-chain-06-009" points="26,20 26,21 26,22 26,23 26,24 25,24 24,24 23,24 22,24 21,24 20,24" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="149" data-edge-id="slide-chain-06-010" points="20,24 20,23 20,22 21,22 22,22 23,22 24,22 25,22 26,22 27,22 28,22 29,22 30,22 31,22 32,22" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="150" data-edge-id="slide-chain-06-011" points="32,22 32,23 32,24 32,25 32,26 32,27 32,28 32,29 32,30 32,31 32,32 32,33 32,34 32,35 32,36 32,37 32,38 33,38 34,38 35,38 36,38 37,38 38,38 39,38 40,38" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="151" data-edge-id="slide-chain-06-012" points="40,38 40,37 40,36 40,35 40,34 39,34 38,34 37,34 36,34 35,34 34,34 33,34 32,34 31,34 30,34 29,34 28,34 27,34 26,34 25,34 24,34 23,34 22,34 21,34 20,34 19,34 18,34 17,34 16,34 15,34 14,34" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="152" data-edge-id="slide-chain-06-013" points="14,34 14,35 14,36 15,36 16,36 17,36 18,36 19,36 20,36 21,36 22,36" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="153" data-edge-id="slide-chain-06-013" points="22,36 21,36 20,36 19,36 18,36 17,36 16,36 15,36 14,36 14,35 14,34" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="154" data-edge-id="slide-chain-06-012" points="14,34 15,34 16,34 17,34 18,34 19,34 20,34 21,34 22,34 23,34 24,34 25,34 26,34 27,34 28,34 29,34 30,34 31,34 32,34 33,34 34,34 35,34 36,34 37,34 38,34 39,34 40,34 40,35 40,36 40,37 40,38" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="155" data-edge-id="slide-chain-06-011" points="40,38 39,38 38,38 37,38 36,38 35,38 34,38 33,38 32,38 32,37 32,36 32,35 32,34 32,33 32,32 32,31 32,30 32,29 32,28 32,27 32,26 32,25 32,24 32,23 32,22" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="156" data-edge-id="slide-chain-06-010" points="32,22 31,22 30,22 29,22 28,22 27,22 26,22 25,22 24,22 23,22 22,22 21,22 20,22 20,23 20,24" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="157" data-edge-id="slide-chain-06-009" points="20,24 21,24 22,24 23,24 24,24 25,24 26,24 26,23 26,22 26,21 26,20" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="158" data-edge-id="slide-chain-06-008" points="26,20 27,20 28,20 29,20 30,20 31,20 32,20 33,20 34,20 35,20 36,20 36,21 36,22 36,23 36,24 36,25 36,26 36,27 36,28 36,29 36,30 36,31 36,32 36,33 36,34 36,35 36,36 36,37 36,38 36,39 36,40 36,41 36,42" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="159" data-edge-id="slide-chain-06-007" points="36,42 35,42 34,42 33,42 32,42 31,42 30,42 30,41 30,40 30,39 30,38 30,37 30,36 30,35 30,34 30,33 30,32 30,31 30,30" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="160" data-edge-id="slide-chain-06-006" points="30,30 29,30 28,30 27,30 26,30 25,30 24,30 23,30 22,30 21,30 20,30 19,30 18,30 17,30 16,30 15,30 14,30 13,30 12,30 12,29 12,28" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="161" data-edge-id="slide-chain-06-005" points="12,28 13,28 14,28 15,28 16,28 17,28 18,28 19,28 20,28 21,28 22,28 23,28 24,28 24,27 24,26 24,25 24,24 24,23 24,22 24,21 24,20 24,19 24,18 24,17 24,16" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="162" data-edge-id="slide-chain-06-004" points="24,16 23,16 22,16 21,16 20,16 19,16 18,16 17,16 16,16 16,15 16,14" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="163" data-edge-id="slide-chain-06-003" points="16,14 17,14 18,14 19,14 20,14 21,14 22,14 23,14 24,14 25,14 26,14 27,14 28,14 29,14 30,14 31,14 32,14 33,14 34,14 34,15 34,16 34,17 34,18 34,19 34,20 34,21 34,22 34,23 34,24 34,25 34,26 34,27 34,28 34,29 34,30 34,31 34,32 34,33 34,34 34,35 34,36 34,37 34,38 34,39 34,40 34,41 34,42 34,43 34,44" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="164" data-edge-id="slide-chain-06-002" points="34,44 35,44 36,44 37,44 38,44 39,44 40,44 41,44 42,44 42,45 42,46 42,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="165" data-edge-id="slide-chain-06-001" points="42,47 43,47 44,47 45,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="166" data-edge-id="walk-45-47-45-48" points="45,47 45,48" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="167" data-edge-id="walk-45-48-45-49" points="45,48 45,49" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="168" data-edge-id="walk-45-49-45-50" points="45,49 45,50" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="169" data-edge-id="walk-45-50-45-51" points="45,50 45,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="170" data-edge-id="slide-chain-07-001" points="45,51 44,51 43,51 42,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="171" data-edge-id="slide-chain-07-002" points="42,51 42,52 42,53 42,54 42,55 42,56 42,57 42,58 42,59 42,60 42,61 42,62 42,63 42,64 42,65 42,66 42,67 42,68 42,69 42,70 42,71 42,72 42,73 42,74 42,75 42,76 42,77 42,78 42,79 42,80 42,81 42,82 42,83 42,84 41,84 40,84 39,84 38,84 37,84 36,84 35,84 34,84" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="172" data-edge-id="slide-chain-07-003" points="34,84 34,83 34,82 34,81 34,80 34,79 34,78 34,77 34,76 34,75 34,74 34,73 34,72 34,71 34,70 34,69 34,68 34,67 34,66 35,66 36,66" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="173" data-edge-id="slide-chain-07-004" points="36,66 36,65 36,64 36,63 36,62 36,61 36,60 35,60 34,60 33,60 32,60 31,60 30,60 29,60 28,60 27,60 26,60" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="174" data-edge-id="slide-chain-07-005" points="26,60 26,61 26,62 26,63 26,64 26,65 26,66 26,67 26,68 26,69 26,70 26,71 26,72 25,72 24,72 23,72 22,72" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="175" data-edge-id="slide-chain-07-006" points="22,72 22,73 22,74 22,75 22,76 23,76 24,76 25,76 26,76 27,76 28,76" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="176" data-edge-id="slide-chain-07-007" points="28,76 28,75 28,74 28,73 28,72 28,71 28,70 29,70 30,70 31,70 32,70 33,70 34,70 35,70 36,70 37,70 38,70 39,70 40,70" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="177" data-edge-id="slide-chain-07-008" points="40,70 40,69 40,68 40,67 40,66 40,65 40,64 39,64 38,64 37,64 36,64 35,64 34,64 33,64 32,64 31,64 30,64 29,64 28,64 27,64 26,64 25,64 24,64 23,64 22,64 21,64 20,64 19,64 18,64" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="178" data-edge-id="slide-chain-07-009" points="18,64 18,63 18,62 18,61 18,60 18,59 18,58 17,58 16,58 15,58 14,58" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="179" data-edge-id="slide-chain-07-010" points="14,58 14,59 14,60 14,61 14,62 14,63 14,64 14,65 14,66 14,67 14,68 14,69 14,70 14,71 14,72 14,73 14,74 14,75 14,76 14,77 14,78 15,78 16,78 17,78 18,78 19,78 20,78 21,78 22,78 23,78 24,78 25,78 26,78 27,78 28,78 29,78 30,78 31,78 32,78" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="180" data-edge-id="slide-chain-07-011" points="32,78 32,79 32,80 32,81 32,82 31,82 30,82 29,82 28,82 27,82 26,82 25,82 24,82 23,82 22,82 21,82 20,82" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="181" data-edge-id="slide-chain-07-012" points="20,82 20,81 20,80 20,79 20,78 20,77 20,76 20,75 20,74 20,73 20,72 20,71 20,70 20,69 20,68 20,67 20,66 20,65 20,64 20,63 20,62 20,61 20,60 20,59 20,58 20,57 20,56 20,55 20,54 19,54 18,54 17,54 16,54 15,54 14,54 13,54 12,54" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="182" data-edge-id="slide-chain-07-012" points="12,54 13,54 14,54 15,54 16,54 17,54 18,54 19,54 20,54 20,55 20,56 20,57 20,58 20,59 20,60 20,61 20,62 20,63 20,64 20,65 20,66 20,67 20,68 20,69 20,70 20,71 20,72 20,73 20,74 20,75 20,76 20,77 20,78 20,79 20,80 20,81 20,82" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="183" data-edge-id="slide-chain-07-011" points="20,82 21,82 22,82 23,82 24,82 25,82 26,82 27,82 28,82 29,82 30,82 31,82 32,82 32,81 32,80 32,79 32,78" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="184" data-edge-id="slide-chain-07-010" points="32,78 31,78 30,78 29,78 28,78 27,78 26,78 25,78 24,78 23,78 22,78 21,78 20,78 19,78 18,78 17,78 16,78 15,78 14,78 14,77 14,76 14,75 14,74 14,73 14,72 14,71 14,70 14,69 14,68 14,67 14,66 14,65 14,64 14,63 14,62 14,61 14,60 14,59 14,58" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="185" data-edge-id="slide-chain-07-009" points="14,58 15,58 16,58 17,58 18,58 18,59 18,60 18,61 18,62 18,63 18,64" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="186" data-edge-id="slide-chain-07-008" points="18,64 19,64 20,64 21,64 22,64 23,64 24,64 25,64 26,64 27,64 28,64 29,64 30,64 31,64 32,64 33,64 34,64 35,64 36,64 37,64 38,64 39,64 40,64 40,65 40,66 40,67 40,68 40,69 40,70" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="187" data-edge-id="slide-chain-07-007" points="40,70 39,70 38,70 37,70 36,70 35,70 34,70 33,70 32,70 31,70 30,70 29,70 28,70 28,71 28,72 28,73 28,74 28,75 28,76" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="188" data-edge-id="slide-chain-07-006" points="28,76 27,76 26,76 25,76 24,76 23,76 22,76 22,75 22,74 22,73 22,72" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="189" data-edge-id="slide-chain-07-005" points="22,72 23,72 24,72 25,72 26,72 26,71 26,70 26,69 26,68 26,67 26,66 26,65 26,64 26,63 26,62 26,61 26,60" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="190" data-edge-id="slide-chain-07-004" points="26,60 27,60 28,60 29,60 30,60 31,60 32,60 33,60 34,60 35,60 36,60 36,61 36,62 36,63 36,64 36,65 36,66" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="191" data-edge-id="slide-chain-07-003" points="36,66 35,66 34,66 34,67 34,68 34,69 34,70 34,71 34,72 34,73 34,74 34,75 34,76 34,77 34,78 34,79 34,80 34,81 34,82 34,83 34,84" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="192" data-edge-id="slide-chain-07-002" points="34,84 35,84 36,84 37,84 38,84 39,84 40,84 41,84 42,84 42,83 42,82 42,81 42,80 42,79 42,78 42,77 42,76 42,75 42,74 42,73 42,72 42,71 42,70 42,69 42,68 42,67 42,66 42,65 42,64 42,63 42,62 42,61 42,60 42,59 42,58 42,57 42,56 42,55 42,54 42,53 42,52 42,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="193" data-edge-id="slide-chain-07-001" points="42,51 43,51 44,51 45,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="194" data-edge-id="walk-45-51-46-51" points="45,51 46,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="195" data-edge-id="walk-46-51-47-51" points="46,51 47,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="196" data-edge-id="walk-47-51-48-51" points="47,51 48,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="197" data-edge-id="walk-48-51-49-51" points="48,51 49,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="198" data-edge-id="walk-49-51-50-51" points="49,51 50,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="199" data-edge-id="walk-50-51-51-51" points="50,51 51,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="200" data-edge-id="walk-51-51-52-51" points="51,51 52,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="201" data-edge-id="walk-52-51-53-51" points="52,51 53,51" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="202" data-edge-id="walk-53-50-53-51" points="53,51 53,50" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="203" data-edge-id="walk-53-49-53-50" points="53,50 53,49" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="204" data-edge-id="walk-53-48-53-49" points="53,49 53,48" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="205" data-edge-id="walk-53-47-53-48" points="53,48 53,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="206" data-edge-id="slide-chain-08-001" points="53,47 54,47 55,47 56,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="207" data-edge-id="slide-chain-08-002" points="56,47 56,46 56,45 56,44 56,43 56,42 56,41 56,40 57,40 58,40 59,40 60,40 61,40 62,40 63,40 64,40 65,40 66,40 67,40 68,40 69,40 70,40 71,40 72,40 73,40 74,40 75,40 76,40 77,40 78,40 79,40 80,40 81,40 82,40 83,40 84,40" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="208" data-edge-id="slide-chain-08-003" points="84,40 84,39 84,38 83,38 82,38 81,38 80,38 79,38 78,38 77,38 76,38" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="209" data-edge-id="slide-chain-08-004" points="76,38 76,37 76,36 76,35 76,34 76,33 76,32 76,31 76,30 76,29 76,28 76,27 76,26 75,26 74,26 73,26 72,26 71,26 70,26 69,26 68,26 67,26 66,26 65,26 64,26" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="210" data-edge-id="slide-chain-08-005" points="64,26 64,27 64,28 64,29 64,30 64,31 64,32 64,33 64,34 64,35 64,36 64,37 64,38 64,39 64,40 64,41 64,42 64,43 64,44 65,44 66,44 67,44 68,44 69,44 70,44" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="211" data-edge-id="slide-chain-08-006" points="70,44 70,43 70,42 70,41 70,40 70,39 70,38 70,37 70,36 70,35 70,34 70,33 70,32 70,31 70,30 70,29 70,28 70,27 70,26 70,25 70,24 70,23 70,22 70,21 70,20 71,20 72,20 73,20 74,20 75,20 76,20 77,20 78,20 79,20 80,20" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="212" data-edge-id="slide-chain-08-007" points="80,20 80,21 80,22 80,23 80,24 80,25 80,26 80,27 80,28 80,29 80,30 80,31 80,32 80,33 80,34 79,34 78,34 77,34 76,34 75,34 74,34 73,34 72,34 71,34 70,34 69,34 68,34 67,34 66,34 65,34 64,34 63,34 62,34" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="213" data-edge-id="slide-chain-08-008" points="62,34 62,33 62,32 63,32 64,32 65,32 66,32 67,32 68,32 69,32 70,32 71,32 72,32 73,32 74,32 75,32 76,32 77,32 78,32" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="214" data-edge-id="slide-chain-08-009" points="78,32 78,31 78,30 78,29 78,28 78,27 78,26 78,25 78,24 78,23 78,22 78,21 78,20 78,19 78,18 78,17 78,16 78,15 78,14 77,14 76,14 75,14 74,14 73,14 72,14" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="215" data-edge-id="slide-chain-08-010" points="72,14 72,15 72,16 72,17 72,18 72,19 72,20 72,21 72,22 72,23 72,24 72,25 72,26 72,27 72,28 71,28 70,28 69,28 68,28 67,28 66,28 65,28 64,28 63,28 62,28 61,28 60,28 59,28 58,28" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="216" data-edge-id="slide-chain-08-011" points="58,28 58,27 58,26 58,25 58,24 58,23 58,22 58,21 58,20 58,19 58,18 58,17 58,16 59,16 60,16 61,16 62,16 63,16 64,16 65,16 66,16 67,16 68,16 69,16 70,16 71,16 72,16 73,16 74,16 75,16 76,16 77,16 78,16 79,16 80,16 81,16 82,16 83,16 84,16 85,16 86,16" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="217" data-edge-id="slide-chain-08-012" points="86,16 86,17 86,18 86,19 86,20 86,21 86,22 85,22 84,22 83,22 82,22 81,22 80,22 79,22 78,22 77,22 76,22 75,22 74,22 73,22 72,22 71,22 70,22 69,22 68,22 67,22 66,22" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="218" data-edge-id="slide-chain-08-012" points="66,22 67,22 68,22 69,22 70,22 71,22 72,22 73,22 74,22 75,22 76,22 77,22 78,22 79,22 80,22 81,22 82,22 83,22 84,22 85,22 86,22 86,21 86,20 86,19 86,18 86,17 86,16" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="219" data-edge-id="slide-chain-08-011" points="86,16 85,16 84,16 83,16 82,16 81,16 80,16 79,16 78,16 77,16 76,16 75,16 74,16 73,16 72,16 71,16 70,16 69,16 68,16 67,16 66,16 65,16 64,16 63,16 62,16 61,16 60,16 59,16 58,16 58,17 58,18 58,19 58,20 58,21 58,22 58,23 58,24 58,25 58,26 58,27 58,28" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="220" data-edge-id="slide-chain-08-010" points="58,28 59,28 60,28 61,28 62,28 63,28 64,28 65,28 66,28 67,28 68,28 69,28 70,28 71,28 72,28 72,27 72,26 72,25 72,24 72,23 72,22 72,21 72,20 72,19 72,18 72,17 72,16 72,15 72,14" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="221" data-edge-id="slide-chain-08-009" points="72,14 73,14 74,14 75,14 76,14 77,14 78,14 78,15 78,16 78,17 78,18 78,19 78,20 78,21 78,22 78,23 78,24 78,25 78,26 78,27 78,28 78,29 78,30 78,31 78,32" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="222" data-edge-id="slide-chain-08-008" points="78,32 77,32 76,32 75,32 74,32 73,32 72,32 71,32 70,32 69,32 68,32 67,32 66,32 65,32 64,32 63,32 62,32 62,33 62,34" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="223" data-edge-id="slide-chain-08-007" points="62,34 63,34 64,34 65,34 66,34 67,34 68,34 69,34 70,34 71,34 72,34 73,34 74,34 75,34 76,34 77,34 78,34 79,34 80,34 80,33 80,32 80,31 80,30 80,29 80,28 80,27 80,26 80,25 80,24 80,23 80,22 80,21 80,20" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="224" data-edge-id="slide-chain-08-006" points="80,20 79,20 78,20 77,20 76,20 75,20 74,20 73,20 72,20 71,20 70,20 70,21 70,22 70,23 70,24 70,25 70,26 70,27 70,28 70,29 70,30 70,31 70,32 70,33 70,34 70,35 70,36 70,37 70,38 70,39 70,40 70,41 70,42 70,43 70,44" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="225" data-edge-id="slide-chain-08-005" points="70,44 69,44 68,44 67,44 66,44 65,44 64,44 64,43 64,42 64,41 64,40 64,39 64,38 64,37 64,36 64,35 64,34 64,33 64,32 64,31 64,30 64,29 64,28 64,27 64,26" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="226" data-edge-id="slide-chain-08-004" points="64,26 65,26 66,26 67,26 68,26 69,26 70,26 71,26 72,26 73,26 74,26 75,26 76,26 76,27 76,28 76,29 76,30 76,31 76,32 76,33 76,34 76,35 76,36 76,37 76,38" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="227" data-edge-id="slide-chain-08-003" points="76,38 77,38 78,38 79,38 80,38 81,38 82,38 83,38 84,38 84,39 84,40" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="228" data-edge-id="slide-chain-08-002" points="84,40 83,40 82,40 81,40 80,40 79,40 78,40 77,40 76,40 75,40 74,40 73,40 72,40 71,40 70,40 69,40 68,40 67,40 66,40 65,40 64,40 63,40 62,40 61,40 60,40 59,40 58,40 57,40 56,40 56,41 56,42 56,43 56,44 56,45 56,46 56,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="229" data-edge-id="slide-chain-08-001" points="56,47 55,47 54,47 53,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="230" data-edge-id="walk-52-47-53-47" points="53,47 52,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="231" data-edge-id="walk-51-47-52-47" points="52,47 51,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="232" data-edge-id="walk-50-47-51-47" points="51,47 50,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="233" data-edge-id="walk-49-47-50-47" points="50,47 49,47" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="234" data-edge-id="walk-49-46-49-47" points="49,47 49,46" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="235" data-edge-id="walk-49-45-49-46" points="49,46 49,45" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="236" data-edge-id="slide-final-socket" points="49,45 49,44 49,43 49,42 49,41 49,40 49,39 49,38 49,37 49,36 49,35 49,34 49,33 49,32 49,31" marker-end="url(#solution-arrow)" />
+    <polyline class="solution-step" data-step="237" data-edge-id="slide-final-exit" points="49,31 49,30 49,29 49,28 49,27 49,26 49,25 49,24 49,23 49,22 49,21 49,20 49,19 49,18 49,17 49,16 49,15 49,14 49,13 49,12 49,11 49,10 49,9 49,8 49,7 49,6 49,5 49,4 49,3 49,2 49,1 50,1 51,1 52,1 53,1 54,1 55,1 56,1 57,1 58,1 59,1 60,1 61,1 62,1 63,1 64,1 65,1 66,1 67,1 68,1 69,1 70,1 71,1 72,1 73,1 74,1 75,1 76,1 77,1 78,1 79,1 80,1 81,1 82,1 83,1 84,1 85,1 86,1 87,1 88,1 89,1 90,1 91,1 92,1 93,1 94,1 95,1 96,1 97,1 97,2 97,3 97,4 97,5 97,6 97,7 97,8 97,9 97,10 97,11 97,12 97,13 97,14 97,15 97,16 97,17 97,18 97,19 97,20 97,21 97,22 97,23 97,24 97,25 97,26 97,27 97,28 97,29 97,30 97,31 97,32 97,33 97,34 97,35 97,36 97,37 97,38 97,39 97,40 97,41 97,42 97,43 97,44 97,45 97,46 97,47 97,48 97,49 98,49" marker-end="url(#solution-arrow)" />
+  </g>
+  <g id="unique-final-arm" data-purpose="socket-to-exit">
+    <polyline class="final-arm-step" data-step="237" data-edge-id="slide-final-exit" points="49,31 49,30 49,29 49,28 49,27 49,26 49,25 49,24 49,23 49,22 49,21 49,20 49,19 49,18 49,17 49,16 49,15 49,14 49,13 49,12 49,11 49,10 49,9 49,8 49,7 49,6 49,5 49,4 49,3 49,2 49,1 50,1 51,1 52,1 53,1 54,1 55,1 56,1 57,1 58,1 59,1 60,1 61,1 62,1 63,1 64,1 65,1 66,1 67,1 68,1 69,1 70,1 71,1 72,1 73,1 74,1 75,1 76,1 77,1 78,1 79,1 80,1 81,1 82,1 83,1 84,1 85,1 86,1 87,1 88,1 89,1 90,1 91,1 92,1 93,1 94,1 95,1 96,1 97,1 97,2 97,3 97,4 97,5 97,6 97,7 97,8 97,9 97,10 97,11 97,12 97,13 97,14 97,15 97,16 97,17 97,18 97,19 97,20 97,21 97,22 97,23 97,24 97,25 97,26 97,27 97,28 97,29 97,30 97,31 97,32 97,33 97,34 97,35 97,36 97,37 97,38 97,39 97,40 97,41 97,42 97,43 97,44 97,45 97,46 97,47 97,48 97,49 98,49" marker-end="url(#final-arm-arrow)" />
+    <text class="final-arm-label" x="50.4" y="29.8">FINAL ARM: SOCKET → EXIT</text>
+  </g>
+  <g id="graph-nodes">
+    <g class="node node-hub" data-node-id="hub-45-45" transform="translate(45 45)">
+      <title>hub-45-45: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-46-45" transform="translate(46 45)">
+      <title>hub-46-45: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-47-45" transform="translate(47 45)">
+      <title>hub-47-45: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-48-45" transform="translate(48 45)">
+      <title>hub-48-45: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-49-45" transform="translate(49 45)">
+      <title>hub-49-45: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-50-45" transform="translate(50 45)">
+      <title>hub-50-45: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-51-45" transform="translate(51 45)">
+      <title>hub-51-45: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-52-45" transform="translate(52 45)">
+      <title>hub-52-45: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-53-45" transform="translate(53 45)">
+      <title>hub-53-45: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-45-46" transform="translate(45 46)">
+      <title>hub-45-46: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-46-46" transform="translate(46 46)">
+      <title>hub-46-46: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-47-46" transform="translate(47 46)">
+      <title>hub-47-46: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-48-46" transform="translate(48 46)">
+      <title>hub-48-46: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-49-46" transform="translate(49 46)">
+      <title>hub-49-46: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-50-46" transform="translate(50 46)">
+      <title>hub-50-46: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-51-46" transform="translate(51 46)">
+      <title>hub-51-46: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-52-46" transform="translate(52 46)">
+      <title>hub-52-46: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-53-46" transform="translate(53 46)">
+      <title>hub-53-46: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-45-47" transform="translate(45 47)">
+      <title>hub-45-47: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-46-47" transform="translate(46 47)">
+      <title>hub-46-47: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-47-47" transform="translate(47 47)">
+      <title>hub-47-47: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-48-47" transform="translate(48 47)">
+      <title>hub-48-47: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-49-47" transform="translate(49 47)">
+      <title>hub-49-47: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-50-47" transform="translate(50 47)">
+      <title>hub-50-47: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-51-47" transform="translate(51 47)">
+      <title>hub-51-47: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-52-47" transform="translate(52 47)">
+      <title>hub-52-47: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-53-47" transform="translate(53 47)">
+      <title>hub-53-47: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-45-48" transform="translate(45 48)">
+      <title>hub-45-48: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-46-48" transform="translate(46 48)">
+      <title>hub-46-48: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-47-48" transform="translate(47 48)">
+      <title>hub-47-48: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-48-48" transform="translate(48 48)">
+      <title>hub-48-48: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-49-48" transform="translate(49 48)">
+      <title>hub-49-48: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-50-48" transform="translate(50 48)">
+      <title>hub-50-48: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-51-48" transform="translate(51 48)">
+      <title>hub-51-48: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-52-48" transform="translate(52 48)">
+      <title>hub-52-48: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-53-48" transform="translate(53 48)">
+      <title>hub-53-48: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-45-49" transform="translate(45 49)">
+      <title>hub-45-49: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-46-49" transform="translate(46 49)">
+      <title>hub-46-49: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-47-49" transform="translate(47 49)">
+      <title>hub-47-49: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-48-49" transform="translate(48 49)">
+      <title>hub-48-49: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-start" data-node-id="hub-49-49" transform="translate(49 49)">
+      <title>hub-49-49: start</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-50-49" transform="translate(50 49)">
+      <title>hub-50-49: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-51-49" transform="translate(51 49)">
+      <title>hub-51-49: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-52-49" transform="translate(52 49)">
+      <title>hub-52-49: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-53-49" transform="translate(53 49)">
+      <title>hub-53-49: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-45-50" transform="translate(45 50)">
+      <title>hub-45-50: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-46-50" transform="translate(46 50)">
+      <title>hub-46-50: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-47-50" transform="translate(47 50)">
+      <title>hub-47-50: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-48-50" transform="translate(48 50)">
+      <title>hub-48-50: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-49-50" transform="translate(49 50)">
+      <title>hub-49-50: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-50-50" transform="translate(50 50)">
+      <title>hub-50-50: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-51-50" transform="translate(51 50)">
+      <title>hub-51-50: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-52-50" transform="translate(52 50)">
+      <title>hub-52-50: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-53-50" transform="translate(53 50)">
+      <title>hub-53-50: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-45-51" transform="translate(45 51)">
+      <title>hub-45-51: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-46-51" transform="translate(46 51)">
+      <title>hub-46-51: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-47-51" transform="translate(47 51)">
+      <title>hub-47-51: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-48-51" transform="translate(48 51)">
+      <title>hub-48-51: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-49-51" transform="translate(49 51)">
+      <title>hub-49-51: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-50-51" transform="translate(50 51)">
+      <title>hub-50-51: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-51-51" transform="translate(51 51)">
+      <title>hub-51-51: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-52-51" transform="translate(52 51)">
+      <title>hub-52-51: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-53-51" transform="translate(53 51)">
+      <title>hub-53-51: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-45-52" transform="translate(45 52)">
+      <title>hub-45-52: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-46-52" transform="translate(46 52)">
+      <title>hub-46-52: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-47-52" transform="translate(47 52)">
+      <title>hub-47-52: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-48-52" transform="translate(48 52)">
+      <title>hub-48-52: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-49-52" transform="translate(49 52)">
+      <title>hub-49-52: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-50-52" transform="translate(50 52)">
+      <title>hub-50-52: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-51-52" transform="translate(51 52)">
+      <title>hub-51-52: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-52-52" transform="translate(52 52)">
+      <title>hub-52-52: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-53-52" transform="translate(53 52)">
+      <title>hub-53-52: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-45-53" transform="translate(45 53)">
+      <title>hub-45-53: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-46-53" transform="translate(46 53)">
+      <title>hub-46-53: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-47-53" transform="translate(47 53)">
+      <title>hub-47-53: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-48-53" transform="translate(48 53)">
+      <title>hub-48-53: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-49-53" transform="translate(49 53)">
+      <title>hub-49-53: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-50-53" transform="translate(50 53)">
+      <title>hub-50-53: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-51-53" transform="translate(51 53)">
+      <title>hub-51-53: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-52-53" transform="translate(52 53)">
+      <title>hub-52-53: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-hub" data-node-id="hub-53-53" transform="translate(53 53)">
+      <title>hub-53-53: hub</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-chip" data-node-id="chip-001" transform="translate(47 41)">
+      <title>chip-001: chip, collection 1</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">1</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-002" transform="translate(41 13)">
+      <title>chip-002: chip, collection 2</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">2</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-003" transform="translate(19 23)">
+      <title>chip-003: chip, collection 3</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">3</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-004" transform="translate(21 35)">
+      <title>chip-004: chip, collection 4</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">4</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-005" transform="translate(33 21)">
+      <title>chip-005: chip, collection 5</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">5</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-006" transform="translate(23 19)">
+      <title>chip-006: chip, collection 6</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">6</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-007" transform="translate(35 31)">
+      <title>chip-007: chip, collection 7</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">7</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-008" transform="translate(29 33)">
+      <title>chip-008: chip, collection 8</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">8</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-009" transform="translate(13 39)">
+      <title>chip-009: chip, collection 9</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">9</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-010" transform="translate(37 29)">
+      <title>chip-010: chip, collection 10</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">10</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-011" transform="translate(43 25)">
+      <title>chip-011: chip, collection 11</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">11</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-012" transform="translate(15 15)">
+      <title>chip-012: chip, collection 12</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">12</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-013" transform="translate(27 11)">
+      <title>chip-013: chip, collection 13</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">13</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-014" transform="translate(51 41)">
+      <title>chip-014: chip, collection 14</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">14</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-015" transform="translate(61 25)">
+      <title>chip-015: chip, collection 15</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">15</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-016" transform="translate(55 31)">
+      <title>chip-016: chip, collection 16</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">16</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-017" transform="translate(83 35)">
+      <title>chip-017: chip, collection 17</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">17</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-018" transform="translate(77 11)">
+      <title>chip-018: chip, collection 18</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">18</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-019" transform="translate(67 13)">
+      <title>chip-019: chip, collection 19</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">19</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-020" transform="translate(65 17)">
+      <title>chip-020: chip, collection 20</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">20</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-021" transform="translate(73 33)">
+      <title>chip-021: chip, collection 21</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">21</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-022" transform="translate(79 39)">
+      <title>chip-022: chip, collection 22</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">22</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-023" transform="translate(59 19)">
+      <title>chip-023: chip, collection 23</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">23</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-024" transform="translate(71 21)">
+      <title>chip-024: chip, collection 24</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">24</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-025" transform="translate(85 27)">
+      <title>chip-025: chip, collection 25</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">25</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-026" transform="translate(47 57)">
+      <title>chip-026: chip, collection 26</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">26</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-027" transform="translate(43 65)">
+      <title>chip-027: chip, collection 27</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">27</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-028" transform="translate(21 85)">
+      <title>chip-028: chip, collection 28</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">28</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-029" transform="translate(39 87)">
+      <title>chip-029: chip, collection 29</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">29</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-030" transform="translate(33 71)">
+      <title>chip-030: chip, collection 30</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">30</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-031" transform="translate(37 59)">
+      <title>chip-031: chip, collection 31</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">31</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-032" transform="translate(13 63)">
+      <title>chip-032: chip, collection 32</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">32</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-033" transform="translate(19 79)">
+      <title>chip-033: chip, collection 33</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">33</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-034" transform="translate(31 77)">
+      <title>chip-034: chip, collection 34</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">34</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-035" transform="translate(27 73)">
+      <title>chip-035: chip, collection 35</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">35</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-036" transform="translate(25 81)">
+      <title>chip-036: chip, collection 36</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">36</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-037" transform="translate(15 67)">
+      <title>chip-037: chip, collection 37</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">37</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-038" transform="translate(51 57)">
+      <title>chip-038: chip, collection 38</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">38</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-039" transform="translate(57 85)">
+      <title>chip-039: chip, collection 39</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">39</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-040" transform="translate(71 87)">
+      <title>chip-040: chip, collection 40</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">40</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-041" transform="translate(65 65)">
+      <title>chip-041: chip, collection 41</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">41</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-042" transform="translate(55 67)">
+      <title>chip-042: chip, collection 42</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">42</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-043" transform="translate(79 69)">
+      <title>chip-043: chip, collection 43</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">43</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-044" transform="translate(85 63)">
+      <title>chip-044: chip, collection 44</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">44</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-045" transform="translate(75 77)">
+      <title>chip-045: chip, collection 45</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">45</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-046" transform="translate(77 59)">
+      <title>chip-046: chip, collection 46</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">46</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-047" transform="translate(61 75)">
+      <title>chip-047: chip, collection 47</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">47</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-048" transform="translate(83 79)">
+      <title>chip-048: chip, collection 48</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">48</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-049" transform="translate(69 83)">
+      <title>chip-049: chip, collection 49</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">49</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-050" transform="translate(63 73)">
+      <title>chip-050: chip, collection 50</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">50</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-051" transform="translate(56 51)">
+      <title>chip-051: chip, collection 51</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">51</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-052" transform="translate(76 58)">
+      <title>chip-052: chip, collection 52</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">52</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-053" transform="translate(86 82)">
+      <title>chip-053: chip, collection 53</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">53</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-054" transform="translate(78 70)">
+      <title>chip-054: chip, collection 54</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">54</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-055" transform="translate(66 54)">
+      <title>chip-055: chip, collection 55</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">55</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-056" transform="translate(62 64)">
+      <title>chip-056: chip, collection 56</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">56</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-057" transform="translate(64 78)">
+      <title>chip-057: chip, collection 57</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">57</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-058" transform="translate(72 66)">
+      <title>chip-058: chip, collection 58</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">58</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-059" transform="translate(84 60)">
+      <title>chip-059: chip, collection 59</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">59</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-060" transform="translate(58 72)">
+      <title>chip-060: chip, collection 60</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">60</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-061" transform="translate(70 76)">
+      <title>chip-061: chip, collection 61</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">61</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-062" transform="translate(80 84)">
+      <title>chip-062: chip, collection 62</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">62</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-063" transform="translate(42 47)">
+      <title>chip-063: chip, collection 63</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">63</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-064" transform="translate(34 44)">
+      <title>chip-064: chip, collection 64</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">64</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-065" transform="translate(16 14)">
+      <title>chip-065: chip, collection 65</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">65</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-066" transform="translate(24 16)">
+      <title>chip-066: chip, collection 66</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">66</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-067" transform="translate(12 28)">
+      <title>chip-067: chip, collection 67</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">67</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-068" transform="translate(30 30)">
+      <title>chip-068: chip, collection 68</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">68</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-069" transform="translate(36 42)">
+      <title>chip-069: chip, collection 69</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">69</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-070" transform="translate(26 20)">
+      <title>chip-070: chip, collection 70</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">70</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-071" transform="translate(20 24)">
+      <title>chip-071: chip, collection 71</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">71</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-072" transform="translate(32 22)">
+      <title>chip-072: chip, collection 72</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">72</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-073" transform="translate(40 38)">
+      <title>chip-073: chip, collection 73</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">73</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-074" transform="translate(14 34)">
+      <title>chip-074: chip, collection 74</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">74</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-075" transform="translate(22 36)">
+      <title>chip-075: chip, collection 75</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">75</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-076" transform="translate(42 51)">
+      <title>chip-076: chip, collection 76</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">76</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-077" transform="translate(34 84)">
+      <title>chip-077: chip, collection 77</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">77</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-078" transform="translate(36 66)">
+      <title>chip-078: chip, collection 78</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">78</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-079" transform="translate(26 60)">
+      <title>chip-079: chip, collection 79</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">79</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-080" transform="translate(22 72)">
+      <title>chip-080: chip, collection 80</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">80</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-081" transform="translate(28 76)">
+      <title>chip-081: chip, collection 81</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">81</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-082" transform="translate(40 70)">
+      <title>chip-082: chip, collection 82</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">82</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-083" transform="translate(18 64)">
+      <title>chip-083: chip, collection 83</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">83</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-084" transform="translate(14 58)">
+      <title>chip-084: chip, collection 84</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">84</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-085" transform="translate(32 78)">
+      <title>chip-085: chip, collection 85</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">85</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-086" transform="translate(20 82)">
+      <title>chip-086: chip, collection 86</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">86</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-087" transform="translate(12 54)">
+      <title>chip-087: chip, collection 87</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">87</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-088" transform="translate(56 47)">
+      <title>chip-088: chip, collection 88</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">88</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-089" transform="translate(84 40)">
+      <title>chip-089: chip, collection 89</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">89</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-090" transform="translate(76 38)">
+      <title>chip-090: chip, collection 90</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">90</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-091" transform="translate(64 26)">
+      <title>chip-091: chip, collection 91</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">91</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-092" transform="translate(70 44)">
+      <title>chip-092: chip, collection 92</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">92</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-093" transform="translate(80 20)">
+      <title>chip-093: chip, collection 93</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">93</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-094" transform="translate(62 34)">
+      <title>chip-094: chip, collection 94</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">94</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-095" transform="translate(78 32)">
+      <title>chip-095: chip, collection 95</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">95</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-096" transform="translate(72 14)">
+      <title>chip-096: chip, collection 96</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">96</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-097" transform="translate(58 28)">
+      <title>chip-097: chip, collection 97</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">97</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-098" transform="translate(86 16)">
+      <title>chip-098: chip, collection 98</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">98</text>
+    </g>
+    <g class="node node-chip" data-node-id="chip-099" transform="translate(66 22)">
+      <title>chip-099: chip, collection 99</title>
+      <circle r="0.7" />
+      <text class="chip-order" x="0" y="0.34">99</text>
+    </g>
+    <g class="node node-socket" data-node-id="socket" transform="translate(49 31)">
+      <title>socket: socket</title>
+      <circle r="0.7" />
+    </g>
+    <g class="node node-exit" data-node-id="exit" transform="translate(98 49)">
+      <title>exit: exit</title>
+      <circle r="0.7" />
+    </g>
+  </g>
+  <g id="legend" transform="translate(0 101)">
+    <circle cx="0" cy="0" r="0.7" fill="#4ade80" /><text class="legend" x="1.2" y="0.35">start</text>
+    <circle cx="9" cy="0" r="0.7" fill="#f8fafc" /><text class="legend" x="10.2" y="0.35">chip + collection order</text>
+    <circle cx="31" cy="0" r="0.7" fill="#fb7185" /><text class="legend" x="32.2" y="0.35">socket</text>
+    <circle cx="42" cy="0" r="0.7" fill="#a78bfa" /><text class="legend" x="43.2" y="0.35">exit</text>
+    <line x1="52" y1="0" x2="57" y2="0" stroke="#22d3ee" stroke-width="0.3" /><text class="legend" x="58" y="0.35">ice route</text>
+    <line x1="67" y1="0" x2="72" y2="0" stroke="#fbbf24" stroke-width="0.4" /><text class="legend" x="73" y="0.35">solution</text>
+    <line x1="83" y1="0" x2="88" y2="0" stroke="#f472b6" stroke-width="0.5" /><text class="legend" x="89" y="0.35">final arm</text>
+  </g>
+  <text class="metadata" x="0" y="104">237 transitions · 99 chips · strict replay: PASS</text>
+</svg>
