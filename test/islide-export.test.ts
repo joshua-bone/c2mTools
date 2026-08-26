@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { writeDefaultISlideArtifacts } from "../procedural_generation/generateISlide.js";
 import { validateISlideC2m } from "../procedural_generation/islide_replay.js";
+import { decodeC2mToJsonV1 } from "../src/c2m/c2mJsonV1.js";
+import { flattenCellLayers } from "../src/c2m/cellStack.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -47,9 +49,17 @@ describe("default I SLIDE artifact export", () => {
     });
 
     const graphDocument = JSON.parse(firstGraphJson) as Record<string, unknown>;
+    const decodedC2m = decodeC2mToJsonV1(firstC2m);
     expect(graphDocument).toMatchObject({
       schemaVersion: "c2mtools.islide.graph.v1",
       level: {
+        title: "I SLIDE SO HARD",
+        author: "Joshua Bone",
+        note: "Procedurally generated.",
+        hint: {
+          point: { x: 49, y: 47 },
+          text: "But in the end, does it even matter?",
+        },
         width: 99,
         height: 99,
         fingerprint: first.fingerprint,
@@ -70,23 +80,48 @@ describe("default I SLIDE artifact export", () => {
       },
     });
     const graph = graphDocument.graph as { nodes: Array<{ role: string }> };
+    const graphEdges = (graphDocument.graph as { edges: Array<{ id: string }> }).edges;
+    const edgeLabels = graphDocument.edgeLabels as Array<{
+      edgeId: string;
+      displayId: string;
+      point: { x: number; y: number };
+    }>;
+    const level = graphDocument.level as { requiredChips: number };
     const solution = graphDocument.solution as { collectedChipNodeIds: string[] };
     const finalArm = graphDocument.finalArm as {
       graphEdgeId: string;
       nodeIds: string[];
       edgeIds: string[];
     };
-    expect(graph.nodes.filter((node) => node.role === "chip")).toHaveLength(99);
-    expect(solution.collectedChipNodeIds).toHaveLength(99);
+    const actualChipCount = graph.nodes.filter((node) => node.role === "chip").length;
+    const physicalChipCount = decodedC2m.map!.tiles.filter(
+      (tile) => flattenCellLayers(tile).item?.tile === "IC_CHIP",
+    ).length;
+    expect(level.requiredChips).toBe(actualChipCount);
+    expect(level.requiredChips).toBe(physicalChipCount);
+    expect(solution.collectedChipNodeIds).toHaveLength(actualChipCount);
+    expect(new Set(solution.collectedChipNodeIds).size).toBe(actualChipCount);
+    expect(edgeLabels).toHaveLength(graphEdges.length);
+    expect(edgeLabels).toEqual(
+      graphEdges.map((edge, index) => ({
+        edgeId: edge.id,
+        displayId: `E${String(index + 1).padStart(3, "0")}`,
+        point: expect.objectContaining({ x: expect.any(Number), y: expect.any(Number) }),
+      })),
+    );
     expect(finalArm.nodeIds).toEqual(["socket", "exit"]);
     expect(finalArm.edgeIds).toEqual([finalArm.graphEdgeId]);
 
     expect(firstGraphSvg).toContain('<svg xmlns="http://www.w3.org/2000/svg"');
-    expect(firstGraphSvg).toContain("I SLIDE 99 × 99 — solution route graph");
+    expect(firstGraphSvg).toContain("I SLIDE SO HARD — 99 × 99 solution route graph");
     expect(firstGraphSvg).toContain('data-edge-id="slide-final-exit"');
     expect(firstGraphSvg).toContain('<g id="unique-final-arm"');
     expect(firstGraphSvg).toContain("FINAL ARM: SOCKET → EXIT");
+    expect(firstGraphSvg).toContain('<g id="edge-labels"');
+    expect(firstGraphSvg).toContain(`class="edge-label" data-edge-id="${graphEdges[0]!.id}"`);
+    expect(firstGraphSvg).toContain(">E001</text>");
+    expect(firstGraphSvg).toContain(`>E${String(graphEdges.length).padStart(3, "0")}</text>`);
     expect(firstGraphSvg).not.toMatch(/<(?:script|image|foreignObject)\b/i);
     expect(firstGraphSvg).not.toMatch(/\b(?:href|src)=["'](?:https?:|\/\/|data:)/i);
-  });
+  }, 120_000);
 });

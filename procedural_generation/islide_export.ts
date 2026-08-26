@@ -5,7 +5,11 @@ import {
   type ISlideLayout,
   type ISlidePoint,
 } from "./islide_generator.js";
-import { buildISlideC2mArtifact, type ISlideC2mArtifact } from "./islide_replay.js";
+import {
+  buildISlideC2mArtifact,
+  ISLIDE_C2M_METADATA,
+  type ISlideC2mArtifact,
+} from "./islide_replay.js";
 
 export const ISLIDE_EXPORT_FILE_NAMES = Object.freeze({
   c2m: "i-slide-99.c2m",
@@ -22,17 +26,31 @@ export type ISlideSolutionStep = Readonly<{
   path: ReadonlyArray<ISlidePoint>;
 }>;
 
+export type ISlideEdgeLabel = Readonly<{
+  edgeId: string;
+  displayId: string;
+  point: ISlidePoint;
+}>;
+
 export type ISlideGraphExportDocument = Readonly<{
   schemaVersion: "c2mtools.islide.graph.v1";
   level: Readonly<{
-    title: "I SLIDE 99";
+    title: typeof ISLIDE_C2M_METADATA.title;
+    author: typeof ISLIDE_C2M_METADATA.author;
+    note: typeof ISLIDE_C2M_METADATA.note;
+    hint: Readonly<{
+      point: typeof ISLIDE_C2M_METADATA.hintPoint;
+      text: typeof ISLIDE_C2M_METADATA.hintText;
+    }>;
     width: number;
     height: number;
+    requiredChips: number;
     fingerprint: string;
     config: ISlideLayout["config"];
     metrics: ISlideLayout["metrics"];
   }>;
   graph: ISlideLayout["graph"];
+  edgeLabels: ReadonlyArray<ISlideEdgeLabel>;
   solution: ISlideLayout["solution"];
   solutionSteps: ReadonlyArray<ISlideSolutionStep>;
   finalArm: ISlideFinalArm;
@@ -66,6 +84,54 @@ export type ISlideExportBundle = Readonly<{
 
 function samePoint(left: ISlidePoint, right: ISlidePoint): boolean {
   return left.x === right.x && left.y === right.y;
+}
+
+function pointAlongPolyline(points: ReadonlyArray<ISlidePoint>, fraction: number): ISlidePoint {
+  if (points.length === 0) return { x: 49, y: 49 };
+  if (points.length === 1) return points[0]!;
+
+  const lengths: number[] = [];
+  let totalLength = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const from = points[index - 1]!;
+    const to = points[index]!;
+    const length = Math.hypot(to.x - from.x, to.y - from.y);
+    lengths.push(length);
+    totalLength += length;
+  }
+  if (totalLength === 0) return points[Math.floor(points.length / 2)]!;
+
+  let remaining = totalLength * Math.min(1, Math.max(0, fraction));
+  for (let index = 0; index < lengths.length; index += 1) {
+    const length = lengths[index]!;
+    if (remaining > length) {
+      remaining -= length;
+      continue;
+    }
+    const from = points[index]!;
+    const to = points[index + 1]!;
+    const progress = length === 0 ? 0 : remaining / length;
+    return {
+      x: from.x + (to.x - from.x) * progress,
+      y: from.y + (to.y - from.y) * progress,
+    };
+  }
+  return points.at(-1)!;
+}
+
+function buildEdgeLabels(layout: ISlideLayout): ISlideEdgeLabel[] {
+  const nodesById = new Map(layout.graph.nodes.map((node) => [node.id, node]));
+  return layout.graph.edges.map((edge, index) => {
+    const origin = nodesById.get(edge.fromNodeId);
+    const destination = nodesById.get(edge.toNodeId);
+    if (!origin) throw new Error(`I SLIDE edge "${edge.id}" has no origin node.`);
+    if (!destination) throw new Error(`I SLIDE edge "${edge.id}" has no destination node.`);
+    return {
+      edgeId: edge.id,
+      displayId: `E${String(index + 1).padStart(3, "0")}`,
+      point: pointAlongPolyline([origin.point, ...edge.path, destination.point], 0.5),
+    };
+  });
 }
 
 function buildSolutionSteps(layout: ISlideLayout): ISlideSolutionStep[] {
@@ -183,20 +249,30 @@ function buildFinalArm(layout: ISlideLayout): ISlideFinalArm {
 function buildGraphDocument(
   layout: ISlideLayout,
   artifact: ISlideC2mArtifact,
+  edgeLabels: ReadonlyArray<ISlideEdgeLabel>,
   solutionSteps: ReadonlyArray<ISlideSolutionStep>,
   finalArm: ISlideFinalArm,
 ): ISlideGraphExportDocument {
+  const requiredChips = layout.graph.nodes.filter((node) => node.role === "chip").length;
   return {
     schemaVersion: "c2mtools.islide.graph.v1",
     level: {
-      title: "I SLIDE 99",
+      title: ISLIDE_C2M_METADATA.title,
+      author: ISLIDE_C2M_METADATA.author,
+      note: ISLIDE_C2M_METADATA.note,
+      hint: {
+        point: ISLIDE_C2M_METADATA.hintPoint,
+        text: ISLIDE_C2M_METADATA.hintText,
+      },
       width: layout.map.width,
       height: layout.map.height,
+      requiredChips,
       fingerprint: layout.fingerprint,
       config: layout.config,
       metrics: layout.metrics,
     },
     graph: layout.graph,
+    edgeLabels,
     solution: layout.solution,
     solutionSteps,
     finalArm,
@@ -225,9 +301,11 @@ function svgPoints(points: ReadonlyArray<ISlidePoint>): string {
 function renderGraphSvg(
   layout: ISlideLayout,
   artifact: ISlideC2mArtifact,
+  edgeLabels: ReadonlyArray<ISlideEdgeLabel>,
   solutionSteps: ReadonlyArray<ISlideSolutionStep>,
   finalArm: ISlideFinalArm,
 ): string {
+  const requiredChips = layout.graph.nodes.filter((node) => node.role === "chip").length;
   const nodesById = new Map(layout.graph.nodes.map((node) => [node.id, node]));
   const collectionOrder = new Map(
     layout.solution.collectedChipNodeIds.map((nodeId, index) => [nodeId, index + 1]),
@@ -250,6 +328,10 @@ function renderGraphSvg(
       (step) =>
         `    <polyline class="final-arm-step" data-step="${step.sequence}" data-edge-id="${escapeXml(step.edgeId)}" points="${svgPoints(step.path)}" marker-end="url(#final-arm-arrow)" />`,
     );
+  const renderedEdgeLabels = edgeLabels.map(
+    (label) =>
+      `    <text class="edge-label" data-edge-id="${escapeXml(label.edgeId)}" data-display-id="${escapeXml(label.displayId)}" x="${label.point.x}" y="${label.point.y}" dx="0.34" dy="-0.34">${escapeXml(label.displayId)}</text>`,
+  );
   const nodes = layout.graph.nodes.map((node) => {
     const order = collectionOrder.get(node.id);
     const label = order === undefined ? "" : String(order);
@@ -265,13 +347,14 @@ function renderGraphSvg(
     ].join("\n");
   });
   const description =
-    `Ordered route through ${layout.config.chipCount} chips, the socket, and the exit. ` +
+    `Ordered route through ${requiredChips} chips, the socket, and the exit. ` +
     `Replay ${artifact.replayHashHex} validates as ${artifact.validation.engineOutcome}.`;
+  const graphTitle = `${ISLIDE_C2M_METADATA.title} — 99 × 99 solution route graph`;
 
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1260" viewBox="-4 -5 107 112" role="img" aria-labelledby="graph-title graph-description">',
-    '  <title id="graph-title">I SLIDE 99 × 99 — solution route graph</title>',
+    `  <title id="graph-title">${escapeXml(graphTitle)}</title>`,
     `  <desc id="graph-description">${escapeXml(description)}</desc>`,
     "  <defs>",
     '    <marker id="solution-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">',
@@ -298,10 +381,11 @@ function renderGraphSvg(
     "      .metadata { fill: #94a3b8; font: 0.95px ui-monospace, SFMono-Regular, Menlo, monospace; }",
     "      .legend { fill: #cbd5e1; font: 1.05px ui-sans-serif, system-ui, sans-serif; }",
     "      .final-arm-label { fill: #f9a8d4; font: 1.05px ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }",
+    "      .edge-label { fill: #f8fafc; stroke: #020617; stroke-width: 0.2px; paint-order: stroke fill; font: 0.76px ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }",
     "    </style>",
     "  </defs>",
     '  <rect x="-4" y="-5" width="107" height="112" fill="#020617" />',
-    '  <text class="heading" x="0" y="-2.4">I SLIDE 99 × 99 — solution route graph</text>',
+    `  <text class="heading" x="0" y="-2.4">${escapeXml(graphTitle)}</text>`,
     `  <text class="metadata" x="0" y="-0.9">fingerprint ${escapeXml(layout.fingerprint)} · replay MD5 ${artifact.replayHashHex}</text>`,
     '  <rect class="board" x="-0.5" y="-0.5" width="99" height="99" rx="0.5" />',
     '  <g id="graph-edges">',
@@ -313,6 +397,9 @@ function renderGraphSvg(
     '  <g id="unique-final-arm" data-purpose="socket-to-exit">',
     ...finalArmEdges,
     `    <text class="final-arm-label" x="${nodesById.get(finalArm.socketNodeId)!.point.x + 1.4}" y="${nodesById.get(finalArm.socketNodeId)!.point.y - 1.2}">FINAL ARM: SOCKET → EXIT</text>`,
+    "  </g>",
+    '  <g id="edge-labels" aria-label="Stable route edge identifiers">',
+    ...renderedEdgeLabels,
     "  </g>",
     '  <g id="graph-nodes">',
     ...nodes,
@@ -326,7 +413,7 @@ function renderGraphSvg(
     '    <line x1="67" y1="0" x2="72" y2="0" stroke="#fbbf24" stroke-width="0.4" /><text class="legend" x="73" y="0.35">solution</text>',
     '    <line x1="83" y1="0" x2="88" y2="0" stroke="#f472b6" stroke-width="0.5" /><text class="legend" x="89" y="0.35">final arm</text>',
     "  </g>",
-    `  <text class="metadata" x="0" y="104">${layout.solution.edgeIds.length} transitions · ${layout.config.chipCount} chips · strict replay: ${artifact.validation.ok ? "PASS" : "FAIL"}</text>`,
+    `  <text class="metadata" x="0" y="104">${layout.solution.edgeIds.length} transitions · ${requiredChips} chips · strict replay: ${artifact.validation.ok ? "PASS" : "FAIL"}</text>`,
     "</svg>",
     "",
   ].join("\n");
@@ -335,14 +422,15 @@ function renderGraphSvg(
 export function buildDefaultISlideExportBundle(): ISlideExportBundle {
   const layout = generateISlideLayout(DEFAULT_ISLIDE_GENERATOR_CONFIG);
   const artifact = buildISlideC2mArtifact(layout);
+  const edgeLabels = buildEdgeLabels(layout);
   const solutionSteps = buildSolutionSteps(layout);
   const finalArm = buildFinalArm(layout);
-  const graphDocument = buildGraphDocument(layout, artifact, solutionSteps, finalArm);
+  const graphDocument = buildGraphDocument(layout, artifact, edgeLabels, solutionSteps, finalArm);
   return {
     layout,
     artifact,
     graphDocument,
     graphJson: `${JSON.stringify(graphDocument, null, 2)}\n`,
-    graphSvg: renderGraphSvg(layout, artifact, solutionSteps, finalArm),
+    graphSvg: renderGraphSvg(layout, artifact, edgeLabels, solutionSteps, finalArm),
   };
 }

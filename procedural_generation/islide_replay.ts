@@ -34,6 +34,14 @@ const MAX_SUBTICKS_WITHOUT_ROUTE_PROGRESS = 12_000;
 const MAX_SUBTICKS_AFTER_ROUTE = 600;
 const FINITE_NEUTRAL_TAIL_SUBTICKS = 60;
 
+export const ISLIDE_C2M_METADATA = Object.freeze({
+  title: "I SLIDE SO HARD",
+  author: "Joshua Bone",
+  note: "Procedurally generated.",
+  hintText: "But in the end, does it even matter?",
+  hintPoint: Object.freeze({ x: 49, y: 47 }),
+});
+
 const EMPTY_INPUT: KeyInputs = Object.freeze({
   up: false,
   down: false,
@@ -104,6 +112,7 @@ type ReplayInspection = Readonly<{
 type MapEntityCounts = Readonly<{
   chips: number;
   exits: number;
+  hints: number;
   players: number;
   sockets: number;
 }>;
@@ -168,6 +177,7 @@ class WaypointInputProvider implements InputProvider {
 
 export function buildISlideC2mArtifact(layout: ISlideLayout): ISlideC2mArtifact {
   assertISlideMapBounds(layout.map);
+  assertISlideArtifactBoundary(layout);
   const routeSteps = buildSolutionRouteSteps(layout);
   const bareDoc = makeISlideDoc(layout.map);
   const bareBytes = encodeC2mFromJsonV1(bareDoc);
@@ -238,7 +248,28 @@ export function validateISlideC2m(
 
   const entityCounts = doc?.map ? countMapEntities(doc.map) : undefined;
   const dimensionsValid = width === 99 && height === 99;
+  const titleValid = doc?.title === ISLIDE_C2M_METADATA.title;
+  const authorValid = doc?.author === ISLIDE_C2M_METADATA.author;
+  const noteValid = doc?.note === ISLIDE_C2M_METADATA.note;
+  const hintTextValid = doc?.clue === ISLIDE_C2M_METADATA.hintText;
+  const metadataValid = titleValid && authorValid && noteValid && hintTextValid;
+  if (!titleValid) errors.push(`Expected title "${ISLIDE_C2M_METADATA.title}".`);
+  if (!authorValid) errors.push(`Expected author "${ISLIDE_C2M_METADATA.author}".`);
+  if (!noteValid) errors.push(`Expected note "${ISLIDE_C2M_METADATA.note}".`);
+  if (!hintTextValid) {
+    errors.push(`Expected hint text "${ISLIDE_C2M_METADATA.hintText}".`);
+  }
   if (!dimensionsValid) errors.push(`Expected a 99x99 map, received ${width}x${height}.`);
+  const hintPlacementValid =
+    doc?.map !== undefined &&
+    entityCounts?.hints === 1 &&
+    terrainNameAt(doc.map, ISLIDE_C2M_METADATA.hintPoint) === "CLUE";
+  if (doc?.map && !hintPlacementValid) {
+    errors.push(
+      `Expected exactly one HINT tile at ` +
+        `(${ISLIDE_C2M_METADATA.hintPoint.x},${ISLIDE_C2M_METADATA.hintPoint.y}).`,
+    );
+  }
   if (!doc?.map) {
     errors.push("C2M has no map.");
   } else {
@@ -277,6 +308,8 @@ export function validateISlideC2m(
     doc !== undefined &&
     doc.map !== undefined &&
     dimensionsValid &&
+    metadataValid &&
+    hintPlacementValid &&
     replayInspection.valid &&
     entityCounts?.players === 1 &&
     entityCounts.sockets === 1 &&
@@ -357,10 +390,11 @@ function makeISlideDoc(
   return parseC2mJsonV1({
     schema: "c2mTools.c2m.json.v1",
     fileVersion: "7",
-    title: "I SLIDE 99",
-    author: "Joshua Bone",
+    title: ISLIDE_C2M_METADATA.title,
+    author: ISLIDE_C2M_METADATA.author,
     editorVersion: "c2mTools deterministic generator",
-    clue: "Collect every chip, open the socket, and follow the ice routes to the exit.",
+    clue: ISLIDE_C2M_METADATA.hintText,
+    note: ISLIDE_C2M_METADATA.note,
     options: {
       time: 0,
       editorWindow: 0,
@@ -580,6 +614,7 @@ function inspectGeneratedReplay(replayBytes: Uint8Array): ReplayInspection {
 function countMapEntities(map: MapJson): MapEntityCounts {
   let chips = 0;
   let exits = 0;
+  let hints = 0;
   let players = 0;
   let sockets = 0;
 
@@ -588,10 +623,68 @@ function countMapEntities(map: MapJson): MapEntityCounts {
     const names = [layers.terrain.tile, layers.item?.tile, layers.mob?.tile];
     if (names.includes("IC_CHIP")) chips += 1;
     if (names.includes("EXIT")) exits += 1;
+    if (names.includes("CLUE")) hints += 1;
     if (names.includes("CHIP")) players += 1;
     if (names.includes("CHIP_SOCKET")) sockets += 1;
   }
-  return { chips, exits, players, sockets };
+  return { chips, exits, hints, players, sockets };
+}
+
+function terrainNameAt(map: MapJson, point: GridPoint): string | undefined {
+  if (point.x < 0 || point.y < 0 || point.x >= map.width || point.y >= map.height) {
+    return undefined;
+  }
+  return flattenCellLayers(map.tiles[point.x + point.y * map.width]!).terrain.tile;
+}
+
+function assertISlideArtifactBoundary(layout: ISlideLayout): void {
+  const duplicateNodeId = findDuplicateId(layout.graph.nodes.map((node) => node.id));
+  if (duplicateNodeId !== undefined) {
+    throw new Error(`I SLIDE graph contains duplicate node id "${duplicateNodeId}".`);
+  }
+
+  const duplicateEdgeId = findDuplicateId(layout.graph.edges.map((edge) => edge.id));
+  if (duplicateEdgeId !== undefined) {
+    throw new Error(`I SLIDE graph contains duplicate edge id "${duplicateEdgeId}".`);
+  }
+
+  const collectedChipIds = layout.solution.collectedChipNodeIds;
+  const duplicateCollectedChipId = findDuplicateId(collectedChipIds);
+  if (duplicateCollectedChipId !== undefined) {
+    throw new Error(
+      `I SLIDE solution collects chip id "${duplicateCollectedChipId}" more than once.`,
+    );
+  }
+
+  const physicalChipCount = countMapEntities(layout.map).chips;
+  const graphChipIds = new Set(
+    layout.graph.nodes.filter((node) => node.role === "chip").map((node) => node.id),
+  );
+  const solutionChipIds = new Set(collectedChipIds);
+  if (physicalChipCount !== graphChipIds.size || graphChipIds.size !== solutionChipIds.size) {
+    throw new Error(
+      `I SLIDE artifact chip counts disagree: map ${physicalChipCount}, ` +
+        `graph ${graphChipIds.size}, solution ${solutionChipIds.size} unique.`,
+    );
+  }
+
+  const mismatchedChipId =
+    [...graphChipIds].find((id) => !solutionChipIds.has(id)) ??
+    [...solutionChipIds].find((id) => !graphChipIds.has(id));
+  if (mismatchedChipId !== undefined) {
+    throw new Error(
+      `I SLIDE graph and solution disagree about collected chip id "${mismatchedChipId}".`,
+    );
+  }
+}
+
+function findDuplicateId(ids: ReadonlyArray<string>): string | undefined {
+  const seen = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) return id;
+    seen.add(id);
+  }
+  return undefined;
 }
 
 function assertISlideMapBounds(map: MapJson): void {
